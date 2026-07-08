@@ -194,6 +194,7 @@
           <h3 style="margin-top:0;">Lançar custo</h3>
           <div class="form-row">
             <div><label>Categoria</label><select id="cost-categoria"></select></div>
+            <div><label>Descrição (opcional)</label><input type="text" id="cost-descricao" placeholder="Ex: Canva Pro, ClickUp..."></div>
             <div><label>Tipo</label>
               <select id="cost-tipo">
                 <option value="projetado">Projetado</option>
@@ -208,7 +209,7 @@
         </div>
         <div class="card">
           <table>
-            <thead><tr><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Data</th><th></th></tr></thead>
+            <thead><tr><th>Categoria</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Data</th><th></th></tr></thead>
             <tbody id="costs-tbody"></tbody>
           </table>
         </div>
@@ -591,9 +592,9 @@
 
     const ctbody = document.getElementById('costs-tbody');
     ctbody.innerHTML = costsCache.map(c =>
-      `<tr><td>${escapeHtml(c.cost_categories ? c.cost_categories.nome : '-')}</td><td>${c.tipo}</td><td>${brl(c.valor)}</td><td>${c.data}</td>` +
+      `<tr><td>${escapeHtml(c.cost_categories ? c.cost_categories.nome : '-')}</td><td>${escapeHtml(c.descricao || '-')}</td><td>${c.tipo}</td><td>${brl(c.valor)}</td><td>${c.data}</td>` +
       `<td><button class="row-action" onclick="editarCusto('${c.id}')">Editar</button> <button class="row-action danger" onclick="excluirCusto('${c.id}')">Excluir</button></td></tr>`
-    ).join('') || '<tr><td colspan="5" class="empty-note">Nenhum custo lançado.</td></tr>';
+    ).join('') || '<tr><td colspan="6" class="empty-note">Nenhum custo lançado.</td></tr>';
 
     const rtbody = document.getElementById('revenue-tbody');
     rtbody.innerHTML = revenueCache.map(r =>
@@ -606,12 +607,13 @@
     const projetoId = document.getElementById('fin-projeto').value;
     if (!projetoId) { alert('Cadastre um projeto primeiro (aba Projetos).'); return; }
     const categoria_id = document.getElementById('cost-categoria').value;
+    const descricao = document.getElementById('cost-descricao').value.trim() || null;
     const tipo = document.getElementById('cost-tipo').value;
     const valor = parseValorBR(document.getElementById('cost-valor').value);
     const data = document.getElementById('cost-data').value || new Date().toISOString().slice(0, 10);
     if (!valor) return;
 
-    const payload = { project_id: projetoId, categoria_id, tipo, valor, data };
+    const payload = { project_id: projetoId, categoria_id, descricao, tipo, valor, data };
     const { error } = editingCostId
       ? await sb.from('costs').update(payload).eq('id', editingCostId)
       : await sb.from('costs').insert(payload);
@@ -625,6 +627,7 @@
     if (!c) return;
     editingCostId = id;
     document.getElementById('cost-categoria').value = c.categoria_id;
+    document.getElementById('cost-descricao').value = c.descricao || '';
     document.getElementById('cost-tipo').value = c.tipo;
     document.getElementById('cost-valor').value = formatValorBR(c.valor);
     document.getElementById('cost-data').value = c.data;
@@ -635,6 +638,7 @@
   function cancelarEdicaoCusto() {
     editingCostId = null;
     document.getElementById('cost-valor').value = '';
+    document.getElementById('cost-descricao').value = '';
     document.getElementById('btn-cost').textContent = 'Adicionar custo';
     document.getElementById('btn-cost-cancelar').style.display = 'none';
   }
