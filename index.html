@@ -226,71 +226,141 @@
         <h2>Financeiro</h2>
         <div class="card">
           <div class="form-row">
-            <div><label>Projeto</label><select id="fin-projeto" onchange="carregarFinanceiro()"></select></div>
-          </div>
-        </div>
-        <div class="grid-kpi" id="fin-kpis"></div>
-
-        <div class="card">
-          <h3 style="margin-top:0;">Custos fixos deste projeto</h3>
-          <p class="placeholder" style="margin-bottom:12px;">Assinaturas e mensalidades. O valor padrão se repete todo mês sozinho — se um mês tiver uma cobrança diferente (extra ou menor), edite direto o lançamento daquele mês na tabela abaixo, sem afetar os próximos meses.</p>
-          <div class="form-row">
-            <div><label>Categoria</label><select id="cf-categoria"></select></div>
-            <div><label>Descrição</label><input type="text" id="cf-descricao" placeholder="Ex: Canva Pro"></div>
-            <div><label>Valor padrão (R$)</label><input type="text" inputmode="decimal" id="cf-valor" placeholder="150,00"></div>
-            <div><label>Dia de cobrança</label><input type="number" id="cf-dia" min="1" max="31" value="1"></div>
-          </div>
-          <button onclick="criarCustoFixo()">Adicionar custo fixo</button>
-          <table style="margin-top:16px;">
-            <thead><tr><th>Categoria</th><th>Descrição</th><th>Valor padrão</th><th>Dia</th><th>Status</th><th></th></tr></thead>
-            <tbody id="custos-fixos-tbody"></tbody>
-          </table>
-        </div>
-
-        <div class="card">
-          <h3 style="margin-top:0;">Lançar custo</h3>
-          <div class="form-row">
-            <div><label>Categoria</label><select id="cost-categoria"></select></div>
-            <div><label>Descrição (opcional)</label><input type="text" id="cost-descricao" placeholder="Ex: Canva Pro, ClickUp..."></div>
-            <div><label>Tipo</label>
-              <select id="cost-tipo">
-                <option value="projetado">Projetado</option>
-                <option value="real">Real</option>
+            <div><label>Projeto</label>
+              <select id="fin-projeto" onchange="carregarFinanceiro()">
+                <option value="__eco__">🏢 Eco (Empresa)</option>
+                <option value="__pessoal__">🏠 Pessoal</option>
               </select>
             </div>
-            <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="cost-valor" placeholder="7.454,32"></div>
-            <div><label>Data</label><input type="date" id="cost-data"></div>
           </div>
-          <button id="btn-cost" onclick="lancarCusto()">Adicionar custo</button>
-          <button id="btn-cost-cancelar" class="secondary" onclick="cancelarEdicaoCusto()" style="display:none;">Cancelar edição</button>
         </div>
-        <div class="card">
-          <table>
-            <thead><tr><th>Categoria</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Data</th><th></th></tr></thead>
-            <tbody id="costs-tbody"></tbody>
-          </table>
-        </div>
-        <div class="card">
-          <h3 style="margin-top:0;">Lançar receita / vendas</h3>
-          <div class="form-row">
-            <div><label>Tipo</label>
-              <select id="rev-tipo">
-                <option value="projetado">Projetado</option>
-                <option value="real">Real</option>
-              </select>
+
+        <div id="fin-projeto-view">
+          <div class="grid-kpi" id="fin-kpis"></div>
+
+          <div class="card">
+            <h3 style="margin-top:0;">Custos fixos deste projeto</h3>
+            <p class="placeholder" style="margin-bottom:12px;">Assinaturas e mensalidades. O valor padrão se repete todo mês sozinho — se um mês tiver uma cobrança diferente (extra ou menor), edite direto o lançamento daquele mês na tabela abaixo, sem afetar os próximos meses.</p>
+            <div class="form-row">
+              <div><label>Categoria</label><select id="cf-categoria"></select></div>
+              <div><label>Descrição</label><input type="text" id="cf-descricao" placeholder="Ex: Canva Pro"></div>
+              <div><label>Valor padrão (R$)</label><input type="text" inputmode="decimal" id="cf-valor" placeholder="150,00"></div>
+              <div><label>Dia de cobrança</label><input type="number" id="cf-dia" min="1" max="31" value="1"></div>
             </div>
-            <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="rev-valor" placeholder="7.454,32"></div>
-            <div><label>Vendas</label><input type="number" id="rev-vendas" value="0"></div>
-            <div><label>Data</label><input type="date" id="rev-data"></div>
+            <button onclick="criarCustoFixo()">Adicionar custo fixo</button>
+            <table style="margin-top:16px;">
+              <thead><tr><th>Categoria</th><th>Descrição</th><th>Valor padrão</th><th>Dia</th><th>Status</th><th></th></tr></thead>
+              <tbody id="custos-fixos-tbody"></tbody>
+            </table>
           </div>
-          <button id="btn-rev" onclick="lancarReceita()">Adicionar receita</button>
-          <button id="btn-rev-cancelar" class="secondary" onclick="cancelarEdicaoReceita()" style="display:none;">Cancelar edição</button>
+
+          <div class="card">
+            <h3 style="margin-top:0;">Lançar custo</h3>
+            <div class="form-row">
+              <div><label>Categoria</label><select id="cost-categoria"></select></div>
+              <div><label>Descrição (opcional)</label><input type="text" id="cost-descricao" placeholder="Ex: Canva Pro, ClickUp..."></div>
+              <div><label>Tipo</label>
+                <select id="cost-tipo">
+                  <option value="projetado">Projetado</option>
+                  <option value="real">Real</option>
+                </select>
+              </div>
+              <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="cost-valor" placeholder="7.454,32"></div>
+              <div><label>Data</label><input type="date" id="cost-data"></div>
+            </div>
+            <button id="btn-cost" onclick="lancarCusto()">Adicionar custo</button>
+            <button id="btn-cost-cancelar" class="secondary" onclick="cancelarEdicaoCusto()" style="display:none;">Cancelar edição</button>
+          </div>
+          <div class="card">
+            <table>
+              <thead><tr><th>Categoria</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Data</th><th></th></tr></thead>
+              <tbody id="costs-tbody"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <h3 style="margin-top:0;">Lançar receita / vendas</h3>
+            <div class="form-row">
+              <div><label>Tipo</label>
+                <select id="rev-tipo">
+                  <option value="projetado">Projetado</option>
+                  <option value="real">Real</option>
+                </select>
+              </div>
+              <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="rev-valor" placeholder="7.454,32"></div>
+              <div><label>Vendas</label><input type="number" id="rev-vendas" value="0"></div>
+              <div><label>Data</label><input type="date" id="rev-data"></div>
+            </div>
+            <button id="btn-rev" onclick="lancarReceita()">Adicionar receita</button>
+            <button id="btn-rev-cancelar" class="secondary" onclick="cancelarEdicaoReceita()" style="display:none;">Cancelar edição</button>
+          </div>
+          <div class="card">
+            <table>
+              <thead><tr><th>Tipo</th><th>Valor</th><th>Vendas</th><th>Data</th><th></th></tr></thead>
+              <tbody id="revenue-tbody"></tbody>
+            </table>
+          </div>
         </div>
-        <div class="card">
-          <table>
-            <thead><tr><th>Tipo</th><th>Valor</th><th>Vendas</th><th>Data</th><th></th></tr></thead>
-            <tbody id="revenue-tbody"></tbody>
-          </table>
+
+        <div id="fin-mensal-view" style="display:none;">
+          <div class="card">
+            <div class="form-row">
+              <div><label>Mês</label><input type="month" id="fin-mes" onchange="carregarFinanceiroMensal()"></div>
+            </div>
+          </div>
+          <div class="grid-kpi" id="fin-mensal-kpis"></div>
+
+          <div class="card" id="fin-prolabore-card">
+            <h3 style="margin-top:0;">Pró-labore do mês</h3>
+            <div class="form-row">
+              <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fin-prolabore-valor" placeholder="0,00"></div>
+              <div style="display:flex;align-items:flex-end;"><button onclick="salvarProlabore()">Salvar</button></div>
+            </div>
+          </div>
+
+          <div class="card" id="fin-entrada-card">
+            <h3 style="margin-top:0;">Entrada do mês</h3>
+            <div class="form-row">
+              <div><label>Nome</label><input type="text" id="fin-entrada-nome" placeholder="Ex: Rec Scapini"></div>
+              <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fin-entrada-valor" placeholder="0,00"></div>
+              <div><label>Dia (opcional)</label><input type="number" id="fin-entrada-dia" min="1" max="31"></div>
+            </div>
+            <button id="btn-fin-entrada" onclick="salvarFinEntrada()">Adicionar entrada</button>
+            <button id="btn-fin-entrada-cancelar" class="secondary" onclick="cancelarEdicaoFinEntrada()" style="display:none;">Cancelar edição</button>
+            <table style="margin-top:16px;">
+              <thead><tr><th>Nome</th><th>Valor</th><th>Dia</th><th></th></tr></thead>
+              <tbody id="fin-entrada-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-top:0;">Assinaturas</h3>
+            <p class="placeholder" style="margin-bottom:12px;">Cadastre uma vez; o valor padrão se repete todo mês sozinho. Se um mês tiver valor diferente, edite o lançamento daquele mês na tabela de despesas abaixo.</p>
+            <div class="form-row">
+              <div><label>Nome</label><input type="text" id="fin-sub-nome" placeholder="Ex: Canva"></div>
+              <div><label>Valor padrão (R$)</label><input type="text" inputmode="decimal" id="fin-sub-valor" placeholder="0,00"></div>
+            </div>
+            <button onclick="criarFinSubscription()">Adicionar assinatura</button>
+            <table style="margin-top:16px;">
+              <thead><tr><th>Nome</th><th>Valor padrão</th><th>Status</th><th></th></tr></thead>
+              <tbody id="fin-sub-tbody"></tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <h3 style="margin-top:0;">Despesas do mês</h3>
+            <div class="form-row">
+              <div><label>Nome</label><input type="text" id="fin-despesa-nome" placeholder="Ex: aluguel"></div>
+              <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fin-despesa-valor" placeholder="0,00"></div>
+              <div><label>Dia (opcional)</label><input type="number" id="fin-despesa-dia" min="1" max="31"></div>
+              <div><label>Observação (opcional)</label><input type="text" id="fin-despesa-obs" placeholder="Ex: pago no cartão"></div>
+            </div>
+            <button id="btn-fin-despesa" onclick="salvarFinDespesa()">Adicionar despesa</button>
+            <button id="btn-fin-despesa-cancelar" class="secondary" onclick="cancelarEdicaoFinDespesa()" style="display:none;">Cancelar edição</button>
+            <table style="margin-top:16px;">
+              <thead><tr><th>Nome</th><th>Valor</th><th>Dia</th><th>Obs.</th><th></th></tr></thead>
+              <tbody id="fin-despesa-tbody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
       <div id="view-tarefas" class="view">
@@ -601,8 +671,9 @@
     }
     if (finSel) {
       const anterior = finSel.value;
-      finSel.innerHTML = projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
-      finSel.value = anterior || (projectsCache[0] ? projectsCache[0].id : '');
+      finSel.innerHTML = '<option value="__eco__">🏢 Eco (Empresa)</option><option value="__pessoal__">🏠 Pessoal</option>' +
+        projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+      finSel.value = anterior || '__eco__';
     }
   }
 
@@ -744,6 +815,20 @@
   async function carregarFinanceiro() {
     const projetoId = document.getElementById('fin-projeto').value;
     if (!projetoId) return;
+
+    if (projetoId === '__eco__' || projetoId === '__pessoal__') {
+      document.getElementById('fin-projeto-view').style.display = 'none';
+      document.getElementById('fin-mensal-view').style.display = 'block';
+      const contexto = projetoId === '__eco__' ? 'eco' : 'pessoal';
+      document.getElementById('fin-prolabore-card').style.display = contexto === 'eco' ? 'block' : 'none';
+      document.getElementById('fin-entrada-card').style.display = contexto === 'eco' ? 'block' : 'none';
+      const mesInput = document.getElementById('fin-mes');
+      if (!mesInput.value) mesInput.value = new Date().toISOString().slice(0, 7);
+      await carregarFinanceiroMensal();
+      return;
+    }
+    document.getElementById('fin-projeto-view').style.display = 'block';
+    document.getElementById('fin-mensal-view').style.display = 'none';
 
     await preencherCustosFixosDoMes(projetoId);
     await carregarCustosFixos(projetoId);
@@ -1373,6 +1458,241 @@
     const { error } = await sb.from('tasks').delete().eq('id', id);
     if (error) { alert('Erro ao excluir: ' + error.message); return; }
     carregarTarefas();
+  }
+
+  // ---- Financeiro mensal (Eco/Pessoal) ----
+  let finSubsCache = [];
+  let finEntriesCache = [];
+  let editingFinEntradaId = null;
+  let editingFinDespesaId = null;
+
+  function finContexto() {
+    return document.getElementById('fin-projeto').value === '__eco__' ? 'eco' : 'pessoal';
+  }
+
+  function finMesStr() {
+    const v = document.getElementById('fin-mes').value; // 'YYYY-MM'
+    return (v || new Date().toISOString().slice(0, 7)) + '-01';
+  }
+
+  async function carregarFinanceiroMensal() {
+    const contexto = finContexto();
+    const mes = finMesStr();
+
+    await preencherAssinaturasDoMes(contexto, mes);
+    await carregarFinSubscriptions(contexto);
+
+    const { data: entries } = await sb.from('fin_entries').select('*').eq('contexto', contexto).eq('mes', mes).order('created_at');
+    finEntriesCache = entries || [];
+
+    let prolabore = 0;
+    if (contexto === 'eco') {
+      const { data: pl } = await sb.from('fin_prolabore').select('*').eq('mes', mes).maybeSingle();
+      prolabore = pl ? Number(pl.valor) : 0;
+      document.getElementById('fin-prolabore-valor').value = prolabore ? formatValorBR(prolabore) : '';
+    }
+
+    const totalEntrada = finEntriesCache.filter(e => e.tipo === 'entrada').reduce((s, e) => s + Number(e.valor || 0), 0);
+    const totalDespesa = finEntriesCache.filter(e => e.tipo === 'despesa').reduce((s, e) => s + Number(e.valor || 0), 0);
+    const saldo = contexto === 'eco' ? (totalEntrada - totalDespesa - prolabore) : (0 - totalDespesa);
+
+    const kpis = [];
+    if (contexto === 'eco') {
+      kpis.push(kpiCard('Entrada do mês', brl(totalEntrada)));
+      kpis.push(kpiCard('Despesas', brl(totalDespesa)));
+      kpis.push(kpiCard('Pró-labore', brl(prolabore)));
+      kpis.push(kpiCard('Saldo do mês', brl(saldo), null, saldo >= 0 ? 'accent-pos' : 'accent-neg'));
+    } else {
+      kpis.push(kpiCard('Despesas do mês', brl(totalDespesa)));
+      kpis.push(kpiCard('Saldo do mês', brl(saldo), null, saldo >= 0 ? 'accent-pos' : 'accent-neg'));
+    }
+    document.getElementById('fin-mensal-kpis').innerHTML = kpis.join('');
+
+    if (contexto === 'eco') {
+      const etbody = document.getElementById('fin-entrada-tbody');
+      const entradas = finEntriesCache.filter(e => e.tipo === 'entrada');
+      etbody.innerHTML = entradas.map(e => `
+        <tr>
+          <td>${escapeHtml(e.nome)}</td>
+          <td>${brl(e.valor)}</td>
+          <td>${e.dia || '-'}</td>
+          <td>
+            <button class="row-action" onclick="editarFinEntrada('${e.id}')">Editar</button>
+            <button class="row-action danger" onclick="excluirFinEntrada('${e.id}')">Excluir</button>
+          </td>
+        </tr>`).join('') || '<tr><td colspan="4" class="empty-note">Nenhuma entrada lançada.</td></tr>';
+    }
+
+    const dtbody = document.getElementById('fin-despesa-tbody');
+    const despesas = finEntriesCache.filter(e => e.tipo === 'despesa');
+    dtbody.innerHTML = despesas.map(e => `
+      <tr>
+        <td>${escapeHtml(e.nome)}${e.assinatura_id ? ' <span title="Gerado por assinatura">🔁</span>' : ''}</td>
+        <td>${brl(e.valor)}</td>
+        <td>${e.dia || '-'}</td>
+        <td>${escapeHtml(e.observacao || '-')}</td>
+        <td>
+          <button class="row-action" onclick="editarFinDespesa('${e.id}')">Editar</button>
+          <button class="row-action danger" onclick="excluirFinDespesa('${e.id}')">Excluir</button>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="5" class="empty-note">Nenhuma despesa lançada.</td></tr>';
+  }
+
+  async function preencherAssinaturasDoMes(contexto, mes) {
+    const { data: subs } = await sb.from('fin_subscriptions').select('*').eq('contexto', contexto).eq('ativo', true);
+    if (!subs || !subs.length) return;
+    for (const sub of subs) {
+      const { data: existente } = await sb.from('fin_entries').select('id').eq('assinatura_id', sub.id).eq('mes', mes).maybeSingle();
+      if (!existente) {
+        await sb.from('fin_entries').insert({ contexto, tipo: 'despesa', nome: sub.nome, valor: sub.valor_padrao, mes, assinatura_id: sub.id });
+      }
+    }
+  }
+
+  async function carregarFinSubscriptions(contexto) {
+    const { data } = await sb.from('fin_subscriptions').select('*').eq('contexto', contexto).order('created_at');
+    finSubsCache = data || [];
+    const tbody = document.getElementById('fin-sub-tbody');
+    tbody.innerHTML = finSubsCache.map(s => `
+      <tr>
+        <td>${escapeHtml(s.nome)}</td>
+        <td>${brl(s.valor_padrao)}</td>
+        <td>${s.ativo ? '<span style="color:var(--pos)">Ativo</span>' : '<span style="color:var(--muted)">Cancelado</span>'}</td>
+        <td>
+          <button class="row-action" onclick="editarFinSubscription('${s.id}')">Editar valor</button>
+          <button class="row-action ${s.ativo ? 'danger' : ''}" onclick="toggleFinSubscription('${s.id}', ${!s.ativo})">${s.ativo ? 'Cancelar' : 'Reativar'}</button>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="4" class="empty-note">Nenhuma assinatura cadastrada.</td></tr>';
+  }
+
+  async function criarFinSubscription() {
+    const nome = document.getElementById('fin-sub-nome').value.trim();
+    if (!nome) return;
+    const valor_padrao = parseValorBR(document.getElementById('fin-sub-valor').value);
+    if (!valor_padrao) return;
+    const contexto = finContexto();
+    const { error } = await sb.from('fin_subscriptions').insert({ contexto, nome, valor_padrao, ativo: true });
+    if (error) { alert('Erro ao criar assinatura: ' + error.message); return; }
+    document.getElementById('fin-sub-nome').value = '';
+    document.getElementById('fin-sub-valor').value = '';
+    carregarFinanceiroMensal();
+  }
+
+  function editarFinSubscription(id) {
+    const s = finSubsCache.find(x => x.id === id);
+    if (!s) return;
+    const novoValor = prompt('Novo valor padrão mensal (R$) — vale a partir do próximo mês gerado. Meses já lançados não mudam:', formatValorBR(s.valor_padrao));
+    if (novoValor === null) return;
+    const valor = parseValorBR(novoValor);
+    if (!valor) return;
+    sb.from('fin_subscriptions').update({ valor_padrao: valor }).eq('id', id).then(({ error }) => {
+      if (error) { alert('Erro: ' + error.message); return; }
+      carregarFinanceiroMensal();
+    });
+  }
+
+  async function toggleFinSubscription(id, novoAtivo) {
+    if (!novoAtivo && !confirm('Cancelar essa assinatura? Ela para de gerar novos meses — os já lançados continuam no histórico.')) return;
+    const { error } = await sb.from('fin_subscriptions').update({ ativo: novoAtivo }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    carregarFinanceiroMensal();
+  }
+
+  async function salvarProlabore() {
+    const mes = finMesStr();
+    const valor = parseValorBR(document.getElementById('fin-prolabore-valor').value);
+    const { error } = await sb.from('fin_prolabore').upsert({ mes, valor }, { onConflict: 'mes' });
+    if (error) { alert('Erro ao salvar pró-labore: ' + error.message); return; }
+    carregarFinanceiroMensal();
+  }
+
+  async function salvarFinEntrada() {
+    const nome = document.getElementById('fin-entrada-nome').value.trim();
+    if (!nome) return;
+    const valor = parseValorBR(document.getElementById('fin-entrada-valor').value);
+    if (!valor) return;
+    const dia = document.getElementById('fin-entrada-dia').value ? parseInt(document.getElementById('fin-entrada-dia').value, 10) : null;
+    const payload = { contexto: 'eco', tipo: 'entrada', nome, valor, dia, mes: finMesStr() };
+    const { error } = editingFinEntradaId
+      ? await sb.from('fin_entries').update(payload).eq('id', editingFinEntradaId)
+      : await sb.from('fin_entries').insert(payload);
+    if (error) { alert('Erro ao salvar entrada: ' + error.message); return; }
+    cancelarEdicaoFinEntrada();
+    carregarFinanceiroMensal();
+  }
+
+  function editarFinEntrada(id) {
+    const e = finEntriesCache.find(x => x.id === id);
+    if (!e) return;
+    editingFinEntradaId = id;
+    document.getElementById('fin-entrada-nome').value = e.nome;
+    document.getElementById('fin-entrada-valor').value = formatValorBR(e.valor);
+    document.getElementById('fin-entrada-dia').value = e.dia || '';
+    document.getElementById('btn-fin-entrada').textContent = 'Salvar alteração';
+    document.getElementById('btn-fin-entrada-cancelar').style.display = 'inline-block';
+  }
+
+  function cancelarEdicaoFinEntrada() {
+    editingFinEntradaId = null;
+    document.getElementById('fin-entrada-nome').value = '';
+    document.getElementById('fin-entrada-valor').value = '';
+    document.getElementById('fin-entrada-dia').value = '';
+    document.getElementById('btn-fin-entrada').textContent = 'Adicionar entrada';
+    document.getElementById('btn-fin-entrada-cancelar').style.display = 'none';
+  }
+
+  async function excluirFinEntrada(id) {
+    if (!confirm('Excluir essa entrada?')) return;
+    const { error } = await sb.from('fin_entries').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    if (editingFinEntradaId === id) cancelarEdicaoFinEntrada();
+    carregarFinanceiroMensal();
+  }
+
+  async function salvarFinDespesa() {
+    const nome = document.getElementById('fin-despesa-nome').value.trim();
+    if (!nome) return;
+    const valor = parseValorBR(document.getElementById('fin-despesa-valor').value);
+    if (!valor) return;
+    const dia = document.getElementById('fin-despesa-dia').value ? parseInt(document.getElementById('fin-despesa-dia').value, 10) : null;
+    const observacao = document.getElementById('fin-despesa-obs').value.trim() || null;
+    const payload = { contexto: finContexto(), tipo: 'despesa', nome, valor, dia, observacao, mes: finMesStr() };
+    const { error } = editingFinDespesaId
+      ? await sb.from('fin_entries').update(payload).eq('id', editingFinDespesaId)
+      : await sb.from('fin_entries').insert(payload);
+    if (error) { alert('Erro ao salvar despesa: ' + error.message); return; }
+    cancelarEdicaoFinDespesa();
+    carregarFinanceiroMensal();
+  }
+
+  function editarFinDespesa(id) {
+    const e = finEntriesCache.find(x => x.id === id);
+    if (!e) return;
+    editingFinDespesaId = id;
+    document.getElementById('fin-despesa-nome').value = e.nome;
+    document.getElementById('fin-despesa-valor').value = formatValorBR(e.valor);
+    document.getElementById('fin-despesa-dia').value = e.dia || '';
+    document.getElementById('fin-despesa-obs').value = e.observacao || '';
+    document.getElementById('btn-fin-despesa').textContent = 'Salvar alteração';
+    document.getElementById('btn-fin-despesa-cancelar').style.display = 'inline-block';
+  }
+
+  function cancelarEdicaoFinDespesa() {
+    editingFinDespesaId = null;
+    document.getElementById('fin-despesa-nome').value = '';
+    document.getElementById('fin-despesa-valor').value = '';
+    document.getElementById('fin-despesa-dia').value = '';
+    document.getElementById('fin-despesa-obs').value = '';
+    document.getElementById('btn-fin-despesa').textContent = 'Adicionar despesa';
+    document.getElementById('btn-fin-despesa-cancelar').style.display = 'none';
+  }
+
+  async function excluirFinDespesa(id) {
+    if (!confirm('Excluir essa despesa?')) return;
+    const { error } = await sb.from('fin_entries').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    if (editingFinDespesaId === id) cancelarEdicaoFinDespesa();
+    carregarFinanceiroMensal();
   }
 
   function escapeHtml(str) {
