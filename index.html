@@ -1693,7 +1693,10 @@
       }
     });
 
-    html += linhaFinAdd(contexto, tipo, '');
+    // Despesa já tem o "+ adicionar item" dentro de cada categoria, lá no
+    // Detalhamento — repetir aqui na visão macro seria duplicado. Entrada não
+    // tem seção de Detalhamento, então mantém o próprio "+ adicionar item".
+    if (tipo === 'entrada') html += linhaFinAdd(contexto, tipo, '');
     html += `<tr class="fin-total"><td></td><td>Total ${tipo === 'entrada' ? 'Entrada' : 'Despesas'}</td><td class="fin-valor">${brl(totalGeral)}</td><td></td></tr>`;
     return html;
   }
