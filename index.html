@@ -169,6 +169,17 @@
   .checklist-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
   .checklist-item span { flex: 1; }
   .checklist-item.done span { text-decoration: line-through; color: var(--muted); }
+
+  .fin-grid { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .fin-grid td { padding: 6px 10px; border-bottom: 1px solid var(--card-border); vertical-align: middle; }
+  .fin-grid tr.fin-subtotal td { font-weight: 700; background: #0f1526; }
+  .fin-grid tr.fin-total td { font-weight: 700; background: #1c2440; border-top: 2px solid var(--card-border); }
+  .fin-grid td.fin-nome { cursor: pointer; }
+  .fin-grid td.fin-valor { text-align: right; cursor: pointer; white-space: nowrap; }
+  .fin-grid tr.fin-subtotal td.fin-valor, .fin-grid tr.fin-total td.fin-valor { cursor: default; }
+  .fin-grid input.fin-valor-input { width: 110px; text-align: right; }
+  .fin-grid tr.fin-add-row input { font-size: 12.5px; }
+  .fin-grid tr.fin-add-row td:first-child input { width: 100%; }
 </style>
 </head>
 <body>
@@ -319,46 +330,32 @@
 
           <div class="card" id="fin-entrada-card">
             <h3 style="margin-top:0;">Entrada do mês</h3>
-            <div class="form-row">
-              <div><label>Nome</label><input type="text" id="fin-entrada-nome" placeholder="Ex: Rec Scapini"></div>
-              <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fin-entrada-valor" placeholder="0,00"></div>
-              <div><label>Dia (opcional)</label><input type="number" id="fin-entrada-dia" min="1" max="31"></div>
-            </div>
-            <button id="btn-fin-entrada" onclick="salvarFinEntrada()">Adicionar entrada</button>
-            <button id="btn-fin-entrada-cancelar" class="secondary" onclick="cancelarEdicaoFinEntrada()" style="display:none;">Cancelar edição</button>
-            <table style="margin-top:16px;">
-              <thead><tr><th>Nome</th><th>Valor</th><th>Dia</th><th></th></tr></thead>
-              <tbody id="fin-entrada-tbody"></tbody>
+            <p class="placeholder" style="margin-bottom:12px;">Clique no valor pra editar rápido. Clique no nome pra ajustar categoria/dia/observação. Categorias são configuráveis em Configurações.</p>
+            <table class="fin-grid">
+              <tbody id="fin-entrada-grid"></tbody>
             </table>
           </div>
 
           <div class="card">
-            <h3 style="margin-top:0;">Assinaturas</h3>
-            <p class="placeholder" style="margin-bottom:12px;">Cadastre uma vez; o valor padrão se repete todo mês sozinho. Se um mês tiver valor diferente, edite o lançamento daquele mês na tabela de despesas abaixo.</p>
+            <h3 style="margin-top:0;">Assinaturas (recorrentes)</h3>
+            <p class="placeholder" style="margin-bottom:12px;">Cadastre uma vez; o valor padrão se repete todo mês sozinho. O lançamento do mês aparece dentro de Despesas, marcado com 🔁 — editar ali não muda o padrão nem os outros meses.</p>
             <div class="form-row">
               <div><label>Nome</label><input type="text" id="fin-sub-nome" placeholder="Ex: Canva"></div>
               <div><label>Valor padrão (R$)</label><input type="text" inputmode="decimal" id="fin-sub-valor" placeholder="0,00"></div>
+              <div><label>Categoria</label><select id="fin-sub-categoria"><option value="">Sem categoria</option></select></div>
             </div>
             <button onclick="criarFinSubscription()">Adicionar assinatura</button>
             <table style="margin-top:16px;">
-              <thead><tr><th>Nome</th><th>Valor padrão</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Nome</th><th>Categoria</th><th>Valor padrão</th><th>Status</th><th></th></tr></thead>
               <tbody id="fin-sub-tbody"></tbody>
             </table>
           </div>
 
           <div class="card">
             <h3 style="margin-top:0;">Despesas do mês</h3>
-            <div class="form-row">
-              <div><label>Nome</label><input type="text" id="fin-despesa-nome" placeholder="Ex: aluguel"></div>
-              <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fin-despesa-valor" placeholder="0,00"></div>
-              <div><label>Dia (opcional)</label><input type="number" id="fin-despesa-dia" min="1" max="31"></div>
-              <div><label>Observação (opcional)</label><input type="text" id="fin-despesa-obs" placeholder="Ex: pago no cartão"></div>
-            </div>
-            <button id="btn-fin-despesa" onclick="salvarFinDespesa()">Adicionar despesa</button>
-            <button id="btn-fin-despesa-cancelar" class="secondary" onclick="cancelarEdicaoFinDespesa()" style="display:none;">Cancelar edição</button>
-            <table style="margin-top:16px;">
-              <thead><tr><th>Nome</th><th>Valor</th><th>Dia</th><th>Obs.</th><th></th></tr></thead>
-              <tbody id="fin-despesa-tbody"></tbody>
+            <p class="placeholder" style="margin-bottom:12px;">Clique no valor pra editar rápido. Clique no nome pra ajustar categoria/dia/observação. Categorias são configuráveis em Configurações.</p>
+            <table class="fin-grid">
+              <tbody id="fin-despesa-grid"></tbody>
             </table>
           </div>
         </div>
@@ -463,6 +460,31 @@
             <tbody id="colunas-config-tbody"></tbody>
           </table>
         </div>
+        <div class="card">
+          <h3 style="margin-top:0;">Categorias do Financeiro (Eco/Pessoal)</h3>
+          <p class="placeholder" style="margin-bottom:12px;">Agrupam os lançamentos de Entrada/Despesa na grade do Financeiro e viram subtotal automático (ex: "Assinaturas").</p>
+          <div class="form-row">
+            <div><label>Contexto</label>
+              <select id="fincat-contexto">
+                <option value="eco">Eco (Empresa)</option>
+                <option value="pessoal">Pessoal</option>
+              </select>
+            </div>
+            <div><label>Tipo</label>
+              <select id="fincat-tipo">
+                <option value="despesa">Despesa</option>
+                <option value="entrada">Entrada</option>
+              </select>
+            </div>
+            <div><label>Nome</label><input type="text" id="fincat-nome" placeholder="Ex: Assinaturas"></div>
+            <div><label>Ordem</label><input type="number" id="fincat-ordem" value="0"></div>
+          </div>
+          <button onclick="criarFinCategoriaConfig()">Adicionar categoria</button>
+          <table style="margin-top:16px;">
+            <thead><tr><th>Contexto</th><th>Tipo</th><th>Nome</th><th>Ordem</th><th></th></tr></thead>
+            <tbody id="fincat-config-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -553,6 +575,7 @@
       carregarUsuarios();
       carregarCategoriasConfig();
       carregarColunasConfig();
+      carregarFinCategoriasConfig();
     }
 
     if (currentPermissions.has('dashboard') || currentPermissions.has('financeiro')) {
@@ -1460,11 +1483,10 @@
     carregarTarefas();
   }
 
-  // ---- Financeiro mensal (Eco/Pessoal) ----
+  // ---- Financeiro mensal (Eco/Pessoal) — grade agrupada por categoria ----
   let finSubsCache = [];
   let finEntriesCache = [];
-  let editingFinEntradaId = null;
-  let editingFinDespesaId = null;
+  let finCategoriasCache = [];
 
   function finContexto() {
     return document.getElementById('fin-projeto').value === '__eco__' ? 'eco' : 'pessoal';
@@ -1479,6 +1501,7 @@
     const contexto = finContexto();
     const mes = finMesStr();
 
+    await carregarFinCategorias(contexto);
     await preencherAssinaturasDoMes(contexto, mes);
     await carregarFinSubscriptions(contexto);
 
@@ -1509,33 +1532,141 @@
     document.getElementById('fin-mensal-kpis').innerHTML = kpis.join('');
 
     if (contexto === 'eco') {
-      const etbody = document.getElementById('fin-entrada-tbody');
-      const entradas = finEntriesCache.filter(e => e.tipo === 'entrada');
-      etbody.innerHTML = entradas.map(e => `
-        <tr>
-          <td>${escapeHtml(e.nome)}</td>
-          <td>${brl(e.valor)}</td>
-          <td>${e.dia || '-'}</td>
-          <td>
-            <button class="row-action" onclick="editarFinEntrada('${e.id}')">Editar</button>
-            <button class="row-action danger" onclick="excluirFinEntrada('${e.id}')">Excluir</button>
-          </td>
-        </tr>`).join('') || '<tr><td colspan="4" class="empty-note">Nenhuma entrada lançada.</td></tr>';
+      document.getElementById('fin-entrada-grid').innerHTML = renderFinGrid('entrada');
+    }
+    document.getElementById('fin-despesa-grid').innerHTML = renderFinGrid('despesa');
+  }
+
+  function linhaFinItem(item) {
+    const badge = item.assinatura_id ? ' <span title="Gerado por assinatura">🔁</span>' : '';
+    const extra = [item.dia ? `dia ${item.dia}` : null, item.observacao ? escapeHtml(item.observacao) : null].filter(Boolean).join(' · ');
+    return `
+      <tr>
+        <td class="fin-nome" onclick="editarFinItemRapido('${item.id}')">${escapeHtml(item.nome)}${badge}${extra ? `<div class="card-sub" style="margin:0;">${extra}</div>` : ''}</td>
+        <td class="fin-valor" onclick="editarFinValorInline(this,'${item.id}')">${brl(item.valor)}</td>
+        <td><button class="row-action danger" onclick="excluirFinItem('${item.id}')">Excluir</button></td>
+      </tr>`;
+  }
+
+  function linhaFinAdd(tipo, categoriaId) {
+    const chave = (categoriaId || 'sem').replace(/[^a-zA-Z0-9_-]/g, '');
+    const idNome = `fin-add-${tipo}-${chave}-nome`;
+    const idValor = `fin-add-${tipo}-${chave}-valor`;
+    return `
+      <tr class="fin-add-row">
+        <td><input type="text" id="${idNome}" placeholder="+ adicionar item" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarFinItemRapido('${tipo}','${categoriaId || ''}','${idNome}','${idValor}');}"></td>
+        <td><input type="text" inputmode="decimal" id="${idValor}" placeholder="0,00" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarFinItemRapido('${tipo}','${categoriaId || ''}','${idNome}','${idValor}');}"></td>
+        <td><button class="row-action" onclick="adicionarFinItemRapido('${tipo}','${categoriaId || ''}','${idNome}','${idValor}')">Adicionar</button></td>
+      </tr>`;
+  }
+
+  function renderFinGrid(tipo) {
+    const categorias = finCategoriasCache.filter(c => c.tipo === tipo);
+    const itens = finEntriesCache.filter(e => e.tipo === tipo);
+    let html = '';
+    let totalGeral = 0;
+
+    categorias.forEach(cat => {
+      const itensCat = itens.filter(i => i.categoria_id === cat.id);
+      const subtotal = itensCat.reduce((s, i) => s + Number(i.valor || 0), 0);
+      totalGeral += subtotal;
+      html += `<tr class="fin-subtotal"><td>${escapeHtml(cat.nome)}</td><td class="fin-valor">${brl(subtotal)}</td><td></td></tr>`;
+      itensCat.forEach(i => { html += linhaFinItem(i); });
+      html += linhaFinAdd(tipo, cat.id);
+    });
+
+    const semCategoria = itens.filter(i => !i.categoria_id);
+    const subtotalSem = semCategoria.reduce((s, i) => s + Number(i.valor || 0), 0);
+    totalGeral += subtotalSem;
+    if (semCategoria.length || categorias.length === 0) {
+      html += `<tr class="fin-subtotal"><td>Sem categoria</td><td class="fin-valor">${brl(subtotalSem)}</td><td></td></tr>`;
+      semCategoria.forEach(i => { html += linhaFinItem(i); });
+      html += linhaFinAdd(tipo, '');
     }
 
-    const dtbody = document.getElementById('fin-despesa-tbody');
-    const despesas = finEntriesCache.filter(e => e.tipo === 'despesa');
-    dtbody.innerHTML = despesas.map(e => `
-      <tr>
-        <td>${escapeHtml(e.nome)}${e.assinatura_id ? ' <span title="Gerado por assinatura">🔁</span>' : ''}</td>
-        <td>${brl(e.valor)}</td>
-        <td>${e.dia || '-'}</td>
-        <td>${escapeHtml(e.observacao || '-')}</td>
-        <td>
-          <button class="row-action" onclick="editarFinDespesa('${e.id}')">Editar</button>
-          <button class="row-action danger" onclick="excluirFinDespesa('${e.id}')">Excluir</button>
-        </td>
-      </tr>`).join('') || '<tr><td colspan="5" class="empty-note">Nenhuma despesa lançada.</td></tr>';
+    html += `<tr class="fin-total"><td>Total ${tipo === 'entrada' ? 'Entrada' : 'Despesas'}</td><td class="fin-valor">${brl(totalGeral)}</td><td></td></tr>`;
+    return html;
+  }
+
+  async function adicionarFinItemRapido(tipo, categoriaId, idNome, idValor) {
+    const nomeEl = document.getElementById(idNome);
+    const valorEl = document.getElementById(idValor);
+    const nome = nomeEl.value.trim();
+    if (!nome) return;
+    const valor = parseValorBR(valorEl.value);
+    const payload = { contexto: finContexto(), tipo, nome, valor, mes: finMesStr(), categoria_id: categoriaId || null };
+    const { error } = await sb.from('fin_entries').insert(payload);
+    if (error) { alert('Erro ao adicionar: ' + error.message); return; }
+    carregarFinanceiroMensal();
+  }
+
+  function editarFinValorInline(tdEl, id) {
+    const item = finEntriesCache.find(x => x.id === id);
+    if (!item) return;
+    tdEl.innerHTML = `<input type="text" inputmode="decimal" class="fin-valor-input" value="${formatValorBR(item.valor)}">`;
+    const input = tdEl.querySelector('input');
+    input.onblur = () => salvarFinValorInline(id, input.value);
+    input.onkeydown = (ev) => { if (ev.key === 'Enter') input.blur(); };
+    input.focus();
+    input.select();
+  }
+
+  async function salvarFinValorInline(id, novoValorStr) {
+    const valor = parseValorBR(novoValorStr);
+    const { error } = await sb.from('fin_entries').update({ valor }).eq('id', id);
+    if (error) { alert('Erro ao salvar: ' + error.message); }
+    carregarFinanceiroMensal();
+  }
+
+  async function editarFinItemRapido(id) {
+    const item = finEntriesCache.find(x => x.id === id);
+    if (!item) return;
+
+    const novoNome = prompt('Nome do item:', item.nome);
+    if (novoNome === null) return;
+
+    const opcoesCategoria = finCategoriasCache.filter(c => c.tipo === item.tipo).map(c => c.nome);
+    const catAtual = finCategoriasCache.find(c => c.id === item.categoria_id);
+    const listaOpcoes = opcoesCategoria.length ? opcoesCategoria.join(', ') : '(nenhuma cadastrada em Configurações)';
+    const novaCategoriaNome = prompt(`Categoria (deixe em branco pra "sem categoria"). Opções: ${listaOpcoes}`, catAtual ? catAtual.nome : '');
+    if (novaCategoriaNome === null) return;
+    let categoria_id = null;
+    if (novaCategoriaNome.trim()) {
+      const achada = finCategoriasCache.find(c => c.tipo === item.tipo && c.nome.toLowerCase() === novaCategoriaNome.trim().toLowerCase());
+      if (!achada) { alert('Categoria não encontrada. Cadastre em Configurações primeiro, ou deixe em branco pra remover a categoria.'); return; }
+      categoria_id = achada.id;
+    }
+
+    const novaObs = prompt('Observação (opcional):', item.observacao || '');
+    if (novaObs === null) return;
+    const novoDiaStr = prompt('Dia de referência (opcional, 1-31):', item.dia || '');
+    if (novoDiaStr === null) return;
+    const dia = novoDiaStr.trim() ? Math.min(31, Math.max(1, parseInt(novoDiaStr, 10) || 1)) : null;
+
+    const { error } = await sb.from('fin_entries').update({
+      nome: novoNome.trim() || item.nome, categoria_id, observacao: novaObs.trim() || null, dia
+    }).eq('id', id);
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    carregarFinanceiroMensal();
+  }
+
+  async function excluirFinItem(id) {
+    if (!confirm('Excluir esse lançamento?')) return;
+    const { error } = await sb.from('fin_entries').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    carregarFinanceiroMensal();
+  }
+
+  async function carregarFinCategorias(contexto) {
+    const { data } = await sb.from('fin_categories').select('*').eq('contexto', contexto).order('ordem');
+    finCategoriasCache = data || [];
+    const subSel = document.getElementById('fin-sub-categoria');
+    if (subSel) {
+      const anterior = subSel.value;
+      subSel.innerHTML = '<option value="">Sem categoria</option>' +
+        finCategoriasCache.filter(c => c.tipo === 'despesa').map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+      subSel.value = anterior;
+    }
   }
 
   async function preencherAssinaturasDoMes(contexto, mes) {
@@ -1544,25 +1675,26 @@
     for (const sub of subs) {
       const { data: existente } = await sb.from('fin_entries').select('id').eq('assinatura_id', sub.id).eq('mes', mes).maybeSingle();
       if (!existente) {
-        await sb.from('fin_entries').insert({ contexto, tipo: 'despesa', nome: sub.nome, valor: sub.valor_padrao, mes, assinatura_id: sub.id });
+        await sb.from('fin_entries').insert({ contexto, tipo: 'despesa', nome: sub.nome, valor: sub.valor_padrao, mes, assinatura_id: sub.id, categoria_id: sub.categoria_id });
       }
     }
   }
 
   async function carregarFinSubscriptions(contexto) {
-    const { data } = await sb.from('fin_subscriptions').select('*').eq('contexto', contexto).order('created_at');
+    const { data } = await sb.from('fin_subscriptions').select('*, fin_categories(nome)').eq('contexto', contexto).order('created_at');
     finSubsCache = data || [];
     const tbody = document.getElementById('fin-sub-tbody');
     tbody.innerHTML = finSubsCache.map(s => `
       <tr>
         <td>${escapeHtml(s.nome)}</td>
+        <td>${escapeHtml(s.fin_categories ? s.fin_categories.nome : '-')}</td>
         <td>${brl(s.valor_padrao)}</td>
         <td>${s.ativo ? '<span style="color:var(--pos)">Ativo</span>' : '<span style="color:var(--muted)">Cancelado</span>'}</td>
         <td>
           <button class="row-action" onclick="editarFinSubscription('${s.id}')">Editar valor</button>
           <button class="row-action ${s.ativo ? 'danger' : ''}" onclick="toggleFinSubscription('${s.id}', ${!s.ativo})">${s.ativo ? 'Cancelar' : 'Reativar'}</button>
         </td>
-      </tr>`).join('') || '<tr><td colspan="4" class="empty-note">Nenhuma assinatura cadastrada.</td></tr>';
+      </tr>`).join('') || '<tr><td colspan="5" class="empty-note">Nenhuma assinatura cadastrada.</td></tr>';
   }
 
   async function criarFinSubscription() {
@@ -1570,8 +1702,9 @@
     if (!nome) return;
     const valor_padrao = parseValorBR(document.getElementById('fin-sub-valor').value);
     if (!valor_padrao) return;
+    const categoria_id = document.getElementById('fin-sub-categoria').value || null;
     const contexto = finContexto();
-    const { error } = await sb.from('fin_subscriptions').insert({ contexto, nome, valor_padrao, ativo: true });
+    const { error } = await sb.from('fin_subscriptions').insert({ contexto, nome, valor_padrao, categoria_id, ativo: true });
     if (error) { alert('Erro ao criar assinatura: ' + error.message); return; }
     document.getElementById('fin-sub-nome').value = '';
     document.getElementById('fin-sub-valor').value = '';
@@ -1606,93 +1739,55 @@
     carregarFinanceiroMensal();
   }
 
-  async function salvarFinEntrada() {
-    const nome = document.getElementById('fin-entrada-nome').value.trim();
+  // ---- Configurações: categorias do Financeiro ----
+  let finCategoriasConfigCache = [];
+
+  async function carregarFinCategoriasConfig() {
+    const { data } = await sb.from('fin_categories').select('*').order('contexto').order('tipo').order('ordem');
+    finCategoriasConfigCache = data || [];
+    const tbody = document.getElementById('fincat-config-tbody');
+    tbody.innerHTML = finCategoriasConfigCache.map(c => `
+      <tr>
+        <td>${c.contexto === 'eco' ? '🏢 Eco' : '🏠 Pessoal'}</td>
+        <td>${c.tipo === 'entrada' ? 'Entrada' : 'Despesa'}</td>
+        <td>${escapeHtml(c.nome)}</td>
+        <td>${c.ordem}</td>
+        <td>
+          <button class="row-action" onclick="editarFinCategoriaConfig('${c.id}')">Editar</button>
+          <button class="row-action danger" onclick="excluirFinCategoriaConfig('${c.id}')">Excluir</button>
+        </td>
+      </tr>`
+    ).join('') || '<tr><td colspan="5" class="empty-note">Nenhuma categoria cadastrada.</td></tr>';
+  }
+
+  async function criarFinCategoriaConfig() {
+    const nome = document.getElementById('fincat-nome').value.trim();
     if (!nome) return;
-    const valor = parseValorBR(document.getElementById('fin-entrada-valor').value);
-    if (!valor) return;
-    const dia = document.getElementById('fin-entrada-dia').value ? parseInt(document.getElementById('fin-entrada-dia').value, 10) : null;
-    const payload = { contexto: 'eco', tipo: 'entrada', nome, valor, dia, mes: finMesStr() };
-    const { error } = editingFinEntradaId
-      ? await sb.from('fin_entries').update(payload).eq('id', editingFinEntradaId)
-      : await sb.from('fin_entries').insert(payload);
-    if (error) { alert('Erro ao salvar entrada: ' + error.message); return; }
-    cancelarEdicaoFinEntrada();
-    carregarFinanceiroMensal();
+    const contexto = document.getElementById('fincat-contexto').value;
+    const tipo = document.getElementById('fincat-tipo').value;
+    const ordem = parseInt(document.getElementById('fincat-ordem').value || '0', 10);
+    const { error } = await sb.from('fin_categories').insert({ contexto, tipo, nome, ordem });
+    if (error) { alert('Erro ao criar categoria: ' + error.message); return; }
+    document.getElementById('fincat-nome').value = '';
+    document.getElementById('fincat-ordem').value = '0';
+    await carregarFinCategoriasConfig();
   }
 
-  function editarFinEntrada(id) {
-    const e = finEntriesCache.find(x => x.id === id);
-    if (!e) return;
-    editingFinEntradaId = id;
-    document.getElementById('fin-entrada-nome').value = e.nome;
-    document.getElementById('fin-entrada-valor').value = formatValorBR(e.valor);
-    document.getElementById('fin-entrada-dia').value = e.dia || '';
-    document.getElementById('btn-fin-entrada').textContent = 'Salvar alteração';
-    document.getElementById('btn-fin-entrada-cancelar').style.display = 'inline-block';
+  async function editarFinCategoriaConfig(id) {
+    const c = finCategoriasConfigCache.find(x => x.id === id);
+    if (!c) return;
+    const novoNome = prompt('Novo nome da categoria:', c.nome);
+    if (novoNome === null || !novoNome.trim()) return;
+    const { error } = await sb.from('fin_categories').update({ nome: novoNome.trim() }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    await carregarFinCategoriasConfig();
   }
 
-  function cancelarEdicaoFinEntrada() {
-    editingFinEntradaId = null;
-    document.getElementById('fin-entrada-nome').value = '';
-    document.getElementById('fin-entrada-valor').value = '';
-    document.getElementById('fin-entrada-dia').value = '';
-    document.getElementById('btn-fin-entrada').textContent = 'Adicionar entrada';
-    document.getElementById('btn-fin-entrada-cancelar').style.display = 'none';
-  }
-
-  async function excluirFinEntrada(id) {
-    if (!confirm('Excluir essa entrada?')) return;
-    const { error } = await sb.from('fin_entries').delete().eq('id', id);
-    if (error) { alert('Erro ao excluir: ' + error.message); return; }
-    if (editingFinEntradaId === id) cancelarEdicaoFinEntrada();
-    carregarFinanceiroMensal();
-  }
-
-  async function salvarFinDespesa() {
-    const nome = document.getElementById('fin-despesa-nome').value.trim();
-    if (!nome) return;
-    const valor = parseValorBR(document.getElementById('fin-despesa-valor').value);
-    if (!valor) return;
-    const dia = document.getElementById('fin-despesa-dia').value ? parseInt(document.getElementById('fin-despesa-dia').value, 10) : null;
-    const observacao = document.getElementById('fin-despesa-obs').value.trim() || null;
-    const payload = { contexto: finContexto(), tipo: 'despesa', nome, valor, dia, observacao, mes: finMesStr() };
-    const { error } = editingFinDespesaId
-      ? await sb.from('fin_entries').update(payload).eq('id', editingFinDespesaId)
-      : await sb.from('fin_entries').insert(payload);
-    if (error) { alert('Erro ao salvar despesa: ' + error.message); return; }
-    cancelarEdicaoFinDespesa();
-    carregarFinanceiroMensal();
-  }
-
-  function editarFinDespesa(id) {
-    const e = finEntriesCache.find(x => x.id === id);
-    if (!e) return;
-    editingFinDespesaId = id;
-    document.getElementById('fin-despesa-nome').value = e.nome;
-    document.getElementById('fin-despesa-valor').value = formatValorBR(e.valor);
-    document.getElementById('fin-despesa-dia').value = e.dia || '';
-    document.getElementById('fin-despesa-obs').value = e.observacao || '';
-    document.getElementById('btn-fin-despesa').textContent = 'Salvar alteração';
-    document.getElementById('btn-fin-despesa-cancelar').style.display = 'inline-block';
-  }
-
-  function cancelarEdicaoFinDespesa() {
-    editingFinDespesaId = null;
-    document.getElementById('fin-despesa-nome').value = '';
-    document.getElementById('fin-despesa-valor').value = '';
-    document.getElementById('fin-despesa-dia').value = '';
-    document.getElementById('fin-despesa-obs').value = '';
-    document.getElementById('btn-fin-despesa').textContent = 'Adicionar despesa';
-    document.getElementById('btn-fin-despesa-cancelar').style.display = 'none';
-  }
-
-  async function excluirFinDespesa(id) {
-    if (!confirm('Excluir essa despesa?')) return;
-    const { error } = await sb.from('fin_entries').delete().eq('id', id);
-    if (error) { alert('Erro ao excluir: ' + error.message); return; }
-    if (editingFinDespesaId === id) cancelarEdicaoFinDespesa();
-    carregarFinanceiroMensal();
+  async function excluirFinCategoriaConfig(id) {
+    if (!confirm('Excluir essa categoria? Só é possível se nenhum lançamento já estiver usando ela.')) return;
+    const { error } = await sb.from('fin_categories').delete().eq('id', id);
+    if (error) { alert('Não foi possível excluir: essa categoria já tem lançamentos vinculados a ela.'); return; }
+    await carregarFinCategoriasConfig();
   }
 
   function escapeHtml(str) {
