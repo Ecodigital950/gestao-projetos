@@ -161,6 +161,14 @@
   .task-card .actions { display: flex; gap: 6px; align-items: center; }
   .task-card .actions .move { display: flex; gap: 2px; margin-left: auto; }
   .empty-col { color: var(--muted); font-size: 12px; padding: 8px 0; }
+  .task-card[draggable="true"] { cursor: grab; }
+  .task-card.dragging { opacity: 0.35; }
+  .kanban-col-body { min-height: 28px; }
+  .kanban-col-body.drag-over { background: rgba(56,189,248,0.06); border-radius: 8px; }
+  .quick-add input { width: 100%; background: transparent; border: 1px dashed var(--card-border); font-size: 12.5px; margin-top: 4px; }
+  .checklist-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
+  .checklist-item span { flex: 1; }
+  .checklist-item.done span { text-decoration: line-through; color: var(--muted); }
 </style>
 </head>
 <body>
@@ -313,6 +321,15 @@
           </div>
           <button id="btn-tarefa" onclick="salvarTarefa()">Adicionar tarefa</button>
           <button id="btn-tarefa-cancelar" class="secondary" onclick="cancelarEdicaoTarefa()" style="display:none;">Cancelar edição</button>
+
+          <div id="tarefa-checklist-section" style="display:none; margin-top:16px; border-top:1px solid var(--card-border); padding-top:14px;">
+            <h4 style="margin:0 0 10px 0; font-size:13px;">Checklist</h4>
+            <div id="tarefa-checklist-lista"></div>
+            <div class="form-row" style="margin-top:8px; align-items:flex-end;">
+              <div><input type="text" id="tarefa-checklist-novo-item" placeholder="Adicionar item..." onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarChecklistItem();}"></div>
+              <div style="flex:0;"><button type="button" class="secondary" onclick="adicionarChecklistItem()">Adicionar item</button></div>
+            </div>
+          </div>
         </div>
         <div class="kanban-board" id="kanban-board"></div>
       </div>
@@ -1122,6 +1139,8 @@
     if (respSel) respSel.innerHTML = '<option value="">Sem responsável</option>' + profilesCacheForTasks.map(p => `<option value="${p.id}">${escapeHtml(p.nome || p.email)}</option>`).join('');
   }
 
+  let checklistCache = {}; // task_id -> [itens]
+
   async function carregarTarefas() {
     await carregarTarefasSelects();
     const projetoFiltro = document.getElementById('tarefa-filtro-projeto').value;
@@ -1129,7 +1148,18 @@
     if (projetoFiltro) query = query.eq('project_id', projetoFiltro);
     const { data } = await query;
     tasksCache = data || [];
+    await carregarChecklistDeTarefas(tasksCache.map(t => t.id));
     renderKanban();
+  }
+
+  async function carregarChecklistDeTarefas(taskIds) {
+    checklistCache = {};
+    if (!taskIds.length) return;
+    const { data } = await sb.from('task_checklist_items').select('*').in('task_id', taskIds).order('ordem');
+    (data || []).forEach(item => {
+      if (!checklistCache[item.task_id]) checklistCache[item.task_id] = [];
+      checklistCache[item.task_id].push(item);
+    });
   }
 
   function renderKanban() {
@@ -1145,8 +1175,10 @@
         const responsavel = profilesCacheForTasks.find(p => p.id === t.responsavel_id);
         const projeto = projectsCache.find(p => p.id === t.project_id);
         const atrasado = t.data_vencimento && t.data_vencimento < hoje;
+        const itensChecklist = checklistCache[t.id] || [];
+        const feitos = itensChecklist.filter(i => i.concluido).length;
         return `
-          <div class="task-card">
+          <div class="task-card" draggable="true" ondragstart="dragStartTarefa(event,'${t.id}')" ondragend="dragEndTarefa(event)">
             <div class="titulo">${escapeHtml(t.titulo)}</div>
             ${t.descricao ? `<div class="descricao">${escapeHtml(t.descricao)}</div>` : ''}
             <div class="meta">
@@ -1154,6 +1186,7 @@
               ${t.data_vencimento ? `<span class="badge-info ${atrasado ? 'atrasado' : ''}">${t.data_vencimento.split('-').reverse().join('/')}</span>` : ''}
               ${responsavel ? `<span class="badge-info">${escapeHtml(responsavel.nome || responsavel.email)}</span>` : ''}
               ${projeto ? `<span class="badge-info">${escapeHtml(projeto.nome)}</span>` : ''}
+              ${itensChecklist.length ? `<span class="badge-info">☑ ${feitos}/${itensChecklist.length}</span>` : ''}
             </div>
             <div class="actions">
               <button class="row-action" onclick="editarTarefa('${t.id}')">Editar</button>
@@ -1168,7 +1201,12 @@
       return `
         <div class="kanban-col">
           <h4>${escapeHtml(col.nome)} <span class="count">${tarefasDaColuna.length}</span></h4>
-          ${cards}
+          <div class="kanban-col-body" ondragover="allowDropTarefa(event)" ondragleave="dragLeaveColuna(event)" ondrop="dropTarefaNaColuna(event,'${col.id}')">
+            ${cards}
+          </div>
+          <div class="quick-add">
+            <input type="text" placeholder="+ Adicionar um cartão" onkeydown="if(event.key==='Enter'){event.preventDefault();criarTarefaRapida('${col.id}', this);}">
+          </div>
         </div>`;
     }).join('');
   }
@@ -1179,6 +1217,98 @@
     const { error } = await sb.from('tasks').update({ coluna_id: novaColuna.id }).eq('id', id);
     if (error) { alert('Erro ao mover tarefa: ' + error.message); return; }
     carregarTarefas();
+  }
+
+  // ---- Drag and drop nativo (desktop) ----
+  let draggedTaskId = null;
+
+  function dragStartTarefa(ev, id) {
+    draggedTaskId = id;
+    ev.dataTransfer.effectAllowed = 'move';
+    ev.dataTransfer.setData('text/plain', id);
+    ev.target.classList.add('dragging');
+  }
+  function dragEndTarefa(ev) {
+    ev.target.classList.remove('dragging');
+  }
+  function allowDropTarefa(ev) {
+    ev.preventDefault();
+    ev.currentTarget.classList.add('drag-over');
+  }
+  function dragLeaveColuna(ev) {
+    ev.currentTarget.classList.remove('drag-over');
+  }
+  async function dropTarefaNaColuna(ev, colunaId) {
+    ev.preventDefault();
+    ev.currentTarget.classList.remove('drag-over');
+    const id = draggedTaskId || ev.dataTransfer.getData('text/plain');
+    draggedTaskId = null;
+    if (!id) return;
+    const tarefa = tasksCache.find(t => t.id === id);
+    if (!tarefa || tarefa.coluna_id === colunaId) return;
+    const { error } = await sb.from('tasks').update({ coluna_id: colunaId }).eq('id', id);
+    if (error) { alert('Erro ao mover tarefa: ' + error.message); return; }
+    carregarTarefas();
+  }
+
+  // ---- Adicionar cartão direto na coluna (estilo Trello) ----
+  async function criarTarefaRapida(colunaId, inputEl) {
+    const titulo = inputEl.value.trim();
+    if (!titulo) return;
+    const projetoFiltro = document.getElementById('tarefa-filtro-projeto').value || null;
+    const { error } = await sb.from('tasks').insert({ titulo, coluna_id: colunaId, project_id: projetoFiltro, prioridade: 'media' });
+    if (error) { alert('Erro ao criar tarefa: ' + error.message); return; }
+    inputEl.value = '';
+    carregarTarefas();
+  }
+
+  // ---- Checklist da tarefa ----
+  function renderChecklistEdicao() {
+    const cont = document.getElementById('tarefa-checklist-lista');
+    const itens = checklistCache[editingTaskId] || [];
+    cont.innerHTML = itens.map(i => `
+      <div class="checklist-item ${i.concluido ? 'done' : ''}">
+        <input type="checkbox" ${i.concluido ? 'checked' : ''} onchange="toggleChecklistItem('${i.id}', this.checked)">
+        <span>${escapeHtml(i.texto)}</span>
+        <button class="row-action danger" onclick="excluirChecklistItem('${i.id}')">Excluir</button>
+      </div>`).join('') || '<p class="empty-note">Nenhum item ainda.</p>';
+  }
+
+  async function adicionarChecklistItem() {
+    if (!editingTaskId) return;
+    const input = document.getElementById('tarefa-checklist-novo-item');
+    const texto = input.value.trim();
+    if (!texto) return;
+    const ordem = (checklistCache[editingTaskId] || []).length;
+    const { data, error } = await sb.from('task_checklist_items').insert({ task_id: editingTaskId, texto, ordem }).select().single();
+    if (error) { alert('Erro ao adicionar item: ' + error.message); return; }
+    if (!checklistCache[editingTaskId]) checklistCache[editingTaskId] = [];
+    checklistCache[editingTaskId].push(data);
+    input.value = '';
+    renderChecklistEdicao();
+    renderKanban();
+  }
+
+  async function toggleChecklistItem(id, concluido) {
+    const { error } = await sb.from('task_checklist_items').update({ concluido }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    Object.values(checklistCache).forEach(lista => {
+      const item = lista.find(i => i.id === id);
+      if (item) item.concluido = concluido;
+    });
+    renderChecklistEdicao();
+    renderKanban();
+  }
+
+  async function excluirChecklistItem(id) {
+    if (!confirm('Excluir esse item do checklist?')) return;
+    const { error } = await sb.from('task_checklist_items').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir item: ' + error.message); return; }
+    Object.keys(checklistCache).forEach(taskId => {
+      checklistCache[taskId] = (checklistCache[taskId] || []).filter(i => i.id !== id);
+    });
+    renderChecklistEdicao();
+    renderKanban();
   }
 
   async function salvarTarefa() {
@@ -1218,6 +1348,8 @@
     document.getElementById('tarefa-form-titulo').textContent = 'Editar tarefa';
     document.getElementById('btn-tarefa').textContent = 'Salvar alterações';
     document.getElementById('btn-tarefa-cancelar').style.display = 'inline-block';
+    document.getElementById('tarefa-checklist-section').style.display = 'block';
+    renderChecklistEdicao();
     document.getElementById('tarefa-titulo').scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
@@ -1233,6 +1365,7 @@
     document.getElementById('tarefa-form-titulo').textContent = 'Nova tarefa';
     document.getElementById('btn-tarefa').textContent = 'Adicionar tarefa';
     document.getElementById('btn-tarefa-cancelar').style.display = 'none';
+    document.getElementById('tarefa-checklist-section').style.display = 'none';
   }
 
   async function excluirTarefa(id) {
