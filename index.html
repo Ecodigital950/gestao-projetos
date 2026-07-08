@@ -297,10 +297,36 @@
       <div id="view-configuracoes" class="view">
         <h2>Configurações</h2>
         <div class="card">
-          <p class="placeholder" style="margin-bottom:12px;">Gerencie quais seções cada usuário pode acessar. Categorias de custo e colunas do Kanban chegam na Fase 4.</p>
+          <p class="placeholder" style="margin-bottom:12px;">Gerencie quais seções cada usuário pode acessar.</p>
           <table>
             <thead><tr><th>Usuário</th><th>Dashboard</th><th>Financeiro</th><th>Tarefas</th><th>Projetos</th><th>Config.</th></tr></thead>
             <tbody id="usuarios-tbody"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;">Categorias de custo</h3>
+          <p class="placeholder" style="margin-bottom:12px;">Opções que aparecem no Financeiro ao lançar um custo.</p>
+          <div class="form-row">
+            <div><label>Nome</label><input type="text" id="cat-nome" placeholder="Ex: Assessoria Jurídica"></div>
+            <div><label>Ordem</label><input type="number" id="cat-ordem" value="0"></div>
+          </div>
+          <button onclick="criarCategoriaConfig()">Adicionar categoria</button>
+          <table style="margin-top:16px;">
+            <thead><tr><th>Nome</th><th>Ordem</th><th></th></tr></thead>
+            <tbody id="categorias-config-tbody"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;">Colunas do Kanban</h3>
+          <p class="placeholder" style="margin-bottom:12px;">Etapas que vão aparecer no quadro de Tarefas.</p>
+          <div class="form-row">
+            <div><label>Nome</label><input type="text" id="col-nome" placeholder="Ex: Aguardando Cliente"></div>
+            <div><label>Ordem</label><input type="number" id="col-ordem" value="0"></div>
+          </div>
+          <button onclick="criarColunaConfig()">Adicionar coluna</button>
+          <table style="margin-top:16px;">
+            <thead><tr><th>Nome</th><th>Ordem</th><th></th></tr></thead>
+            <tbody id="colunas-config-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -389,7 +415,11 @@
     if (firstModule) showView(firstModule);
 
     if (currentPermissions.has('projetos')) carregarProjetos();
-    if (profile.is_admin) carregarUsuarios();
+    if (profile.is_admin) {
+      carregarUsuarios();
+      carregarCategoriasConfig();
+      carregarColunasConfig();
+    }
 
     if (currentPermissions.has('dashboard') || currentPermissions.has('financeiro')) {
       await carregarProjetosSelects();
@@ -913,6 +943,103 @@
     } else {
       await sb.from('user_permissions').delete().eq('user_id', userId).eq('modulo', modulo);
     }
+  }
+
+  // ---- Configurações: categorias de custo ----
+  let categoriasConfigCache = [];
+
+  async function carregarCategoriasConfig() {
+    const { data } = await sb.from('cost_categories').select('*').order('ordem');
+    categoriasConfigCache = data || [];
+    const tbody = document.getElementById('categorias-config-tbody');
+    tbody.innerHTML = categoriasConfigCache.map(c => `
+      <tr>
+        <td>${escapeHtml(c.nome)}</td>
+        <td>${c.ordem}</td>
+        <td>
+          <button class="row-action" onclick="editarCategoriaConfig('${c.id}')">Editar</button>
+          <button class="row-action danger" onclick="excluirCategoriaConfig('${c.id}')">Excluir</button>
+        </td>
+      </tr>`
+    ).join('') || '<tr><td colspan="3" class="empty-note">Nenhuma categoria cadastrada.</td></tr>';
+  }
+
+  async function criarCategoriaConfig() {
+    const nome = document.getElementById('cat-nome').value.trim();
+    if (!nome) return;
+    const ordem = parseInt(document.getElementById('cat-ordem').value || '0', 10);
+    const { error } = await sb.from('cost_categories').insert({ nome, ordem });
+    if (error) { alert('Erro ao criar categoria: ' + error.message); return; }
+    document.getElementById('cat-nome').value = '';
+    document.getElementById('cat-ordem').value = '0';
+    await carregarCategoriasConfig();
+    await carregarCategorias();
+  }
+
+  async function editarCategoriaConfig(id) {
+    const c = categoriasConfigCache.find(x => x.id === id);
+    if (!c) return;
+    const novoNome = prompt('Novo nome da categoria:', c.nome);
+    if (novoNome === null || !novoNome.trim()) return;
+    const { error } = await sb.from('cost_categories').update({ nome: novoNome.trim() }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    await carregarCategoriasConfig();
+    await carregarCategorias();
+  }
+
+  async function excluirCategoriaConfig(id) {
+    if (!confirm('Excluir essa categoria? Só é possível se nenhum custo já lançado estiver usando ela.')) return;
+    const { error } = await sb.from('cost_categories').delete().eq('id', id);
+    if (error) { alert('Não foi possível excluir: essa categoria já tem custos lançados vinculados a ela.'); return; }
+    await carregarCategoriasConfig();
+    await carregarCategorias();
+  }
+
+  // ---- Configurações: colunas do Kanban ----
+  let colunasConfigCache = [];
+
+  async function carregarColunasConfig() {
+    const { data } = await sb.from('kanban_columns').select('*').order('ordem');
+    colunasConfigCache = data || [];
+    const tbody = document.getElementById('colunas-config-tbody');
+    tbody.innerHTML = colunasConfigCache.map(c => `
+      <tr>
+        <td>${escapeHtml(c.nome)}</td>
+        <td>${c.ordem}</td>
+        <td>
+          <button class="row-action" onclick="editarColunaConfig('${c.id}')">Editar</button>
+          <button class="row-action danger" onclick="excluirColunaConfig('${c.id}')">Excluir</button>
+        </td>
+      </tr>`
+    ).join('') || '<tr><td colspan="3" class="empty-note">Nenhuma coluna cadastrada.</td></tr>';
+  }
+
+  async function criarColunaConfig() {
+    const nome = document.getElementById('col-nome').value.trim();
+    if (!nome) return;
+    const ordem = parseInt(document.getElementById('col-ordem').value || '0', 10);
+    const { error } = await sb.from('kanban_columns').insert({ nome, ordem });
+    if (error) { alert('Erro ao criar coluna: ' + error.message); return; }
+    document.getElementById('col-nome').value = '';
+    document.getElementById('col-ordem').value = '0';
+    carregarColunasConfig();
+  }
+
+  async function editarColunaConfig(id) {
+    const c = colunasConfigCache.find(x => x.id === id);
+    if (!c) return;
+    const novoNome = prompt('Novo nome da coluna:', c.nome);
+    if (novoNome === null || !novoNome.trim()) return;
+    const { error } = await sb.from('kanban_columns').update({ nome: novoNome.trim() }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    carregarColunasConfig();
+  }
+
+  async function excluirColunaConfig(id) {
+    if (!confirm('Excluir essa coluna? Só é possível se nenhuma tarefa já estiver nela.')) return;
+    const { error } = await sb.from('kanban_columns').delete().eq('id', id);
+    if (error) { alert('Não foi possível excluir: essa coluna já tem tarefas nela.'); return; }
+    carregarColunasConfig();
   }
 
   function escapeHtml(str) {
