@@ -138,6 +138,9 @@
 
   .row-action { background: none; border: none; color: var(--info); font-size: 12.5px; font-weight: 500; padding: 2px 6px; cursor: pointer; }
   .row-action.danger { color: var(--neg); }
+
+  .preset-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .preset-row button { padding: 6px 12px; font-size: 12.5px; }
 </style>
 </head>
 <body>
@@ -172,6 +175,13 @@
       <div id="view-dashboard" class="view">
         <h2>Dashboard</h2>
         <div class="card">
+          <div class="preset-row">
+            <button type="button" class="secondary" onclick="aplicarPresetPeriodo('hoje')">Hoje</button>
+            <button type="button" class="secondary" onclick="aplicarPresetPeriodo('ontem')">Ontem</button>
+            <button type="button" class="secondary" onclick="aplicarPresetPeriodo('7dias')">Últimos 7 dias</button>
+            <button type="button" class="secondary" onclick="aplicarPresetPeriodo('este_mes')">Este mês</button>
+            <button type="button" class="secondary" onclick="aplicarPresetPeriodo('mes_passado')">Mês passado</button>
+          </div>
           <div class="form-row">
             <div><label>Período</label><input type="text" id="dash-periodo" placeholder="Selecione o período"></div>
             <div><label>Projeto</label><select id="dash-projeto"><option value="">Todos</option></select></div>
@@ -532,6 +542,33 @@
       locale: 'pt',
       onClose: () => carregarDashboard()
     });
+  }
+
+  function inicioDoMes(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+  function fimDoMes(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+
+  function aplicarPresetPeriodo(preset) {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    let inicio, fim;
+    if (preset === 'hoje') {
+      inicio = fim = hoje;
+    } else if (preset === 'ontem') {
+      const o = new Date(hoje); o.setDate(o.getDate() - 1);
+      inicio = fim = o;
+    } else if (preset === '7dias') {
+      const i = new Date(hoje); i.setDate(i.getDate() - 6);
+      inicio = i; fim = hoje;
+    } else if (preset === 'este_mes') {
+      inicio = inicioDoMes(hoje); fim = fimDoMes(hoje);
+    } else if (preset === 'mes_passado') {
+      const mp = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+      inicio = inicioDoMes(mp); fim = fimDoMes(mp);
+    } else {
+      return;
+    }
+    if (dashPeriodoPicker) dashPeriodoPicker.setDate([inicio, fim], false);
+    carregarDashboard();
   }
 
   async function carregarDashboard() {
