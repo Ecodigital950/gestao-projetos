@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Gestor de Projetos</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root {
     --bg: #0c1120;
@@ -121,6 +122,16 @@
   .form-row input, .form-row select { width: 100%; }
 
   .perm-check { display: flex; gap: 4px; align-items: center; font-size: 12.5px; }
+
+  .grid-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .kpi-card { margin-bottom: 0; }
+  .card-label { color: var(--muted); font-size: 12.5px; font-weight: 500; margin-bottom: 8px; }
+  .card-value { font-size: 22px; font-weight: 700; }
+  .card-value.accent-pos { color: var(--pos); }
+  .card-value.accent-neg { color: var(--neg); }
+  .card-sub { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -154,11 +165,70 @@
     <div class="content">
       <div id="view-dashboard" class="view">
         <h2>Dashboard</h2>
-        <div class="card"><p class="placeholder">Visão consolidada de custo/receita/ROI de todos os projetos — chega na Fase 2.</p></div>
+        <div class="card">
+          <div class="form-row">
+            <div><label>De</label><input type="date" id="dash-de"></div>
+            <div><label>Até</label><input type="date" id="dash-ate"></div>
+            <div><label>Projeto</label><select id="dash-projeto"><option value="">Todos</option></select></div>
+            <div style="display:flex;align-items:flex-end;"><button onclick="carregarDashboard()">Filtrar</button></div>
+          </div>
+        </div>
+        <div class="grid-kpi" id="dash-kpis"></div>
+        <div class="charts-row">
+          <div class="card"><h3 style="margin-top:0;">Distribuição de Custo (Projetado)</h3><canvas id="dash-pie"></canvas></div>
+          <div class="card"><h3 style="margin-top:0;">Custo Total x Receita — Projetado x Real</h3><canvas id="dash-bar"></canvas></div>
+        </div>
       </div>
       <div id="view-financeiro" class="view">
         <h2>Financeiro</h2>
-        <div class="card"><p class="placeholder">Lançamento de custo/receita e ROI por projeto — chega na Fase 2.</p></div>
+        <div class="card">
+          <div class="form-row">
+            <div><label>Projeto</label><select id="fin-projeto" onchange="carregarFinanceiro()"></select></div>
+          </div>
+        </div>
+        <div class="grid-kpi" id="fin-kpis"></div>
+        <div class="card">
+          <h3 style="margin-top:0;">Lançar custo</h3>
+          <div class="form-row">
+            <div><label>Categoria</label><select id="cost-categoria"></select></div>
+            <div><label>Tipo</label>
+              <select id="cost-tipo">
+                <option value="projetado">Projetado</option>
+                <option value="real">Real</option>
+              </select>
+            </div>
+            <div><label>Valor (R$)</label><input type="number" id="cost-valor" step="0.01"></div>
+            <div><label>Data</label><input type="date" id="cost-data"></div>
+          </div>
+          <button onclick="lancarCusto()">Adicionar custo</button>
+        </div>
+        <div class="card">
+          <table>
+            <thead><tr><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Data</th></tr></thead>
+            <tbody id="costs-tbody"></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;">Lançar receita / vendas</h3>
+          <div class="form-row">
+            <div><label>Tipo</label>
+              <select id="rev-tipo">
+                <option value="projetado">Projetado</option>
+                <option value="real">Real</option>
+              </select>
+            </div>
+            <div><label>Valor (R$)</label><input type="number" id="rev-valor" step="0.01"></div>
+            <div><label>Vendas</label><input type="number" id="rev-vendas" value="0"></div>
+            <div><label>Data</label><input type="date" id="rev-data"></div>
+          </div>
+          <button onclick="lancarReceita()">Adicionar receita</button>
+        </div>
+        <div class="card">
+          <table>
+            <thead><tr><th>Tipo</th><th>Valor</th><th>Vendas</th><th>Data</th></tr></thead>
+            <tbody id="revenue-tbody"></tbody>
+          </table>
+        </div>
       </div>
       <div id="view-tarefas" class="view">
         <h2>Tarefas</h2>
@@ -284,6 +354,13 @@
 
     if (currentPermissions.has('projetos')) carregarProjetos();
     if (profile.is_admin) carregarUsuarios();
+
+    if (currentPermissions.has('dashboard') || currentPermissions.has('financeiro')) {
+      await carregarProjetosSelects();
+      await carregarCategorias();
+      if (currentPermissions.has('dashboard')) carregarDashboard();
+      if (currentPermissions.has('financeiro') && document.getElementById('fin-projeto').value) carregarFinanceiro();
+    }
   }
 
   function renderNav() {
@@ -307,6 +384,9 @@
     if (view) view.style.display = 'block';
     const nav = document.getElementById('nav-' + modulo);
     if (nav) nav.classList.add('active');
+
+    if (modulo === 'dashboard') carregarDashboard();
+    if (modulo === 'financeiro' && document.getElementById('fin-projeto').value) carregarFinanceiro();
   }
 
   // ---- Projetos ----
@@ -337,6 +417,186 @@
     if (error) { alert('Erro ao criar projeto: ' + error.message); return; }
     document.getElementById('np-nome').value = '';
     carregarProjetos();
+    carregarProjetosSelects();
+  }
+
+  // ---- Helpers de formatação (pt-BR) ----
+  function brl(v) {
+    return 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function pctfmt(v) {
+    if (v === null || v === undefined || !isFinite(v)) return 'N/A';
+    return (v * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+  }
+  function multfmt(v) {
+    if (v === null || v === undefined || !isFinite(v)) return 'N/A';
+    return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'x';
+  }
+  function kpiCard(label, value, sub, accentClass) {
+    return `<div class="card kpi-card"><div class="card-label">${label}</div><div class="card-value ${accentClass || ''}">${value}</div>${sub ? `<div class="card-sub">${sub}</div>` : ''}</div>`;
+  }
+  function somaPorTipo(arr, tipo) {
+    return (arr || []).filter(x => x.tipo === tipo).reduce((s, x) => s + Number(x.valor || 0), 0);
+  }
+
+  // ---- Dados compartilhados: projetos e categorias ----
+  let projectsCache = [];
+  let costCategoriesCache = [];
+
+  async function carregarProjetosSelects() {
+    const { data } = await sb.from('projects').select('id,nome').order('nome');
+    projectsCache = data || [];
+    const dashSel = document.getElementById('dash-projeto');
+    const finSel = document.getElementById('fin-projeto');
+    if (dashSel) {
+      dashSel.innerHTML = '<option value="">Todos</option>' + projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+    }
+    if (finSel) {
+      const anterior = finSel.value;
+      finSel.innerHTML = projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+      finSel.value = anterior || (projectsCache[0] ? projectsCache[0].id : '');
+    }
+  }
+
+  async function carregarCategorias() {
+    const { data } = await sb.from('cost_categories').select('*').order('ordem');
+    costCategoriesCache = data || [];
+    const sel = document.getElementById('cost-categoria');
+    if (sel) sel.innerHTML = costCategoriesCache.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+  }
+
+  // ---- Dashboard consolidado (todos os projetos, com filtros) ----
+  let dashPieChart, dashBarChart;
+
+  async function carregarDashboard() {
+    const de = document.getElementById('dash-de').value;
+    const ate = document.getElementById('dash-ate').value;
+    const projetoId = document.getElementById('dash-projeto').value;
+
+    let costsQuery = sb.from('costs').select('valor,tipo,categoria_id,data');
+    let revQuery = sb.from('revenue').select('valor,tipo,vendas,data');
+    if (de) { costsQuery = costsQuery.gte('data', de); revQuery = revQuery.gte('data', de); }
+    if (ate) { costsQuery = costsQuery.lte('data', ate); revQuery = revQuery.lte('data', ate); }
+    if (projetoId) { costsQuery = costsQuery.eq('project_id', projetoId); revQuery = revQuery.eq('project_id', projetoId); }
+
+    const [{ data: costs }, { data: revenue }] = await Promise.all([costsQuery, revQuery]);
+
+    const custoProjetado = somaPorTipo(costs, 'projetado');
+    const custoReal = somaPorTipo(costs, 'real');
+    const receitaProjetada = somaPorTipo(revenue, 'projetado');
+    const receitaReal = somaPorTipo(revenue, 'real');
+    const lucroReal = receitaReal - custoReal;
+    const roiReal = custoReal ? lucroReal / custoReal : null;
+    const roasReal = custoReal ? receitaReal / custoReal : null;
+    const roiProjetado = custoProjetado ? (receitaProjetada - custoProjetado) / custoProjetado : null;
+    const roasProjetado = custoProjetado ? receitaProjetada / custoProjetado : null;
+
+    document.getElementById('dash-kpis').innerHTML = [
+      kpiCard('Custo Total', brl(custoReal), 'Projetado: ' + brl(custoProjetado)),
+      kpiCard('Receita', brl(receitaReal), 'Projetada: ' + brl(receitaProjetada)),
+      kpiCard('Lucro Real', brl(lucroReal), null, lucroReal >= 0 ? 'accent-pos' : 'accent-neg'),
+      kpiCard('ROI Real', pctfmt(roiReal), 'Projetado: ' + pctfmt(roiProjetado)),
+      kpiCard('ROAS Real', multfmt(roasReal), 'Projetado: ' + multfmt(roasProjetado)),
+    ].join('');
+
+    const catTotals = {};
+    (costs || []).filter(c => c.tipo === 'projetado').forEach(c => {
+      const cat = costCategoriesCache.find(cc => cc.id === c.categoria_id);
+      const nome = cat ? cat.nome : 'Outros';
+      catTotals[nome] = (catTotals[nome] || 0) + Number(c.valor || 0);
+    });
+    const pieLabels = Object.keys(catTotals);
+    const pieData = Object.values(catTotals);
+    const palette = ['#38bdf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6', '#4ade80', '#facc15'];
+
+    if (dashPieChart) dashPieChart.destroy();
+    dashPieChart = new Chart(document.getElementById('dash-pie'), {
+      type: 'doughnut',
+      data: { labels: pieLabels, datasets: [{ data: pieData, backgroundColor: palette, borderWidth: 0 }] },
+      options: { plugins: { legend: { position: 'bottom', labels: { color: '#e8ebf5', font: { size: 11 } } } } }
+    });
+
+    if (dashBarChart) dashBarChart.destroy();
+    dashBarChart = new Chart(document.getElementById('dash-bar'), {
+      type: 'bar',
+      data: {
+        labels: ['Custo Total', 'Receita'],
+        datasets: [
+          { label: 'Projetado', data: [custoProjetado, receitaProjetada], backgroundColor: '#38bdf8' },
+          { label: 'Real', data: [custoReal, receitaReal], backgroundColor: '#34d399' }
+        ]
+      },
+      options: {
+        scales: {
+          x: { ticks: { color: '#8992ab' }, grid: { color: '#232b45' } },
+          y: { ticks: { color: '#8992ab' }, grid: { color: '#232b45' } }
+        },
+        plugins: { legend: { labels: { color: '#e8ebf5' } } }
+      }
+    });
+  }
+
+  // ---- Financeiro por projeto ----
+  async function carregarFinanceiro() {
+    const projetoId = document.getElementById('fin-projeto').value;
+    if (!projetoId) return;
+
+    const { data: costs } = await sb.from('costs').select('*, cost_categories(nome)').eq('project_id', projetoId).order('data', { ascending: false });
+    const { data: revenue } = await sb.from('revenue').select('*').eq('project_id', projetoId).order('data', { ascending: false });
+
+    const custoProjetado = somaPorTipo(costs, 'projetado');
+    const custoReal = somaPorTipo(costs, 'real');
+    const receitaProjetada = somaPorTipo(revenue, 'projetado');
+    const receitaReal = somaPorTipo(revenue, 'real');
+    const roiReal = custoReal ? (receitaReal - custoReal) / custoReal : null;
+    const roasReal = custoReal ? receitaReal / custoReal : null;
+    const roiProjetado = custoProjetado ? (receitaProjetada - custoProjetado) / custoProjetado : null;
+    const roasProjetado = custoProjetado ? receitaProjetada / custoProjetado : null;
+
+    document.getElementById('fin-kpis').innerHTML = [
+      kpiCard('Custo Total', brl(custoReal), 'Projetado: ' + brl(custoProjetado)),
+      kpiCard('Receita', brl(receitaReal), 'Projetada: ' + brl(receitaProjetada)),
+      kpiCard('ROI', pctfmt(roiReal), 'Projetado: ' + pctfmt(roiProjetado)),
+      kpiCard('ROAS', multfmt(roasReal), 'Projetado: ' + multfmt(roasProjetado)),
+    ].join('');
+
+    const ctbody = document.getElementById('costs-tbody');
+    ctbody.innerHTML = (costs || []).map(c =>
+      `<tr><td>${escapeHtml(c.cost_categories ? c.cost_categories.nome : '-')}</td><td>${c.tipo}</td><td>${brl(c.valor)}</td><td>${c.data}</td></tr>`
+    ).join('') || '<tr><td colspan="4" class="empty-note">Nenhum custo lançado.</td></tr>';
+
+    const rtbody = document.getElementById('revenue-tbody');
+    rtbody.innerHTML = (revenue || []).map(r =>
+      `<tr><td>${r.tipo}</td><td>${brl(r.valor)}</td><td>${r.vendas}</td><td>${r.data}</td></tr>`
+    ).join('') || '<tr><td colspan="4" class="empty-note">Nenhuma receita lançada.</td></tr>';
+  }
+
+  async function lancarCusto() {
+    const projetoId = document.getElementById('fin-projeto').value;
+    if (!projetoId) { alert('Cadastre um projeto primeiro (aba Projetos).'); return; }
+    const categoria_id = document.getElementById('cost-categoria').value;
+    const tipo = document.getElementById('cost-tipo').value;
+    const valor = parseFloat(document.getElementById('cost-valor').value || '0');
+    const data = document.getElementById('cost-data').value || new Date().toISOString().slice(0, 10);
+    if (!valor) return;
+    const { error } = await sb.from('costs').insert({ project_id: projetoId, categoria_id, tipo, valor, data });
+    if (error) { alert('Erro ao lançar custo: ' + error.message); return; }
+    document.getElementById('cost-valor').value = '';
+    carregarFinanceiro();
+  }
+
+  async function lancarReceita() {
+    const projetoId = document.getElementById('fin-projeto').value;
+    if (!projetoId) { alert('Cadastre um projeto primeiro (aba Projetos).'); return; }
+    const tipo = document.getElementById('rev-tipo').value;
+    const valor = parseFloat(document.getElementById('rev-valor').value || '0');
+    const vendas = parseInt(document.getElementById('rev-vendas').value || '0', 10);
+    const data = document.getElementById('rev-data').value || new Date().toISOString().slice(0, 10);
+    if (!valor) return;
+    const { error } = await sb.from('revenue').insert({ project_id: projetoId, tipo, valor, vendas, data });
+    if (error) { alert('Erro ao lançar receita: ' + error.message); return; }
+    document.getElementById('rev-valor').value = '';
+    carregarFinanceiro();
   }
 
   // ---- Configurações: usuários e permissões ----
