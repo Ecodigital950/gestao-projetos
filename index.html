@@ -203,6 +203,11 @@
             </div>
             <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="cost-valor" placeholder="7.454,32"></div>
             <div><label>Data</label><input type="date" id="cost-data"></div>
+            <div style="display:flex;align-items:flex-end;padding-bottom:9px;">
+              <label style="display:flex;align-items:center;gap:6px;margin:0;color:var(--text);font-size:13px;">
+                <input type="checkbox" id="cost-recorrente" style="width:auto;padding:0;"> Custo fixo mensal
+              </label>
+            </div>
           </div>
           <button id="btn-cost" onclick="lancarCusto()">Adicionar custo</button>
           <button id="btn-cost-cancelar" class="secondary" onclick="cancelarEdicaoCusto()" style="display:none;">Cancelar edição</button>
@@ -569,6 +574,8 @@
     const projetoId = document.getElementById('fin-projeto').value;
     if (!projetoId) return;
 
+    await preencherCustosFixosDoMes(projetoId);
+
     const { data: costs } = await sb.from('costs').select('*, cost_categories(nome)').eq('project_id', projetoId).order('data', { ascending: false });
     const { data: revenue } = await sb.from('revenue').select('*').eq('project_id', projetoId).order('data', { ascending: false });
     costsCache = costs || [];
@@ -592,7 +599,7 @@
 
     const ctbody = document.getElementById('costs-tbody');
     ctbody.innerHTML = costsCache.map(c =>
-      `<tr><td>${escapeHtml(c.cost_categories ? c.cost_categories.nome : '-')}</td><td>${escapeHtml(c.descricao || '-')}</td><td>${c.tipo}</td><td>${brl(c.valor)}</td><td>${c.data}</td>` +
+      `<tr><td>${escapeHtml(c.cost_categories ? c.cost_categories.nome : '-')}</td><td>${escapeHtml(c.descricao || '-')}${c.recorrente ? ' <span title="Custo fixo mensal">🔁</span>' : ''}</td><td>${c.tipo}</td><td>${brl(c.valor)}</td><td>${c.data}</td>` +
       `<td><button class="row-action" onclick="editarCusto('${c.id}')">Editar</button> <button class="row-action danger" onclick="excluirCusto('${c.id}')">Excluir</button></td></tr>`
     ).join('') || '<tr><td colspan="6" class="empty-note">Nenhum custo lançado.</td></tr>';
 
@@ -611,9 +618,10 @@
     const tipo = document.getElementById('cost-tipo').value;
     const valor = parseValorBR(document.getElementById('cost-valor').value);
     const data = document.getElementById('cost-data').value || new Date().toISOString().slice(0, 10);
+    const recorrente = document.getElementById('cost-recorrente').checked;
     if (!valor) return;
 
-    const payload = { project_id: projetoId, categoria_id, descricao, tipo, valor, data };
+    const payload = { project_id: projetoId, categoria_id, descricao, tipo, valor, data, recorrente };
     const { error } = editingCostId
       ? await sb.from('costs').update(payload).eq('id', editingCostId)
       : await sb.from('costs').insert(payload);
@@ -631,6 +639,7 @@
     document.getElementById('cost-tipo').value = c.tipo;
     document.getElementById('cost-valor').value = formatValorBR(c.valor);
     document.getElementById('cost-data').value = c.data;
+    document.getElementById('cost-recorrente').checked = !!c.recorrente;
     document.getElementById('btn-cost').textContent = 'Salvar alteração';
     document.getElementById('btn-cost-cancelar').style.display = 'inline-block';
   }
@@ -639,8 +648,55 @@
     editingCostId = null;
     document.getElementById('cost-valor').value = '';
     document.getElementById('cost-descricao').value = '';
+    document.getElementById('cost-recorrente').checked = false;
     document.getElementById('btn-cost').textContent = 'Adicionar custo';
     document.getElementById('btn-cost-cancelar').style.display = 'none';
+  }
+
+  // ---- Custos fixos mensais: gera automaticamente os meses em atraso ----
+  function diasNoMes(ano, mesIndex) {
+    return new Date(ano, mesIndex + 1, 0).getDate();
+  }
+
+  async function preencherCustosFixosDoMes(projetoId) {
+    const { data: recorrentes } = await sb.from('costs')
+      .select('*')
+      .eq('project_id', projetoId)
+      .eq('tipo', 'real')
+      .eq('recorrente', true)
+      .order('data', { ascending: false });
+    if (!recorrentes || !recorrentes.length) return;
+
+    // Pega só o lançamento mais recente de cada categoria+descrição — se o mais
+    // recente não for mais recorrente (usuário desmarcou), a série para de gerar.
+    const grupos = {};
+    recorrentes.forEach(c => {
+      const chave = c.categoria_id + '|' + (c.descricao || '');
+      if (!grupos[chave] || c.data > grupos[chave].data) grupos[chave] = c;
+    });
+
+    const hoje = new Date();
+    const inserts = [];
+    Object.values(grupos).forEach(c => {
+      const original = new Date(c.data + 'T00:00:00');
+      const diaOriginal = original.getDate();
+      let cursor = new Date(original.getFullYear(), original.getMonth(), 1);
+      for (let i = 0; i < 24; i++) {
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+        const dia = Math.min(diaOriginal, diasNoMes(cursor.getFullYear(), cursor.getMonth()));
+        const dataGerada = new Date(cursor.getFullYear(), cursor.getMonth(), dia);
+        if (dataGerada > hoje) break;
+        const dataStr = dataGerada.toISOString().slice(0, 10);
+        inserts.push({
+          project_id: projetoId, categoria_id: c.categoria_id, descricao: c.descricao,
+          tipo: 'real', valor: c.valor, data: dataStr, recorrente: true
+        });
+      }
+    });
+
+    if (inserts.length) {
+      await sb.from('costs').insert(inserts);
+    }
   }
 
   async function excluirCusto(id) {
