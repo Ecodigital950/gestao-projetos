@@ -190,6 +190,23 @@
           </div>
         </div>
         <div class="grid-kpi" id="fin-kpis"></div>
+
+        <div class="card">
+          <h3 style="margin-top:0;">Custos fixos deste projeto</h3>
+          <p class="placeholder" style="margin-bottom:12px;">Assinaturas e mensalidades. O valor padrão se repete todo mês sozinho — se um mês tiver uma cobrança diferente (extra ou menor), edite direto o lançamento daquele mês na tabela abaixo, sem afetar os próximos meses.</p>
+          <div class="form-row">
+            <div><label>Categoria</label><select id="cf-categoria"></select></div>
+            <div><label>Descrição</label><input type="text" id="cf-descricao" placeholder="Ex: Canva Pro"></div>
+            <div><label>Valor padrão (R$)</label><input type="text" inputmode="decimal" id="cf-valor" placeholder="150,00"></div>
+            <div><label>Dia de cobrança</label><input type="number" id="cf-dia" min="1" max="31" value="1"></div>
+          </div>
+          <button onclick="criarCustoFixo()">Adicionar custo fixo</button>
+          <table style="margin-top:16px;">
+            <thead><tr><th>Categoria</th><th>Descrição</th><th>Valor padrão</th><th>Dia</th><th>Status</th><th></th></tr></thead>
+            <tbody id="custos-fixos-tbody"></tbody>
+          </table>
+        </div>
+
         <div class="card">
           <h3 style="margin-top:0;">Lançar custo</h3>
           <div class="form-row">
@@ -203,11 +220,6 @@
             </div>
             <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="cost-valor" placeholder="7.454,32"></div>
             <div><label>Data</label><input type="date" id="cost-data"></div>
-            <div style="display:flex;align-items:flex-end;padding-bottom:9px;">
-              <label style="display:flex;align-items:center;gap:6px;margin:0;color:var(--text);font-size:13px;">
-                <input type="checkbox" id="cost-recorrente" style="width:auto;padding:0;"> Custo fixo mensal
-              </label>
-            </div>
           </div>
           <button id="btn-cost" onclick="lancarCusto()">Adicionar custo</button>
           <button id="btn-cost-cancelar" class="secondary" onclick="cancelarEdicaoCusto()" style="display:none;">Cancelar edição</button>
@@ -489,8 +501,11 @@
   async function carregarCategorias() {
     const { data } = await sb.from('cost_categories').select('*').order('ordem');
     costCategoriesCache = data || [];
+    const opts = costCategoriesCache.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
     const sel = document.getElementById('cost-categoria');
-    if (sel) sel.innerHTML = costCategoriesCache.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+    if (sel) sel.innerHTML = opts;
+    const selCf = document.getElementById('cf-categoria');
+    if (selCf) selCf.innerHTML = opts;
   }
 
   // ---- Dashboard consolidado (todos os projetos, com filtros) ----
@@ -575,6 +590,7 @@
     if (!projetoId) return;
 
     await preencherCustosFixosDoMes(projetoId);
+    await carregarCustosFixos(projetoId);
 
     const { data: costs } = await sb.from('costs').select('*, cost_categories(nome)').eq('project_id', projetoId).order('data', { ascending: false });
     const { data: revenue } = await sb.from('revenue').select('*').eq('project_id', projetoId).order('data', { ascending: false });
@@ -599,7 +615,7 @@
 
     const ctbody = document.getElementById('costs-tbody');
     ctbody.innerHTML = costsCache.map(c =>
-      `<tr><td>${escapeHtml(c.cost_categories ? c.cost_categories.nome : '-')}</td><td>${escapeHtml(c.descricao || '-')}${c.recorrente ? ' <span title="Custo fixo mensal">🔁</span>' : ''}</td><td>${c.tipo}</td><td>${brl(c.valor)}</td><td>${c.data}</td>` +
+      `<tr><td>${escapeHtml(c.cost_categories ? c.cost_categories.nome : '-')}</td><td>${escapeHtml(c.descricao || '-')}${c.custo_fixo_id ? ' <span title="Gerado por custo fixo">🔁</span>' : ''}</td><td>${c.tipo}</td><td>${brl(c.valor)}</td><td>${c.data}</td>` +
       `<td><button class="row-action" onclick="editarCusto('${c.id}')">Editar</button> <button class="row-action danger" onclick="excluirCusto('${c.id}')">Excluir</button></td></tr>`
     ).join('') || '<tr><td colspan="6" class="empty-note">Nenhum custo lançado.</td></tr>';
 
@@ -618,10 +634,9 @@
     const tipo = document.getElementById('cost-tipo').value;
     const valor = parseValorBR(document.getElementById('cost-valor').value);
     const data = document.getElementById('cost-data').value || new Date().toISOString().slice(0, 10);
-    const recorrente = document.getElementById('cost-recorrente').checked;
     if (!valor) return;
 
-    const payload = { project_id: projetoId, categoria_id, descricao, tipo, valor, data, recorrente };
+    const payload = { project_id: projetoId, categoria_id, descricao, tipo, valor, data };
     const { error } = editingCostId
       ? await sb.from('costs').update(payload).eq('id', editingCostId)
       : await sb.from('costs').insert(payload);
@@ -639,7 +654,6 @@
     document.getElementById('cost-tipo').value = c.tipo;
     document.getElementById('cost-valor').value = formatValorBR(c.valor);
     document.getElementById('cost-data').value = c.data;
-    document.getElementById('cost-recorrente').checked = !!c.recorrente;
     document.getElementById('btn-cost').textContent = 'Salvar alteração';
     document.getElementById('btn-cost-cancelar').style.display = 'inline-block';
   }
@@ -648,55 +662,114 @@
     editingCostId = null;
     document.getElementById('cost-valor').value = '';
     document.getElementById('cost-descricao').value = '';
-    document.getElementById('cost-recorrente').checked = false;
     document.getElementById('btn-cost').textContent = 'Adicionar custo';
     document.getElementById('btn-cost-cancelar').style.display = 'none';
   }
 
-  // ---- Custos fixos mensais: gera automaticamente os meses em atraso ----
+  // ---- Custos fixos (modelo/template) — geram os lançamentos mensais sozinhos ----
+  let custosFixosCache = [];
+
   function diasNoMes(ano, mesIndex) {
     return new Date(ano, mesIndex + 1, 0).getDate();
   }
 
+  // Pra cada custo fixo ativo, olha o último lançamento JÁ LIGADO A ELE (por
+  // custo_fixo_id, não por texto) e gera os meses que faltam até hoje, sempre
+  // usando o valor_padrao do modelo — nunca o valor de um mês editado/variável.
   async function preencherCustosFixosDoMes(projetoId) {
-    const { data: recorrentes } = await sb.from('costs')
-      .select('*')
-      .eq('project_id', projetoId)
-      .eq('tipo', 'real')
-      .eq('recorrente', true)
-      .order('data', { ascending: false });
-    if (!recorrentes || !recorrentes.length) return;
-
-    // Pega só o lançamento mais recente de cada categoria+descrição — se o mais
-    // recente não for mais recorrente (usuário desmarcou), a série para de gerar.
-    const grupos = {};
-    recorrentes.forEach(c => {
-      const chave = c.categoria_id + '|' + (c.descricao || '');
-      if (!grupos[chave] || c.data > grupos[chave].data) grupos[chave] = c;
-    });
+    const { data: fixos } = await sb.from('custos_fixos').select('*').eq('project_id', projetoId).eq('ativo', true);
+    if (!fixos || !fixos.length) return;
 
     const hoje = new Date();
     const inserts = [];
-    Object.values(grupos).forEach(c => {
-      const original = new Date(c.data + 'T00:00:00');
-      const diaOriginal = original.getDate();
-      let cursor = new Date(original.getFullYear(), original.getMonth(), 1);
+
+    for (const f of fixos) {
+      const { data: ultimos } = await sb.from('costs')
+        .select('data')
+        .eq('custo_fixo_id', f.id)
+        .order('data', { ascending: false })
+        .limit(1);
+
+      let cursor;
+      if (ultimos && ultimos.length) {
+        const ultimo = new Date(ultimos[0].data + 'T00:00:00');
+        cursor = new Date(ultimo.getFullYear(), ultimo.getMonth(), 1);
+      } else {
+        cursor = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+      }
+
       for (let i = 0; i < 24; i++) {
         cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
-        const dia = Math.min(diaOriginal, diasNoMes(cursor.getFullYear(), cursor.getMonth()));
-        const dataGerada = new Date(cursor.getFullYear(), cursor.getMonth(), dia);
-        if (dataGerada > hoje) break;
-        const dataStr = dataGerada.toISOString().slice(0, 10);
+        const dia = Math.min(f.dia_cobranca, diasNoMes(cursor.getFullYear(), cursor.getMonth()));
+        const gerada = new Date(cursor.getFullYear(), cursor.getMonth(), dia);
+        if (gerada > hoje) break;
         inserts.push({
-          project_id: projetoId, categoria_id: c.categoria_id, descricao: c.descricao,
-          tipo: 'real', valor: c.valor, data: dataStr, recorrente: true
+          project_id: projetoId, categoria_id: f.categoria_id, descricao: f.descricao,
+          tipo: 'real', valor: f.valor_padrao, data: gerada.toISOString().slice(0, 10),
+          recorrente: true, custo_fixo_id: f.id
         });
       }
-    });
+    }
 
     if (inserts.length) {
       await sb.from('costs').insert(inserts);
     }
+  }
+
+  async function carregarCustosFixos(projetoId) {
+    const { data } = await sb.from('custos_fixos').select('*, cost_categories(nome)').eq('project_id', projetoId).order('created_at');
+    custosFixosCache = data || [];
+    const tbody = document.getElementById('custos-fixos-tbody');
+    tbody.innerHTML = custosFixosCache.map(f => `
+      <tr>
+        <td>${escapeHtml(f.cost_categories ? f.cost_categories.nome : '-')}</td>
+        <td>${escapeHtml(f.descricao || '-')}</td>
+        <td>${brl(f.valor_padrao)}</td>
+        <td>Dia ${f.dia_cobranca}</td>
+        <td>${f.ativo ? '<span style="color:var(--pos)">Ativo</span>' : '<span style="color:var(--muted)">Cancelado</span>'}</td>
+        <td>
+          <button class="row-action" onclick="editarCustoFixo('${f.id}')">Editar valor</button>
+          <button class="row-action ${f.ativo ? 'danger' : ''}" onclick="toggleCustoFixo('${f.id}', ${!f.ativo})">${f.ativo ? 'Cancelar' : 'Reativar'}</button>
+        </td>
+      </tr>`
+    ).join('') || '<tr><td colspan="6" class="empty-note">Nenhum custo fixo cadastrado.</td></tr>';
+  }
+
+  async function criarCustoFixo() {
+    const projetoId = document.getElementById('fin-projeto').value;
+    if (!projetoId) { alert('Cadastre um projeto primeiro (aba Projetos).'); return; }
+    const categoria_id = document.getElementById('cf-categoria').value;
+    const descricao = document.getElementById('cf-descricao').value.trim() || null;
+    const valor_padrao = parseValorBR(document.getElementById('cf-valor').value);
+    const dia_cobranca = Math.min(31, Math.max(1, parseInt(document.getElementById('cf-dia').value || '1', 10)));
+    if (!valor_padrao) return;
+
+    const { error } = await sb.from('custos_fixos').insert({ project_id: projetoId, categoria_id, descricao, valor_padrao, dia_cobranca, ativo: true });
+    if (error) { alert('Erro ao criar custo fixo: ' + error.message); return; }
+    document.getElementById('cf-descricao').value = '';
+    document.getElementById('cf-valor').value = '';
+    document.getElementById('cf-dia').value = '1';
+    carregarFinanceiro();
+  }
+
+  function editarCustoFixo(id) {
+    const f = custosFixosCache.find(x => x.id === id);
+    if (!f) return;
+    const novoValor = prompt('Novo valor padrão mensal (R$) — vale a partir do próximo mês gerado. Meses já lançados não mudam:', formatValorBR(f.valor_padrao));
+    if (novoValor === null) return;
+    const valor = parseValorBR(novoValor);
+    if (!valor) return;
+    sb.from('custos_fixos').update({ valor_padrao: valor }).eq('id', id).then(({ error }) => {
+      if (error) { alert('Erro: ' + error.message); return; }
+      carregarFinanceiro();
+    });
+  }
+
+  async function toggleCustoFixo(id, novoAtivo) {
+    if (!novoAtivo && !confirm('Cancelar esse custo fixo? Ele para de gerar novos meses — os já lançados continuam no histórico.')) return;
+    const { error } = await sb.from('custos_fixos').update({ ativo: novoAtivo }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    carregarFinanceiro();
   }
 
   async function excluirCusto(id) {
