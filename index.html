@@ -141,6 +141,26 @@
 
   .preset-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
   .preset-row button { padding: 6px 12px; font-size: 12.5px; }
+
+  button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .kanban-board { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
+  .kanban-col { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 14px; min-width: 260px; max-width: 260px; flex-shrink: 0; }
+  .kanban-col h4 { margin: 0 0 12px 0; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; }
+  .kanban-col h4 .count { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .task-card { background: #0f1526; border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .task-card .titulo { font-size: 13.5px; font-weight: 600; margin-bottom: 6px; }
+  .task-card .descricao { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+  .task-card .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .badge-prio { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+  .badge-prio.alta { background: rgba(248,113,113,0.15); color: var(--neg); }
+  .badge-prio.media { background: rgba(56,189,248,0.15); color: var(--info); }
+  .badge-prio.baixa { background: rgba(137,146,171,0.15); color: var(--muted); }
+  .badge-info { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(137,146,171,0.15); color: var(--muted); }
+  .badge-info.atrasado { background: rgba(248,113,113,0.15); color: var(--neg); }
+  .task-card .actions { display: flex; gap: 6px; align-items: center; }
+  .task-card .actions .move { display: flex; gap: 2px; margin-left: auto; }
+  .empty-col { color: var(--muted); font-size: 12px; padding: 8px 0; }
 </style>
 </head>
 <body>
@@ -267,7 +287,34 @@
       </div>
       <div id="view-tarefas" class="view">
         <h2>Tarefas</h2>
-        <div class="card"><p class="placeholder">Kanban de tarefas — chega na Fase 3.</p></div>
+        <div class="card">
+          <div class="form-row">
+            <div><label>Projeto</label><select id="tarefa-filtro-projeto" onchange="carregarTarefas()"><option value="">Todos os projetos</option></select></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;" id="tarefa-form-titulo">Nova tarefa</h3>
+          <div class="form-row">
+            <div><label>Título</label><input type="text" id="tarefa-titulo" placeholder="Ex: Enviar proposta"></div>
+            <div><label>Projeto (opcional)</label><select id="tarefa-projeto"><option value="">Sem projeto</option></select></div>
+            <div><label>Responsável</label><select id="tarefa-responsavel"><option value="">Sem responsável</option></select></div>
+          </div>
+          <div class="form-row">
+            <div><label>Descrição (opcional)</label><input type="text" id="tarefa-descricao" placeholder="Detalhes da tarefa"></div>
+            <div><label>Prioridade</label>
+              <select id="tarefa-prioridade">
+                <option value="baixa">Baixa</option>
+                <option value="media" selected>Média</option>
+                <option value="alta">Alta</option>
+              </select>
+            </div>
+            <div><label>Vencimento (opcional)</label><input type="date" id="tarefa-vencimento"></div>
+            <div><label>Coluna</label><select id="tarefa-coluna"></select></div>
+          </div>
+          <button id="btn-tarefa" onclick="salvarTarefa()">Adicionar tarefa</button>
+          <button id="btn-tarefa-cancelar" class="secondary" onclick="cancelarEdicaoTarefa()" style="display:none;">Cancelar edição</button>
+        </div>
+        <div class="kanban-board" id="kanban-board"></div>
       </div>
       <div id="view-projetos" class="view">
         <h2>Projetos</h2>
@@ -453,6 +500,7 @@
 
     if (modulo === 'dashboard') carregarDashboard();
     if (modulo === 'financeiro' && document.getElementById('fin-projeto').value) carregarFinanceiro();
+    if (modulo === 'tarefas') carregarTarefas();
   }
 
   // ---- Projetos ----
@@ -1040,6 +1088,158 @@
     const { error } = await sb.from('kanban_columns').delete().eq('id', id);
     if (error) { alert('Não foi possível excluir: essa coluna já tem tarefas nela.'); return; }
     carregarColunasConfig();
+  }
+
+  // ---- Tarefas / Kanban ----
+  let kanbanColumnsCache = [];
+  let tasksCache = [];
+  let profilesCacheForTasks = [];
+  let editingTaskId = null;
+
+  async function carregarTarefasSelects() {
+    const { data: cols } = await sb.from('kanban_columns').select('*').order('ordem');
+    kanbanColumnsCache = cols || [];
+    const colSel = document.getElementById('tarefa-coluna');
+    if (colSel) {
+      const anterior = colSel.value;
+      colSel.innerHTML = kanbanColumnsCache.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+      colSel.value = anterior || (kanbanColumnsCache[0] ? kanbanColumnsCache[0].id : '');
+    }
+
+    if (!projectsCache.length) await carregarProjetosSelects();
+    const filtroSel = document.getElementById('tarefa-filtro-projeto');
+    const formSel = document.getElementById('tarefa-projeto');
+    if (filtroSel) {
+      const anterior = filtroSel.value;
+      filtroSel.innerHTML = '<option value="">Todos os projetos</option>' + projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+      filtroSel.value = anterior;
+    }
+    if (formSel) formSel.innerHTML = '<option value="">Sem projeto</option>' + projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+
+    const { data: profs } = await sb.from('profiles').select('id,nome,email').order('email');
+    profilesCacheForTasks = profs || [];
+    const respSel = document.getElementById('tarefa-responsavel');
+    if (respSel) respSel.innerHTML = '<option value="">Sem responsável</option>' + profilesCacheForTasks.map(p => `<option value="${p.id}">${escapeHtml(p.nome || p.email)}</option>`).join('');
+  }
+
+  async function carregarTarefas() {
+    await carregarTarefasSelects();
+    const projetoFiltro = document.getElementById('tarefa-filtro-projeto').value;
+    let query = sb.from('tasks').select('*').order('created_at', { ascending: true });
+    if (projetoFiltro) query = query.eq('project_id', projetoFiltro);
+    const { data } = await query;
+    tasksCache = data || [];
+    renderKanban();
+  }
+
+  function renderKanban() {
+    const board = document.getElementById('kanban-board');
+    if (!kanbanColumnsCache.length) {
+      board.innerHTML = '<p class="empty-note">Nenhuma coluna configurada ainda. Crie colunas em Configurações.</p>';
+      return;
+    }
+    const hoje = formatDateLocal(new Date());
+    board.innerHTML = kanbanColumnsCache.map((col, idx) => {
+      const tarefasDaColuna = tasksCache.filter(t => t.coluna_id === col.id);
+      const cards = tarefasDaColuna.map(t => {
+        const responsavel = profilesCacheForTasks.find(p => p.id === t.responsavel_id);
+        const projeto = projectsCache.find(p => p.id === t.project_id);
+        const atrasado = t.data_vencimento && t.data_vencimento < hoje;
+        return `
+          <div class="task-card">
+            <div class="titulo">${escapeHtml(t.titulo)}</div>
+            ${t.descricao ? `<div class="descricao">${escapeHtml(t.descricao)}</div>` : ''}
+            <div class="meta">
+              <span class="badge-prio ${t.prioridade}">${t.prioridade}</span>
+              ${t.data_vencimento ? `<span class="badge-info ${atrasado ? 'atrasado' : ''}">${t.data_vencimento.split('-').reverse().join('/')}</span>` : ''}
+              ${responsavel ? `<span class="badge-info">${escapeHtml(responsavel.nome || responsavel.email)}</span>` : ''}
+              ${projeto ? `<span class="badge-info">${escapeHtml(projeto.nome)}</span>` : ''}
+            </div>
+            <div class="actions">
+              <button class="row-action" onclick="editarTarefa('${t.id}')">Editar</button>
+              <button class="row-action danger" onclick="excluirTarefa('${t.id}')">Excluir</button>
+              <span class="move">
+                <button class="row-action" ${idx === 0 ? 'disabled' : ''} onclick="moverTarefa('${t.id}', ${idx - 1})">◀</button>
+                <button class="row-action" ${idx === kanbanColumnsCache.length - 1 ? 'disabled' : ''} onclick="moverTarefa('${t.id}', ${idx + 1})">▶</button>
+              </span>
+            </div>
+          </div>`;
+      }).join('') || '<div class="empty-col">Nenhuma tarefa</div>';
+      return `
+        <div class="kanban-col">
+          <h4>${escapeHtml(col.nome)} <span class="count">${tarefasDaColuna.length}</span></h4>
+          ${cards}
+        </div>`;
+    }).join('');
+  }
+
+  async function moverTarefa(id, novoIdx) {
+    const novaColuna = kanbanColumnsCache[novoIdx];
+    if (!novaColuna) return;
+    const { error } = await sb.from('tasks').update({ coluna_id: novaColuna.id }).eq('id', id);
+    if (error) { alert('Erro ao mover tarefa: ' + error.message); return; }
+    carregarTarefas();
+  }
+
+  async function salvarTarefa() {
+    const titulo = document.getElementById('tarefa-titulo').value.trim();
+    if (!titulo) return;
+    const payload = {
+      titulo,
+      descricao: document.getElementById('tarefa-descricao').value.trim() || null,
+      project_id: document.getElementById('tarefa-projeto').value || null,
+      responsavel_id: document.getElementById('tarefa-responsavel').value || null,
+      prioridade: document.getElementById('tarefa-prioridade').value,
+      data_vencimento: document.getElementById('tarefa-vencimento').value || null,
+      coluna_id: document.getElementById('tarefa-coluna').value || null,
+    };
+    let error;
+    if (editingTaskId) {
+      ({ error } = await sb.from('tasks').update(payload).eq('id', editingTaskId));
+    } else {
+      ({ error } = await sb.from('tasks').insert(payload));
+    }
+    if (error) { alert('Erro ao salvar tarefa: ' + error.message); return; }
+    cancelarEdicaoTarefa();
+    carregarTarefas();
+  }
+
+  function editarTarefa(id) {
+    const t = tasksCache.find(x => x.id === id);
+    if (!t) return;
+    editingTaskId = id;
+    document.getElementById('tarefa-titulo').value = t.titulo;
+    document.getElementById('tarefa-descricao').value = t.descricao || '';
+    document.getElementById('tarefa-projeto').value = t.project_id || '';
+    document.getElementById('tarefa-responsavel').value = t.responsavel_id || '';
+    document.getElementById('tarefa-prioridade').value = t.prioridade;
+    document.getElementById('tarefa-vencimento').value = t.data_vencimento || '';
+    document.getElementById('tarefa-coluna').value = t.coluna_id || '';
+    document.getElementById('tarefa-form-titulo').textContent = 'Editar tarefa';
+    document.getElementById('btn-tarefa').textContent = 'Salvar alterações';
+    document.getElementById('btn-tarefa-cancelar').style.display = 'inline-block';
+    document.getElementById('tarefa-titulo').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function cancelarEdicaoTarefa() {
+    editingTaskId = null;
+    document.getElementById('tarefa-titulo').value = '';
+    document.getElementById('tarefa-descricao').value = '';
+    document.getElementById('tarefa-projeto').value = '';
+    document.getElementById('tarefa-responsavel').value = '';
+    document.getElementById('tarefa-prioridade').value = 'media';
+    document.getElementById('tarefa-vencimento').value = '';
+    if (kanbanColumnsCache[0]) document.getElementById('tarefa-coluna').value = kanbanColumnsCache[0].id;
+    document.getElementById('tarefa-form-titulo').textContent = 'Nova tarefa';
+    document.getElementById('btn-tarefa').textContent = 'Adicionar tarefa';
+    document.getElementById('btn-tarefa-cancelar').style.display = 'none';
+  }
+
+  async function excluirTarefa(id) {
+    if (!confirm('Excluir essa tarefa?')) return;
+    const { error } = await sb.from('tasks').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    carregarTarefas();
   }
 
   function escapeHtml(str) {
