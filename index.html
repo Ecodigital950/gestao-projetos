@@ -132,6 +132,9 @@
   .card-sub { color: var(--muted); font-size: 12px; margin-top: 6px; }
   .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
+
+  .row-action { background: none; border: none; color: var(--info); font-size: 12.5px; font-weight: 500; padding: 2px 6px; cursor: pointer; }
+  .row-action.danger { color: var(--neg); }
 </style>
 </head>
 <body>
@@ -197,14 +200,15 @@
                 <option value="real">Real</option>
               </select>
             </div>
-            <div><label>Valor (R$)</label><input type="number" id="cost-valor" step="0.01"></div>
+            <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="cost-valor" placeholder="7.454,32"></div>
             <div><label>Data</label><input type="date" id="cost-data"></div>
           </div>
-          <button onclick="lancarCusto()">Adicionar custo</button>
+          <button id="btn-cost" onclick="lancarCusto()">Adicionar custo</button>
+          <button id="btn-cost-cancelar" class="secondary" onclick="cancelarEdicaoCusto()" style="display:none;">Cancelar edição</button>
         </div>
         <div class="card">
           <table>
-            <thead><tr><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Data</th></tr></thead>
+            <thead><tr><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Data</th><th></th></tr></thead>
             <tbody id="costs-tbody"></tbody>
           </table>
         </div>
@@ -217,15 +221,16 @@
                 <option value="real">Real</option>
               </select>
             </div>
-            <div><label>Valor (R$)</label><input type="number" id="rev-valor" step="0.01"></div>
+            <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="rev-valor" placeholder="7.454,32"></div>
             <div><label>Vendas</label><input type="number" id="rev-vendas" value="0"></div>
             <div><label>Data</label><input type="date" id="rev-data"></div>
           </div>
-          <button onclick="lancarReceita()">Adicionar receita</button>
+          <button id="btn-rev" onclick="lancarReceita()">Adicionar receita</button>
+          <button id="btn-rev-cancelar" class="secondary" onclick="cancelarEdicaoReceita()" style="display:none;">Cancelar edição</button>
         </div>
         <div class="card">
           <table>
-            <thead><tr><th>Tipo</th><th>Valor</th><th>Vendas</th><th>Data</th></tr></thead>
+            <thead><tr><th>Tipo</th><th>Valor</th><th>Vendas</th><th>Data</th><th></th></tr></thead>
             <tbody id="revenue-tbody"></tbody>
           </table>
         </div>
@@ -438,6 +443,23 @@
   function somaPorTipo(arr, tipo) {
     return (arr || []).filter(x => x.tipo === tipo).reduce((s, x) => s + Number(x.valor || 0), 0);
   }
+  // Aceita "7454", "7.454" (ponto = milhar) e "7.454,32" (vírgula = decimal).
+  // Sem vírgula, qualquer ponto é tratado como separador de milhar (padrão BR).
+  function parseValorBR(str) {
+    if (str === null || str === undefined) return 0;
+    let s = String(str).trim().replace(/[^\d,.-]/g, '');
+    if (!s) return 0;
+    if (s.includes(',')) {
+      s = s.replace(/\./g, '').replace(',', '.');
+    } else {
+      s = s.replace(/\./g, '');
+    }
+    const v = parseFloat(s);
+    return isNaN(v) ? 0 : v;
+  }
+  function formatValorBR(v) {
+    return (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
 
   // ---- Dados compartilhados: projetos e categorias ----
   let projectsCache = [];
@@ -537,17 +559,24 @@
   }
 
   // ---- Financeiro por projeto ----
+  let costsCache = [];
+  let revenueCache = [];
+  let editingCostId = null;
+  let editingRevenueId = null;
+
   async function carregarFinanceiro() {
     const projetoId = document.getElementById('fin-projeto').value;
     if (!projetoId) return;
 
     const { data: costs } = await sb.from('costs').select('*, cost_categories(nome)').eq('project_id', projetoId).order('data', { ascending: false });
     const { data: revenue } = await sb.from('revenue').select('*').eq('project_id', projetoId).order('data', { ascending: false });
+    costsCache = costs || [];
+    revenueCache = revenue || [];
 
-    const custoProjetado = somaPorTipo(costs, 'projetado');
-    const custoReal = somaPorTipo(costs, 'real');
-    const receitaProjetada = somaPorTipo(revenue, 'projetado');
-    const receitaReal = somaPorTipo(revenue, 'real');
+    const custoProjetado = somaPorTipo(costsCache, 'projetado');
+    const custoReal = somaPorTipo(costsCache, 'real');
+    const receitaProjetada = somaPorTipo(revenueCache, 'projetado');
+    const receitaReal = somaPorTipo(revenueCache, 'real');
     const roiReal = custoReal ? (receitaReal - custoReal) / custoReal : null;
     const roasReal = custoReal ? receitaReal / custoReal : null;
     const roiProjetado = custoProjetado ? (receitaProjetada - custoProjetado) / custoProjetado : null;
@@ -561,14 +590,16 @@
     ].join('');
 
     const ctbody = document.getElementById('costs-tbody');
-    ctbody.innerHTML = (costs || []).map(c =>
-      `<tr><td>${escapeHtml(c.cost_categories ? c.cost_categories.nome : '-')}</td><td>${c.tipo}</td><td>${brl(c.valor)}</td><td>${c.data}</td></tr>`
-    ).join('') || '<tr><td colspan="4" class="empty-note">Nenhum custo lançado.</td></tr>';
+    ctbody.innerHTML = costsCache.map(c =>
+      `<tr><td>${escapeHtml(c.cost_categories ? c.cost_categories.nome : '-')}</td><td>${c.tipo}</td><td>${brl(c.valor)}</td><td>${c.data}</td>` +
+      `<td><button class="row-action" onclick="editarCusto('${c.id}')">Editar</button> <button class="row-action danger" onclick="excluirCusto('${c.id}')">Excluir</button></td></tr>`
+    ).join('') || '<tr><td colspan="5" class="empty-note">Nenhum custo lançado.</td></tr>';
 
     const rtbody = document.getElementById('revenue-tbody');
-    rtbody.innerHTML = (revenue || []).map(r =>
-      `<tr><td>${r.tipo}</td><td>${brl(r.valor)}</td><td>${r.vendas}</td><td>${r.data}</td></tr>`
-    ).join('') || '<tr><td colspan="4" class="empty-note">Nenhuma receita lançada.</td></tr>';
+    rtbody.innerHTML = revenueCache.map(r =>
+      `<tr><td>${r.tipo}</td><td>${brl(r.valor)}</td><td>${r.vendas}</td><td>${r.data}</td>` +
+      `<td><button class="row-action" onclick="editarReceita('${r.id}')">Editar</button> <button class="row-action danger" onclick="excluirReceita('${r.id}')">Excluir</button></td></tr>`
+    ).join('') || '<tr><td colspan="5" class="empty-note">Nenhuma receita lançada.</td></tr>';
   }
 
   async function lancarCusto() {
@@ -576,12 +607,43 @@
     if (!projetoId) { alert('Cadastre um projeto primeiro (aba Projetos).'); return; }
     const categoria_id = document.getElementById('cost-categoria').value;
     const tipo = document.getElementById('cost-tipo').value;
-    const valor = parseFloat(document.getElementById('cost-valor').value || '0');
+    const valor = parseValorBR(document.getElementById('cost-valor').value);
     const data = document.getElementById('cost-data').value || new Date().toISOString().slice(0, 10);
     if (!valor) return;
-    const { error } = await sb.from('costs').insert({ project_id: projetoId, categoria_id, tipo, valor, data });
-    if (error) { alert('Erro ao lançar custo: ' + error.message); return; }
+
+    const payload = { project_id: projetoId, categoria_id, tipo, valor, data };
+    const { error } = editingCostId
+      ? await sb.from('costs').update(payload).eq('id', editingCostId)
+      : await sb.from('costs').insert(payload);
+    if (error) { alert('Erro ao salvar custo: ' + error.message); return; }
+    cancelarEdicaoCusto();
+    carregarFinanceiro();
+  }
+
+  function editarCusto(id) {
+    const c = costsCache.find(x => x.id === id);
+    if (!c) return;
+    editingCostId = id;
+    document.getElementById('cost-categoria').value = c.categoria_id;
+    document.getElementById('cost-tipo').value = c.tipo;
+    document.getElementById('cost-valor').value = formatValorBR(c.valor);
+    document.getElementById('cost-data').value = c.data;
+    document.getElementById('btn-cost').textContent = 'Salvar alteração';
+    document.getElementById('btn-cost-cancelar').style.display = 'inline-block';
+  }
+
+  function cancelarEdicaoCusto() {
+    editingCostId = null;
     document.getElementById('cost-valor').value = '';
+    document.getElementById('btn-cost').textContent = 'Adicionar custo';
+    document.getElementById('btn-cost-cancelar').style.display = 'none';
+  }
+
+  async function excluirCusto(id) {
+    if (!confirm('Excluir esse lançamento de custo?')) return;
+    const { error } = await sb.from('costs').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    if (editingCostId === id) cancelarEdicaoCusto();
     carregarFinanceiro();
   }
 
@@ -589,13 +651,45 @@
     const projetoId = document.getElementById('fin-projeto').value;
     if (!projetoId) { alert('Cadastre um projeto primeiro (aba Projetos).'); return; }
     const tipo = document.getElementById('rev-tipo').value;
-    const valor = parseFloat(document.getElementById('rev-valor').value || '0');
+    const valor = parseValorBR(document.getElementById('rev-valor').value);
     const vendas = parseInt(document.getElementById('rev-vendas').value || '0', 10);
     const data = document.getElementById('rev-data').value || new Date().toISOString().slice(0, 10);
     if (!valor) return;
-    const { error } = await sb.from('revenue').insert({ project_id: projetoId, tipo, valor, vendas, data });
-    if (error) { alert('Erro ao lançar receita: ' + error.message); return; }
+
+    const payload = { project_id: projetoId, tipo, valor, vendas, data };
+    const { error } = editingRevenueId
+      ? await sb.from('revenue').update(payload).eq('id', editingRevenueId)
+      : await sb.from('revenue').insert(payload);
+    if (error) { alert('Erro ao salvar receita: ' + error.message); return; }
+    cancelarEdicaoReceita();
+    carregarFinanceiro();
+  }
+
+  function editarReceita(id) {
+    const r = revenueCache.find(x => x.id === id);
+    if (!r) return;
+    editingRevenueId = id;
+    document.getElementById('rev-tipo').value = r.tipo;
+    document.getElementById('rev-valor').value = formatValorBR(r.valor);
+    document.getElementById('rev-vendas').value = r.vendas;
+    document.getElementById('rev-data').value = r.data;
+    document.getElementById('btn-rev').textContent = 'Salvar alteração';
+    document.getElementById('btn-rev-cancelar').style.display = 'inline-block';
+  }
+
+  function cancelarEdicaoReceita() {
+    editingRevenueId = null;
     document.getElementById('rev-valor').value = '';
+    document.getElementById('rev-vendas').value = '0';
+    document.getElementById('btn-rev').textContent = 'Adicionar receita';
+    document.getElementById('btn-rev-cancelar').style.display = 'none';
+  }
+
+  async function excluirReceita(id) {
+    if (!confirm('Excluir esse lançamento de receita?')) return;
+    const { error } = await sb.from('revenue').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    if (editingRevenueId === id) cancelarEdicaoReceita();
     carregarFinanceiro();
   }
 
