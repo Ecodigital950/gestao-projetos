@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestor de Projetos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    --bg: #0c1120;
+    --card: #161d30;
+    --card-border: #232b45;
+    --text: #e8ebf5;
+    --muted: #8992ab;
+    --pos: #34d399;
+    --neg: #f87171;
+    --info: #38bdf8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Arial, sans-serif;
+  }
+  a { color: var(--info); }
+  input, select, button, textarea {
+    font-family: inherit;
+    font-size: 14px;
+    background: #0f1526;
+    border: 1px solid var(--card-border);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 9px 12px;
+  }
+  button {
+    cursor: pointer;
+    background: var(--info);
+    color: #06111f;
+    font-weight: 600;
+    border: none;
+  }
+  button.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--card-border);
+    font-weight: 500;
+  }
+  button:hover { opacity: 0.9; }
+
+  /* Login */
+  #login-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .login-box {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 16px;
+    padding: 32px;
+    width: 340px;
+  }
+  .login-box h1 { font-size: 20px; margin: 0 0 4px 0; }
+  .login-box p.sub { color: var(--muted); font-size: 13px; margin: 0 0 20px 0; }
+  .login-box label { display: block; font-size: 12.5px; color: var(--muted); margin: 12px 0 6px; }
+  .login-box input { width: 100%; }
+  .login-box .actions { display: flex; gap: 8px; margin-top: 20px; }
+  .login-box .actions button { flex: 1; }
+  .login-msg { font-size: 12.5px; margin-top: 12px; color: var(--neg); min-height: 16px; }
+
+  /* App shell */
+  #app-screen { display: none; min-height: 100vh; }
+  .layout { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 220px;
+    background: var(--card);
+    border-right: 1px solid var(--card-border);
+    padding: 20px 12px;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar h1 { font-size: 15px; padding: 0 10px; margin: 0 0 24px 0; }
+  .nav-item {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 8px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13.5px;
+    font-weight: 500;
+    margin-bottom: 2px;
+    cursor: pointer;
+  }
+  .nav-item:hover { background: #1c2440; color: var(--text); }
+  .nav-item.active { background: #1c2440; color: var(--text); }
+  .sidebar .footer { margin-top: auto; }
+  .sidebar .user-email { font-size: 11px; color: var(--muted); padding: 0 10px 8px; word-break: break-all; }
+
+  .content { flex: 1; padding: 32px; }
+  .content h2 { margin: 0 0 20px 0; font-size: 20px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  .empty-note { color: var(--muted); font-size: 13px; }
+  .placeholder { color: var(--muted); font-size: 13.5px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--card-border); }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+
+  .form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .form-row > div { flex: 1; min-width: 140px; }
+  .form-row label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .form-row input, .form-row select { width: 100%; }
+
+  .perm-check { display: flex; gap: 4px; align-items: center; font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <h1>Gestor de Projetos</h1>
+    <p class="sub">Entre com seu e-mail e senha</p>
+    <label>E-mail</label>
+    <input id="login-email" type="email" placeholder="voce@exemplo.com">
+    <label>Senha</label>
+    <input id="login-password" type="password" placeholder="••••••••">
+    <div class="actions">
+      <button onclick="handleLogin()">Entrar</button>
+      <button class="secondary" onclick="handleSignup()">Criar conta</button>
+    </div>
+    <div class="login-msg" id="login-msg"></div>
+  </div>
+</div>
+
+<div id="app-screen">
+  <div class="layout">
+    <div class="sidebar">
+      <h1>Gestor de Projetos</h1>
+      <div id="nav"></div>
+      <div class="footer">
+        <div class="user-email" id="user-email"></div>
+        <a class="nav-item" onclick="handleLogout()">Sair</a>
+      </div>
+    </div>
+    <div class="content">
+      <div id="view-dashboard" class="view">
+        <h2>Dashboard</h2>
+        <div class="card"><p class="placeholder">Visão consolidada de custo/receita/ROI de todos os projetos — chega na Fase 2.</p></div>
+      </div>
+      <div id="view-financeiro" class="view">
+        <h2>Financeiro</h2>
+        <div class="card"><p class="placeholder">Lançamento de custo/receita e ROI por projeto — chega na Fase 2.</p></div>
+      </div>
+      <div id="view-tarefas" class="view">
+        <h2>Tarefas</h2>
+        <div class="card"><p class="placeholder">Kanban de tarefas — chega na Fase 3.</p></div>
+      </div>
+      <div id="view-projetos" class="view">
+        <h2>Projetos</h2>
+        <div class="card">
+          <div class="form-row">
+            <div><label>Nome do projeto</label><input id="np-nome"></div>
+            <div><label>Status</label>
+              <select id="np-status">
+                <option value="ativo">Ativo</option>
+                <option value="pausado">Pausado</option>
+                <option value="concluido">Concluído</option>
+              </select>
+            </div>
+            <div><label>Início</label><input id="np-inicio" type="date"></div>
+            <div><label>Fim</label><input id="np-fim" type="date"></div>
+          </div>
+          <button onclick="criarProjeto()">Adicionar projeto</button>
+        </div>
+        <div class="card">
+          <table>
+            <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th></tr></thead>
+            <tbody id="projetos-tbody"></tbody>
+          </table>
+          <p class="empty-note" id="projetos-empty" style="display:none;">Nenhum projeto cadastrado ainda.</p>
+        </div>
+      </div>
+      <div id="view-configuracoes" class="view">
+        <h2>Configurações</h2>
+        <div class="card">
+          <p class="placeholder" style="margin-bottom:12px;">Gerencie quais seções cada usuário pode acessar. Categorias de custo e colunas do Kanban chegam na Fase 4.</p>
+          <table>
+            <thead><tr><th>Usuário</th><th>Dashboard</th><th>Financeiro</th><th>Tarefas</th><th>Projetos</th><th>Config.</th></tr></thead>
+            <tbody id="usuarios-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://vqevcjuptlnfvzttzlme.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_Lr3EvmY6tMjhIdMVjNHtzg_u6qIzHMF";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const MODULES = ["dashboard", "financeiro", "tarefas", "projetos", "configuracoes"];
+  const MODULE_LABELS = { dashboard: "Dashboard", financeiro: "Financeiro", tarefas: "Tarefas", projetos: "Projetos", configuracoes: "Configurações" };
+
+  let currentUser = null;
+  let currentProfile = null;
+  let currentPermissions = new Set();
+
+  async function init() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      await afterLogin(session.user);
+    } else {
+      document.getElementById('login-screen').style.display = 'flex';
+    }
+  }
+
+  async function handleLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const msg = document.getElementById('login-msg');
+    msg.textContent = '';
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { msg.textContent = error.message; return; }
+    await afterLogin(data.user);
+  }
+
+  async function handleSignup() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const msg = document.getElementById('login-msg');
+    msg.textContent = '';
+    if (!email || !password || password.length < 6) {
+      msg.textContent = 'Preencha e-mail e senha (mínimo 6 caracteres).';
+      return;
+    }
+    const { data, error } = await sb.auth.signUp({ email, password });
+    if (error) { msg.textContent = error.message; return; }
+    if (data.session) {
+      await afterLogin(data.user);
+    } else {
+      msg.style.color = 'var(--pos)';
+      msg.textContent = 'Conta criada! Confirme seu e-mail e depois faça login.';
+    }
+  }
+
+  async function handleLogout() {
+    await sb.auth.signOut();
+    location.reload();
+  }
+
+  async function afterLogin(user) {
+    currentUser = user;
+    const { data: profile, error } = await sb.from('profiles').select('*').eq('id', user.id).single();
+    if (error || !profile) {
+      document.getElementById('login-msg').textContent = 'Não foi possível carregar seu perfil. Tente de novo em alguns segundos.';
+      return;
+    }
+    currentProfile = profile;
+
+    if (profile.is_admin) {
+      currentPermissions = new Set(MODULES);
+    } else {
+      const { data: perms } = await sb.from('user_permissions').select('modulo').eq('user_id', user.id);
+      currentPermissions = new Set((perms || []).map(p => p.modulo));
+    }
+
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app-screen').style.display = 'block';
+    document.getElementById('user-email').textContent = profile.email + (profile.is_admin ? ' · admin' : '');
+
+    renderNav();
+    const firstModule = MODULES.find(m => currentPermissions.has(m));
+    if (firstModule) showView(firstModule);
+
+    if (currentPermissions.has('projetos')) carregarProjetos();
+    if (profile.is_admin) carregarUsuarios();
+  }
+
+  function renderNav() {
+    const nav = document.getElementById('nav');
+    nav.innerHTML = '';
+    MODULES.forEach(m => {
+      if (!currentPermissions.has(m)) return;
+      const el = document.createElement('a');
+      el.className = 'nav-item';
+      el.textContent = MODULE_LABELS[m];
+      el.onclick = () => showView(m);
+      el.id = 'nav-' + m;
+      nav.appendChild(el);
+    });
+  }
+
+  function showView(modulo) {
+    document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const view = document.getElementById('view-' + modulo);
+    if (view) view.style.display = 'block';
+    const nav = document.getElementById('nav-' + modulo);
+    if (nav) nav.classList.add('active');
+  }
+
+  // ---- Projetos ----
+  async function carregarProjetos() {
+    const { data, error } = await sb.from('projects').select('*').order('created_at', { ascending: false });
+    const tbody = document.getElementById('projetos-tbody');
+    const empty = document.getElementById('projetos-empty');
+    tbody.innerHTML = '';
+    if (error || !data || data.length === 0) {
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    data.forEach(p => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(p.nome)}</td><td>${escapeHtml(p.status)}</td><td>${p.data_inicio || '-'}</td><td>${p.data_fim || '-'}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function criarProjeto() {
+    const nome = document.getElementById('np-nome').value.trim();
+    if (!nome) return;
+    const status = document.getElementById('np-status').value;
+    const data_inicio = document.getElementById('np-inicio').value || null;
+    const data_fim = document.getElementById('np-fim').value || null;
+    const { error } = await sb.from('projects').insert({ nome, status, data_inicio, data_fim, responsavel_id: currentUser.id });
+    if (error) { alert('Erro ao criar projeto: ' + error.message); return; }
+    document.getElementById('np-nome').value = '';
+    carregarProjetos();
+  }
+
+  // ---- Configurações: usuários e permissões ----
+  async function carregarUsuarios() {
+    const { data: profiles } = await sb.from('profiles').select('*').order('created_at', { ascending: true });
+    const { data: allPerms } = await sb.from('user_permissions').select('*');
+    const tbody = document.getElementById('usuarios-tbody');
+    tbody.innerHTML = '';
+    (profiles || []).forEach(u => {
+      const userPerms = new Set((allPerms || []).filter(p => p.user_id === u.id).map(p => p.modulo));
+      const tr = document.createElement('tr');
+      let cells = `<td>${escapeHtml(u.email)}${u.is_admin ? ' <span style="color:var(--pos)">(admin)</span>' : ''}</td>`;
+      MODULES.forEach(m => {
+        const checked = u.is_admin || userPerms.has(m) ? 'checked' : '';
+        const disabled = u.is_admin ? 'disabled' : '';
+        cells += `<td><input type="checkbox" ${checked} ${disabled} onchange="togglePermissao('${u.id}','${m}',this.checked)"></td>`;
+      });
+      tr.innerHTML = cells;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function togglePermissao(userId, modulo, ligado) {
+    if (ligado) {
+      await sb.from('user_permissions').insert({ user_id: userId, modulo });
+    } else {
+      await sb.from('user_permissions').delete().eq('user_id', userId).eq('modulo', modulo);
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  init();
+</script>
+</body>
+</html>
