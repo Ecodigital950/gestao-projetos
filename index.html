@@ -178,8 +178,13 @@
   .fin-grid td.fin-valor { text-align: right; cursor: pointer; white-space: nowrap; }
   .fin-grid tr.fin-subtotal td.fin-valor, .fin-grid tr.fin-total td.fin-valor { cursor: default; }
   .fin-grid input.fin-valor-input { width: 110px; text-align: right; }
+  .fin-grid input.fin-nome-input { width: 100%; }
   .fin-grid tr.fin-add-row input { font-size: 12.5px; }
-  .fin-grid tr.fin-add-row td:first-child input { width: 100%; }
+  .fin-grid tr.fin-add-row td:nth-child(2) input { width: 100%; }
+  .fin-grid td.fin-drag-handle { width: 16px; padding: 6px 2px; text-align: center; color: var(--muted); cursor: grab; }
+  .fin-grid tr.fin-dragging { opacity: 0.4; }
+  .fin-grid tr.fin-drag-over-top { box-shadow: inset 0 2px 0 var(--info); }
+  .fin-grid tr.fin-drag-over-bottom { box-shadow: inset 0 -2px 0 var(--info); }
 
   .fin-section-title { background: #0c1120; border: 1px solid var(--card-border); border-radius: 10px 10px 0 0; padding: 10px 16px; font-weight: 700; font-size: 13.5px; margin: 20px 0 -1px 0; }
   .fin-section-title + .card { border-radius: 0 0 14px 14px; }
@@ -333,7 +338,7 @@
 
           <div class="fin-section-title">Entrada mês</div>
           <div class="card">
-            <p class="placeholder" style="margin-bottom:12px;">Clique no valor pra editar rápido. Clique no nome pra ajustar categoria/dia/observação.</p>
+            <p class="placeholder" style="margin-bottom:12px;">Clique no nome ou no valor pra editar direto. Arraste pelo ⠿ pra reordenar. Use ⋯ pra categoria/dia/observação.</p>
             <table class="fin-grid">
               <tbody id="fin-entrada-grid"></tbody>
             </table>
@@ -1578,11 +1583,21 @@
   function linhaFinItem(item) {
     const badge = item.assinatura_id ? ' <span title="Gerado por assinatura">🔁</span>' : '';
     const extra = [item.dia ? `dia ${item.dia}` : null, item.observacao ? escapeHtml(item.observacao) : null].filter(Boolean).join(' · ');
+    const ordem = item.ordem || 0;
     return `
-      <tr>
-        <td class="fin-nome" onclick="editarFinItemRapido('${item.id}')">${escapeHtml(item.nome)}${badge}${extra ? `<div class="card-sub" style="margin:0;">${extra}</div>` : ''}</td>
+      <tr draggable="true" data-ordem="${ordem}"
+          ondragstart="finDragStart(event,'${item.id}')"
+          ondragend="finDragEnd(event)"
+          ondragover="finDragOverRow(event)"
+          ondragleave="finDragLeaveRow(event)"
+          ondrop="finDropOnRow(event, ${ordem}, '${item.id}')">
+        <td class="fin-drag-handle" title="Arraste pra reordenar">⠿</td>
+        <td class="fin-nome" onclick="editarFinNomeInline(this,'${item.id}')">${escapeHtml(item.nome)}${badge}${extra ? `<div class="card-sub" style="margin:0;">${extra}</div>` : ''}</td>
         <td class="fin-valor" onclick="editarFinValorInline(this,'${item.id}')">${brl(item.valor)}</td>
-        <td><button class="row-action danger" onclick="excluirFinItem('${item.id}')">Excluir</button></td>
+        <td>
+          <button class="row-action" title="Categoria / dia / observação" onclick="editarFinItemDetalhes('${item.id}')">⋯</button>
+          <button class="row-action danger" onclick="excluirFinItem('${item.id}')">Excluir</button>
+        </td>
       </tr>`;
   }
 
@@ -1591,11 +1606,64 @@
     const idNome = `fin-add-${contexto}-${tipo}-${chave}-nome`;
     const idValor = `fin-add-${contexto}-${tipo}-${chave}-valor`;
     return `
-      <tr class="fin-add-row">
+      <tr class="fin-add-row" data-ordem="999999" ondragover="finDragOverRow(event)" ondragleave="finDragLeaveRow(event)" ondrop="finDropOnRow(event, 999999, null)">
+        <td></td>
         <td><input type="text" id="${idNome}" placeholder="+ adicionar item" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarFinItemRapido('${contexto}','${tipo}','${categoriaId || ''}','${idNome}','${idValor}');}"></td>
         <td><input type="text" inputmode="decimal" id="${idValor}" placeholder="0,00" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarFinItemRapido('${contexto}','${tipo}','${categoriaId || ''}','${idNome}','${idValor}');}"></td>
         <td><button class="row-action" onclick="adicionarFinItemRapido('${contexto}','${tipo}','${categoriaId || ''}','${idNome}','${idValor}')">Adicionar</button></td>
       </tr>`;
+  }
+
+  // Reordenar: arraste um item (⠿) pra cima/baixo da lista. Ao soltar, a nova
+  // ordem é calculada como a média entre os vizinhos e salva só no item
+  // arrastado — categorias e outros itens não são tocados.
+  let finDragItemId = null;
+  function finDragStart(ev, id) {
+    finDragItemId = id;
+    ev.currentTarget.classList.add('fin-dragging');
+    ev.dataTransfer.effectAllowed = 'move';
+  }
+  function finDragEnd(ev) {
+    ev.currentTarget.classList.remove('fin-dragging');
+    document.querySelectorAll('.fin-grid tr.fin-drag-over-top, .fin-grid tr.fin-drag-over-bottom').forEach(el => el.classList.remove('fin-drag-over-top', 'fin-drag-over-bottom'));
+  }
+  function finDragOverRow(ev) {
+    if (!finDragItemId) return;
+    ev.preventDefault();
+    const tr = ev.currentTarget;
+    const rect = tr.getBoundingClientRect();
+    const before = (ev.clientY - rect.top) < rect.height / 2;
+    tr.classList.toggle('fin-drag-over-top', before);
+    tr.classList.toggle('fin-drag-over-bottom', !before);
+  }
+  function finDragLeaveRow(ev) {
+    ev.currentTarget.classList.remove('fin-drag-over-top', 'fin-drag-over-bottom');
+  }
+  async function finDropOnRow(ev, targetOrdem, targetId) {
+    ev.preventDefault();
+    const tr = ev.currentTarget;
+    const before = tr.classList.contains('fin-drag-over-top');
+    tr.classList.remove('fin-drag-over-top', 'fin-drag-over-bottom');
+    const id = finDragItemId;
+    finDragItemId = null;
+    if (!id || id === targetId) return;
+
+    const tbody = tr.parentElement;
+    const rows = Array.from(tbody.querySelectorAll('tr[data-ordem]'));
+    const idx = rows.indexOf(tr);
+    let novaOrdem;
+    if (before) {
+      const prevRow = rows[idx - 1];
+      const prevOrdem = prevRow ? Number(prevRow.dataset.ordem) : Number(tr.dataset.ordem) - 10;
+      novaOrdem = (prevOrdem + Number(tr.dataset.ordem)) / 2;
+    } else {
+      const nextRow = rows[idx + 1];
+      const nextOrdem = nextRow ? Number(nextRow.dataset.ordem) : Number(tr.dataset.ordem) + 10;
+      novaOrdem = (Number(tr.dataset.ordem) + nextOrdem) / 2;
+    }
+    const { error } = await sb.from('fin_entries').update({ ordem: novaOrdem }).eq('id', id);
+    if (error) { alert('Erro ao reordenar: ' + error.message); return; }
+    carregarFinanceiroMensal();
   }
 
   function renderFinGrid(contexto, tipo) {
@@ -1618,7 +1686,7 @@
         const itensCat = itens.filter(i => i.categoria_id === linha.cat.id);
         const subtotal = itensCat.reduce((s, i) => s + Number(i.valor || 0), 0);
         totalGeral += subtotal;
-        html += `<tr class="fin-subtotal"><td>${escapeHtml(linha.cat.nome)}</td><td class="fin-valor">${brl(subtotal)}</td><td></td></tr>`;
+        html += `<tr class="fin-subtotal" data-ordem="${linha.cat.ordem}" ondragover="finDragOverRow(event)" ondragleave="finDragLeaveRow(event)" ondrop="finDropOnRow(event, ${linha.cat.ordem}, null)"><td></td><td>${escapeHtml(linha.cat.nome)}</td><td class="fin-valor">${brl(subtotal)}</td><td></td></tr>`;
       } else {
         totalGeral += Number(linha.item.valor || 0);
         html += linhaFinItem(linha.item);
@@ -1626,7 +1694,7 @@
     });
 
     html += linhaFinAdd(contexto, tipo, '');
-    html += `<tr class="fin-total"><td>Total ${tipo === 'entrada' ? 'Entrada' : 'Despesas'}</td><td class="fin-valor">${brl(totalGeral)}</td><td></td></tr>`;
+    html += `<tr class="fin-total"><td></td><td>Total ${tipo === 'entrada' ? 'Entrada' : 'Despesas'}</td><td class="fin-valor">${brl(totalGeral)}</td><td></td></tr>`;
     return html;
   }
 
@@ -1644,7 +1712,7 @@
           <div class="fin-detalhe-titulo"><span>${escapeHtml(cat.nome)}</span><span>${brl(subtotal)}</span></div>
           <table class="fin-grid">
             <tbody>
-              ${linhasItens || '<tr><td colspan="3" class="empty-note">Nenhum item lançado ainda.</td></tr>'}
+              ${linhasItens || '<tr><td colspan="4" class="empty-note">Nenhum item lançado ainda.</td></tr>'}
               ${linhaFinAdd(contexto, 'despesa', cat.id)}
             </tbody>
           </table>
@@ -1682,12 +1750,31 @@
     carregarFinanceiroMensal();
   }
 
-  async function editarFinItemRapido(id) {
+  function editarFinNomeInline(tdEl, id) {
     const item = finEntriesCache.find(x => x.id === id);
     if (!item) return;
+    tdEl.innerHTML = `<input type="text" class="fin-nome-input" value="${escapeHtml(item.nome)}">`;
+    const input = tdEl.querySelector('input');
+    input.onblur = () => salvarFinNomeInline(id, input.value);
+    input.onkeydown = (ev) => { if (ev.key === 'Enter') input.blur(); };
+    input.focus();
+    input.select();
+  }
 
-    const novoNome = prompt('Nome do item:', item.nome);
-    if (novoNome === null) return;
+  async function salvarFinNomeInline(id, novoNome) {
+    const nome = novoNome.trim();
+    if (!nome) { carregarFinanceiroMensal(); return; }
+    const { error } = await sb.from('fin_entries').update({ nome }).eq('id', id);
+    if (error) { alert('Erro ao salvar: ' + error.message); }
+    carregarFinanceiroMensal();
+  }
+
+  // Detalhes secundários (categoria/observação/dia) — usados com menos
+  // frequência que nome/valor/ordem, por isso continuam num fluxo rápido de
+  // prompts em vez de campos inline permanentes na grade.
+  async function editarFinItemDetalhes(id) {
+    const item = finEntriesCache.find(x => x.id === id);
+    if (!item) return;
 
     const opcoesCategoria = finCategoriasCache.filter(c => c.contexto === item.contexto && c.tipo === item.tipo).map(c => c.nome);
     const catAtual = finCategoriasCache.find(c => c.id === item.categoria_id);
@@ -1707,9 +1794,7 @@
     if (novoDiaStr === null) return;
     const dia = novoDiaStr.trim() ? Math.min(31, Math.max(1, parseInt(novoDiaStr, 10) || 1)) : null;
 
-    const { error } = await sb.from('fin_entries').update({
-      nome: novoNome.trim() || item.nome, categoria_id, observacao: novaObs.trim() || null, dia
-    }).eq('id', id);
+    const { error } = await sb.from('fin_entries').update({ categoria_id, observacao: novaObs.trim() || null, dia }).eq('id', id);
     if (error) { alert('Erro ao salvar: ' + error.message); return; }
     carregarFinanceiroMensal();
   }
