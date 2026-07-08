@@ -6,6 +6,9 @@
 <title>Gestor de Projetos</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
 <style>
   :root {
     --bg: #0c1120;
@@ -170,8 +173,7 @@
         <h2>Dashboard</h2>
         <div class="card">
           <div class="form-row">
-            <div><label>De</label><input type="date" id="dash-de"></div>
-            <div><label>Até</label><input type="date" id="dash-ate"></div>
+            <div><label>Período</label><input type="text" id="dash-periodo" placeholder="Selecione o período"></div>
             <div><label>Projeto</label><select id="dash-projeto"><option value="">Todos</option></select></div>
             <div style="display:flex;align-items:flex-end;"><button onclick="carregarDashboard()">Filtrar</button></div>
           </div>
@@ -309,6 +311,7 @@
   let currentPermissions = new Set();
 
   async function init() {
+    initDashPeriodo();
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
       await afterLogin(session.user);
@@ -510,10 +513,31 @@
 
   // ---- Dashboard consolidado (todos os projetos, com filtros) ----
   let dashPieChart, dashBarChart;
+  let dashPeriodoPicker;
+
+  function formatDateLocal(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dia = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dia}`;
+  }
+
+  function initDashPeriodo() {
+    if (typeof flatpickr !== 'function') return;
+    dashPeriodoPicker = flatpickr('#dash-periodo', {
+      mode: 'range',
+      dateFormat: 'Y-m-d',
+      altInput: true,
+      altFormat: 'd/m/Y',
+      locale: 'pt',
+      onClose: () => carregarDashboard()
+    });
+  }
 
   async function carregarDashboard() {
-    const de = document.getElementById('dash-de').value;
-    const ate = document.getElementById('dash-ate').value;
+    const datas = (dashPeriodoPicker && dashPeriodoPicker.selectedDates) || [];
+    const de = datas[0] ? formatDateLocal(datas[0]) : '';
+    const ate = datas[1] ? formatDateLocal(datas[1]) : (datas[0] ? formatDateLocal(datas[0]) : '');
     const projetoId = document.getElementById('dash-projeto').value;
 
     let costsQuery = sb.from('costs').select('valor,tipo,categoria_id,data');
