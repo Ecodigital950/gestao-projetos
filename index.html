@@ -188,6 +188,10 @@
   .fin-grid tr.fin-resumo-diferenca td { font-weight: 700; }
   .fin-grid tr.fin-resumo-diferenca.pos td { background: rgba(52,211,153,0.15); color: var(--pos); }
   .fin-grid tr.fin-resumo-diferenca.neg td { background: rgba(248,113,113,0.15); color: var(--neg); }
+
+  .fin-detalhe-bloco { margin-bottom: 20px; }
+  .fin-detalhe-bloco:last-child { margin-bottom: 0; }
+  .fin-detalhe-titulo { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--card-border); }
 </style>
 </head>
 <body>
@@ -337,9 +341,14 @@
 
           <div class="fin-section-title">Despesas Eco</div>
           <div class="card">
+            <p class="placeholder" style="margin-bottom:12px;">Visão macro. O detalhamento de cada categoria (Assinaturas, Custos Extras...) fica nos cards abaixo.</p>
             <table class="fin-grid">
               <tbody id="fin-despesa-eco-grid"></tbody>
             </table>
+          </div>
+          <div class="card" id="fin-detalhamento-eco">
+            <h3 style="margin-top:0;">Detalhamento (Eco)</h3>
+            <div id="fin-detalhamento-eco-body"></div>
           </div>
           <div class="card">
             <h3 style="margin-top:0;">Assinaturas (Eco)</h3>
@@ -358,9 +367,14 @@
 
           <div class="fin-section-title">Despesas Pessoal</div>
           <div class="card">
+            <p class="placeholder" style="margin-bottom:12px;">Visão macro. O detalhamento de cada categoria (Alimentação, Transporte/Uber, lazer...) fica nos cards abaixo.</p>
             <table class="fin-grid">
               <tbody id="fin-despesa-pessoal-grid"></tbody>
             </table>
+          </div>
+          <div class="card" id="fin-detalhamento-pessoal">
+            <h3 style="margin-top:0;">Detalhamento (Pessoal)</h3>
+            <div id="fin-detalhamento-pessoal-body"></div>
           </div>
           <div class="card">
             <h3 style="margin-top:0;">Assinaturas (Pessoal)</h3>
@@ -1551,6 +1565,8 @@
     document.getElementById('fin-entrada-grid').innerHTML = renderFinGrid('eco', 'entrada');
     document.getElementById('fin-despesa-eco-grid').innerHTML = renderFinGrid('eco', 'despesa');
     document.getElementById('fin-despesa-pessoal-grid').innerHTML = renderFinGrid('pessoal', 'despesa');
+    document.getElementById('fin-detalhamento-eco-body').innerHTML = renderFinDetalhamento('eco');
+    document.getElementById('fin-detalhamento-pessoal-body').innerHTML = renderFinDetalhamento('pessoal');
 
     const diferencaClasse = saldo >= 0 ? 'pos' : 'neg';
     document.getElementById('fin-resumo-grid').innerHTML = `
@@ -1597,12 +1613,12 @@
 
     linhas.forEach(linha => {
       if (linha.tipoLinha === 'categoria') {
+        // Visão macro: só o subtotal da categoria. O detalhamento (itens
+        // por dentro dela) mora na seção "Detalhamento", não aqui.
         const itensCat = itens.filter(i => i.categoria_id === linha.cat.id);
         const subtotal = itensCat.reduce((s, i) => s + Number(i.valor || 0), 0);
         totalGeral += subtotal;
         html += `<tr class="fin-subtotal"><td>${escapeHtml(linha.cat.nome)}</td><td class="fin-valor">${brl(subtotal)}</td><td></td></tr>`;
-        itensCat.forEach(i => { html += linhaFinItem(i); });
-        html += linhaFinAdd(contexto, tipo, linha.cat.id);
       } else {
         totalGeral += Number(linha.item.valor || 0);
         html += linhaFinItem(linha.item);
@@ -1612,6 +1628,28 @@
     html += linhaFinAdd(contexto, tipo, '');
     html += `<tr class="fin-total"><td>Total ${tipo === 'entrada' ? 'Entrada' : 'Despesas'}</td><td class="fin-valor">${brl(totalGeral)}</td><td></td></tr>`;
     return html;
+  }
+
+  // Detalhamento: os itens de dentro de cada categoria de despesa (exceto
+  // "Assinaturas", que já tem seu próprio card de gestão de recorrência).
+  function renderFinDetalhamento(contexto) {
+    const categorias = finCategoriasCache.filter(c => c.contexto === contexto && c.tipo === 'despesa' && c.nome.trim().toLowerCase() !== 'assinaturas');
+    if (!categorias.length) return '<p class="empty-note">Nenhuma categoria com detalhamento aqui.</p>';
+    return categorias.map(cat => {
+      const itensCat = finEntriesCache.filter(i => i.categoria_id === cat.id);
+      const subtotal = itensCat.reduce((s, i) => s + Number(i.valor || 0), 0);
+      const linhasItens = itensCat.map(i => linhaFinItem(i)).join('');
+      return `
+        <div class="fin-detalhe-bloco">
+          <div class="fin-detalhe-titulo"><span>${escapeHtml(cat.nome)}</span><span>${brl(subtotal)}</span></div>
+          <table class="fin-grid">
+            <tbody>
+              ${linhasItens || '<tr><td colspan="3" class="empty-note">Nenhum item lançado ainda.</td></tr>'}
+              ${linhaFinAdd(contexto, 'despesa', cat.id)}
+            </tbody>
+          </table>
+        </div>`;
+    }).join('');
   }
 
   async function adicionarFinItemRapido(contexto, tipo, categoriaId, idNome, idValor) {
