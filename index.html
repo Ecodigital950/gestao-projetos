@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
   :root {
     --bg: #0c1120;
@@ -185,6 +186,10 @@
   .fin-grid tr.fin-dragging { opacity: 0.4; }
   .fin-grid tr.fin-drag-over-top { box-shadow: inset 0 2px 0 var(--info); }
   .fin-grid tr.fin-drag-over-bottom { box-shadow: inset 0 -2px 0 var(--info); }
+  .fin-grid td.fin-barra-col { width: 90px; padding-right: 14px; }
+  .fin-barra-track { height: 6px; border-radius: 3px; background: var(--card-border); overflow: hidden; }
+  .fin-barra-fill { height: 6px; border-radius: 3px; }
+  .fin-barra-fill.fin-barra-muted { background: var(--muted); }
 
   .fin-section-title { background: #0c1120; border: 1px solid var(--card-border); border-radius: 10px 10px 0 0; padding: 10px 16px; font-weight: 700; font-size: 13.5px; margin: 20px 0 -1px 0; }
   .fin-section-title + .card { border-radius: 0 0 14px 14px; }
@@ -344,6 +349,17 @@
             </div>
           </div>
           <div class="grid-kpi" id="fin-mensal-kpis"></div>
+
+          <div class="charts-row" style="margin-bottom:16px;">
+            <div class="card">
+              <h3 style="margin-top:0;">Despesas por categoria (mês)</h3>
+              <div id="fin-donut-wrap"><canvas id="fin-donut-categorias"></canvas></div>
+            </div>
+            <div class="card">
+              <h3 style="margin-top:0;">Entrada x despesa — Eco x Pessoal</h3>
+              <canvas id="fin-bar-ecopessoal"></canvas>
+            </div>
+          </div>
 
           <div class="fin-section-title">Entrada mês</div>
           <div class="card">
@@ -716,6 +732,57 @@
   }
   function kpiCard(label, value, sub, accentClass) {
     return `<div class="card kpi-card"><div class="card-label">${label}</div><div class="card-value ${accentClass || ''}">${value}</div>${sub ? `<div class="card-sub">${sub}</div>` : ''}</div>`;
+  }
+
+  // KPI colorido, só pra tela de Financeiro mensal (fundo levemente tingido
+  // pra reforçar entrada=verde / despesa=vermelho / saldo dinâmico).
+  function finKpiCard(label, value, sub, tipo) {
+    const cores = {
+      entrada: { bg: 'rgba(52,211,153,0.12)', texto: 'var(--pos)' },
+      despesa: { bg: 'rgba(248,113,113,0.12)', texto: 'var(--neg)' },
+      saldo_pos: { bg: 'rgba(52,211,153,0.12)', texto: 'var(--pos)' },
+      saldo_neg: { bg: 'rgba(248,113,113,0.12)', texto: 'var(--neg)' },
+      neutro: { bg: 'var(--card)', texto: 'var(--text, #e8ebf5)' }
+    };
+    const c = cores[tipo] || cores.neutro;
+    return `<div class="card kpi-card" style="background:${c.bg};">
+      <div class="card-label">${label}</div>
+      <div class="card-value" style="color:${c.texto};">${value}</div>
+      ${sub ? `<div class="card-sub">${sub}</div>` : ''}
+    </div>`;
+  }
+
+  // Cor e ícone por categoria — determinístico (mesma categoria = mesma cor
+  // sempre, mesmo depois de recarregar), pra usar na grade, no detalhamento
+  // e no gráfico de rosca sem precisar guardar isso no banco.
+  const FIN_PALETTE = ['#38bdf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6', '#4ade80', '#facc15'];
+  function corCategoria(categoriaId) {
+    const str = String(categoriaId || '');
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+    return FIN_PALETTE[hash % FIN_PALETTE.length];
+  }
+  function iconeCategoria(nome) {
+    const n = (nome || '').toLowerCase();
+    const mapa = [
+      [/alug|mora/, 'ti-home'],
+      [/luz|energia/, 'ti-bulb'],
+      [/\bagua\b/, 'ti-droplet'],
+      [/internet|wifi|telefone|celular|vivo|claro|tim\b/, 'ti-wifi'],
+      [/assinatura/, 'ti-refresh'],
+      [/transporte|uber|combust/, 'ti-car'],
+      [/lazer/, 'ti-mood-smile'],
+      [/aliment|mercado/, 'ti-salad'],
+      [/cart[aã]o|cr[eé]dito/, 'ti-credit-card'],
+      [/\bpet\b/, 'ti-paw'],
+      [/investi/, 'ti-trending-up'],
+      [/parcel/, 'ti-calendar-time'],
+      [/custo/, 'ti-alert-circle'],
+      [/cuidado|sa[uú]de|m[eé]dico/, 'ti-heart'],
+      [/financiamento/, 'ti-building-bank']
+    ];
+    for (const [re, icone] of mapa) { if (re.test(n)) return icone; }
+    return 'ti-tag';
   }
   function somaPorTipo(arr, tipo) {
     return (arr || []).filter(x => x.tipo === tipo).reduce((s, x) => s + Number(x.valor || 0), 0);
@@ -1542,6 +1609,7 @@
   let finSubsCache = [];
   let finEntriesCache = [];
   let finCategoriasCache = [];
+  let finDonutChart, finBarChart;
 
   function finMesStr() {
     const v = document.getElementById('fin-mes').value; // 'YYYY-MM'
@@ -1569,11 +1637,11 @@
     const saldo = totalEntrada - custoTotal;
 
     document.getElementById('fin-mensal-kpis').innerHTML = [
-      kpiCard('Entrada (Eco)', brl(totalEntrada)),
-      kpiCard('Despesas Eco', brl(totalDespesaEco)),
-      kpiCard('Despesas Pessoal', brl(totalDespesaPessoal)),
-      kpiCard('Pró-labore', brl(prolabore)),
-      kpiCard('Saldo do mês', brl(saldo), null, saldo >= 0 ? 'accent-pos' : 'accent-neg'),
+      finKpiCard('Entrada (Eco)', brl(totalEntrada), null, 'entrada'),
+      finKpiCard('Despesas Eco', brl(totalDespesaEco), null, 'despesa'),
+      finKpiCard('Despesas Pessoal', brl(totalDespesaPessoal), null, 'despesa'),
+      finKpiCard('Pró-labore', brl(prolabore), null, 'neutro'),
+      finKpiCard('Saldo do mês', brl(saldo), null, saldo >= 0 ? 'saldo_pos' : 'saldo_neg'),
     ].join('');
 
     document.getElementById('fin-entrada-grid').innerHTML = renderFinGrid('eco', 'entrada');
@@ -1587,12 +1655,70 @@
       <tr class="fin-resumo-custo"><td>Custo Real (Eco + Pessoal + Pró-labore)</td><td class="fin-valor">${brl(custoTotal)}</td><td></td></tr>
       <tr class="fin-resumo-receita"><td>Receita Real</td><td class="fin-valor">${brl(totalEntrada)}</td><td></td></tr>
       <tr class="fin-resumo-diferenca ${diferencaClasse}"><td>Diferença</td><td class="fin-valor">${brl(saldo)}</td><td></td></tr>`;
+
+    // Rosca: despesas por categoria (Eco + Pessoal juntos, rótulo indica o
+    // contexto pra não confundir categorias com o mesmo nome nos dois lados).
+    const catDonutData = [];
+    finCategoriasCache.filter(c => c.tipo === 'despesa').forEach(cat => {
+      const total = finEntriesCache.filter(e => e.categoria_id === cat.id).reduce((s, e) => s + Number(e.valor || 0), 0);
+      if (total > 0) catDonutData.push({ label: `${cat.nome} · ${cat.contexto === 'eco' ? 'Eco' : 'Pessoal'}`, valor: total, cor: corCategoria(cat.id) });
+    });
+    catDonutData.sort((a, b) => b.valor - a.valor);
+
+    if (finDonutChart) { finDonutChart.destroy(); finDonutChart = null; }
+    const donutWrap = document.getElementById('fin-donut-wrap');
+    if (donutWrap) {
+      if (!catDonutData.length) {
+        donutWrap.innerHTML = '<p class="empty-note">Sem despesas por categoria lançadas ainda esse mês.</p>';
+      } else {
+        donutWrap.innerHTML = '<canvas id="fin-donut-categorias"></canvas>';
+        finDonutChart = new Chart(document.getElementById('fin-donut-categorias'), {
+          type: 'doughnut',
+          data: {
+            labels: catDonutData.map(d => d.label),
+            datasets: [{ data: catDonutData.map(d => d.valor), backgroundColor: catDonutData.map(d => d.cor), borderWidth: 0 }]
+          },
+          options: {
+            plugins: {
+              legend: { position: 'bottom', labels: { color: '#e8ebf5', font: { size: 11 }, boxWidth: 10 } },
+              tooltip: { callbacks: { label: (ctx) => ctx.label + ': ' + brl(ctx.parsed) } }
+            }
+          }
+        });
+      }
+    }
+
+    // Barra: entrada x despesa, Eco x Pessoal.
+    const entradaPessoal = finEntriesCache.filter(e => e.tipo === 'entrada' && e.contexto === 'pessoal').reduce((s, e) => s + Number(e.valor || 0), 0);
+    if (finBarChart) { finBarChart.destroy(); finBarChart = null; }
+    const barEl = document.getElementById('fin-bar-ecopessoal');
+    if (barEl) {
+      finBarChart = new Chart(barEl, {
+        type: 'bar',
+        data: {
+          labels: ['Eco', 'Pessoal'],
+          datasets: [
+            { label: 'Entrada', data: [totalEntrada, entradaPessoal], backgroundColor: '#34d399' },
+            { label: 'Despesa', data: [totalDespesaEco, totalDespesaPessoal], backgroundColor: '#f87171' }
+          ]
+        },
+        options: {
+          scales: {
+            x: { ticks: { color: '#8992ab' }, grid: { color: '#232b45' } },
+            y: { ticks: { color: '#8992ab' }, grid: { color: '#232b45' } }
+          },
+          plugins: { legend: { labels: { color: '#e8ebf5' } } }
+        }
+      });
+    }
   }
 
-  function linhaFinItem(item) {
+  function linhaFinItem(item, maxValor) {
     const badge = item.assinatura_id ? ' <span title="Gerado por assinatura">🔁</span>' : '';
     const extra = [item.dia ? `dia ${item.dia}` : null, item.observacao ? escapeHtml(item.observacao) : null].filter(Boolean).join(' · ');
     const ordem = item.ordem || 0;
+    const max = maxValor || Math.max(1, Number(item.valor || 0));
+    const pct = Math.round((Number(item.valor || 0) / max) * 100);
     return `
       <tr draggable="true" data-ordem="${ordem}"
           ondragstart="finDragStart(event,'${item.id}')"
@@ -1602,6 +1728,7 @@
           ondrop="finDropOnRow(event, ${ordem}, '${item.id}')">
         <td class="fin-drag-handle" title="Arraste pra reordenar">⠿</td>
         <td class="fin-nome" onclick="editarFinNomeInline(this,'${item.id}')">${escapeHtml(item.nome)}${badge}${extra ? `<div class="card-sub" style="margin:0;">${extra}</div>` : ''}</td>
+        <td class="fin-barra-col"><div class="fin-barra-track"><div class="fin-barra-fill fin-barra-muted" style="width:${pct}%;"></div></div></td>
         <td class="fin-valor" onclick="editarFinValorInline(this,'${item.id}')">${brl(item.valor)}</td>
         <td>
           <button class="row-action" title="Categoria / dia / observação" onclick="editarFinItemDetalhes('${item.id}')">⋯</button>
@@ -1618,6 +1745,7 @@
       <tr class="fin-add-row" data-ordem="999999" ondragover="finDragOverRow(event)" ondragleave="finDragLeaveRow(event)" ondrop="finDropOnRow(event, 999999, null)">
         <td></td>
         <td><input type="text" id="${idNome}" placeholder="+ adicionar item" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarFinItemRapido('${contexto}','${tipo}','${categoriaId || ''}','${idNome}','${idValor}');}"></td>
+        <td></td>
         <td><input type="text" inputmode="decimal" id="${idValor}" placeholder="0,00" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarFinItemRapido('${contexto}','${tipo}','${categoriaId || ''}','${idNome}','${idValor}');}"></td>
         <td><button class="row-action" onclick="adicionarFinItemRapido('${contexto}','${tipo}','${categoriaId || ''}','${idNome}','${idValor}')">Adicionar</button></td>
       </tr>`;
@@ -1685,6 +1813,13 @@
     semCategoriaItens.forEach(item => linhas.push({ tipoLinha: 'item', ordem: item.ordem || 0, item }));
     linhas.sort((a, b) => a.ordem - b.ordem);
 
+    // Referência pra barra de proporção: o maior valor entre subtotal de
+    // categoria e item solto, nessa mesma grade.
+    const valoresParaMax = linhas.map(l => l.tipoLinha === 'categoria'
+      ? itens.filter(i => i.categoria_id === l.cat.id).reduce((s, i) => s + Number(i.valor || 0), 0)
+      : Number(l.item.valor || 0));
+    const maxValor = Math.max(1, ...valoresParaMax);
+
     let html = '';
     let totalGeral = 0;
 
@@ -1695,10 +1830,19 @@
         const itensCat = itens.filter(i => i.categoria_id === linha.cat.id);
         const subtotal = itensCat.reduce((s, i) => s + Number(i.valor || 0), 0);
         totalGeral += subtotal;
-        html += `<tr class="fin-subtotal" data-ordem="${linha.cat.ordem}" ondragover="finDragOverRow(event)" ondragleave="finDragLeaveRow(event)" ondrop="finDropOnRow(event, ${linha.cat.ordem}, null)"><td></td><td>${escapeHtml(linha.cat.nome)}</td><td class="fin-valor">${brl(subtotal)}</td><td></td></tr>`;
+        const cor = corCategoria(linha.cat.id);
+        const icone = iconeCategoria(linha.cat.nome);
+        const pct = Math.round((subtotal / maxValor) * 100);
+        html += `<tr class="fin-subtotal" data-ordem="${linha.cat.ordem}" style="border-left:3px solid ${cor};" ondragover="finDragOverRow(event)" ondragleave="finDragLeaveRow(event)" ondrop="finDropOnRow(event, ${linha.cat.ordem}, null)">
+          <td></td>
+          <td><i class="ti ${icone}" aria-hidden="true" style="color:${cor}; font-size:15px; vertical-align:-2px; margin-right:8px;"></i>${escapeHtml(linha.cat.nome)}</td>
+          <td class="fin-barra-col"><div class="fin-barra-track"><div class="fin-barra-fill" style="width:${pct}%; background:${cor};"></div></div></td>
+          <td class="fin-valor">${brl(subtotal)}</td>
+          <td></td>
+        </tr>`;
       } else {
         totalGeral += Number(linha.item.valor || 0);
-        html += linhaFinItem(linha.item);
+        html += linhaFinItem(linha.item, maxValor);
       }
     });
 
@@ -1706,7 +1850,7 @@
     // Detalhamento — repetir aqui na visão macro seria duplicado. Entrada não
     // tem seção de Detalhamento, então mantém o próprio "+ adicionar item".
     if (tipo === 'entrada') html += linhaFinAdd(contexto, tipo, '');
-    html += `<tr class="fin-total"><td></td><td>Total ${tipo === 'entrada' ? 'Entrada' : 'Despesas'}</td><td class="fin-valor">${brl(totalGeral)}</td><td></td></tr>`;
+    html += `<tr class="fin-total"><td></td><td>Total ${tipo === 'entrada' ? 'Entrada' : 'Despesas'}</td><td></td><td class="fin-valor">${brl(totalGeral)}</td><td></td></tr>`;
     return html;
   }
 
@@ -1728,14 +1872,20 @@
     return categorias.map(cat => {
       const itensCat = finEntriesCache.filter(i => i.categoria_id === cat.id);
       const subtotal = itensCat.reduce((s, i) => s + Number(i.valor || 0), 0);
-      const linhasItens = itensCat.map(i => linhaFinItem(i)).join('');
+      const maxValorCat = Math.max(1, ...itensCat.map(i => Number(i.valor || 0)));
+      const linhasItens = itensCat.map(i => linhaFinItem(i, maxValorCat)).join('');
       const aberto = !finCategoriasColapsadas.has(cat.id);
+      const cor = corCategoria(cat.id);
+      const icone = iconeCategoria(cat.nome);
       return `
         <details class="fin-detalhe-bloco" ${aberto ? 'open' : ''} ontoggle="finToggleDetalheCategoria('${cat.id}', this.open)">
-          <summary class="fin-detalhe-titulo"><span><span class="fin-chevron">›</span>${escapeHtml(cat.nome)}</span><span>${brl(subtotal)}</span></summary>
+          <summary class="fin-detalhe-titulo" style="border-left:3px solid ${cor}; padding-left:8px;">
+            <span><span class="fin-chevron">›</span><i class="ti ${icone}" aria-hidden="true" style="color:${cor}; font-size:14px; vertical-align:-2px; margin-right:6px;"></i>${escapeHtml(cat.nome)}</span>
+            <span>${brl(subtotal)}</span>
+          </summary>
           <table class="fin-grid">
             <tbody>
-              ${linhasItens || '<tr><td colspan="4" class="empty-note">Nenhum item lançado ainda.</td></tr>'}
+              ${linhasItens || '<tr><td colspan="5" class="empty-note">Nenhum item lançado ainda.</td></tr>'}
               ${linhaFinAdd(contexto, 'despesa', cat.id)}
             </tbody>
           </table>
