@@ -197,6 +197,15 @@
   .fin-detalhe-bloco { margin-bottom: 20px; }
   .fin-detalhe-bloco:last-child { margin-bottom: 0; }
   .fin-detalhe-titulo { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--card-border); }
+  summary { cursor: pointer; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::marker { content: ''; }
+  .fin-chevron { display: inline-block; transition: transform 0.15s; margin-right: 6px; color: var(--muted); font-style: normal; }
+  details[open] > summary .fin-chevron { transform: rotate(90deg); }
+  details.fin-detalhe-bloco[open] { margin-bottom: 20px; }
+  details.fin-detalhe-bloco:not([open]) { margin-bottom: 8px; }
+  details.card > summary { font-size: 16px; font-weight: 600; }
+  details.card > summary .fin-chevron { font-size: 15px; }
 </style>
 </head>
 <body>
@@ -351,10 +360,10 @@
               <tbody id="fin-despesa-eco-grid"></tbody>
             </table>
           </div>
-          <div class="card" id="fin-detalhamento-eco">
-            <h3 style="margin-top:0;">Detalhamento (Eco)</h3>
-            <div id="fin-detalhamento-eco-body"></div>
-          </div>
+          <details class="card" id="fin-detalhamento-eco" open>
+            <summary><span class="fin-chevron">›</span>Detalhamento (Eco)</summary>
+            <div id="fin-detalhamento-eco-body" style="margin-top:14px;"></div>
+          </details>
           <div class="card">
             <h3 style="margin-top:0;">Assinaturas (Eco)</h3>
             <p class="placeholder" style="margin-bottom:12px;">Cadastre uma vez; o valor padrão se repete todo mês sozinho. O lançamento do mês aparece dentro de Despesas Eco, marcado com 🔁.</p>
@@ -377,10 +386,10 @@
               <tbody id="fin-despesa-pessoal-grid"></tbody>
             </table>
           </div>
-          <div class="card" id="fin-detalhamento-pessoal">
-            <h3 style="margin-top:0;">Detalhamento (Pessoal)</h3>
-            <div id="fin-detalhamento-pessoal-body"></div>
-          </div>
+          <details class="card" id="fin-detalhamento-pessoal" open>
+            <summary><span class="fin-chevron">›</span>Detalhamento (Pessoal)</summary>
+            <div id="fin-detalhamento-pessoal-body" style="margin-top:14px;"></div>
+          </details>
           <div class="card">
             <h3 style="margin-top:0;">Assinaturas (Pessoal)</h3>
             <p class="placeholder" style="margin-bottom:12px;">Cadastre uma vez; o valor padrão se repete todo mês sozinho. O lançamento do mês aparece dentro de Despesas Pessoal, marcado com 🔁.</p>
@@ -1701,8 +1710,18 @@
     return html;
   }
 
+  // Guarda quais categorias o usuário recolheu (fecha o accordion), pra não
+  // reabrir tudo sozinho toda vez que a tela recarrega os dados (a cada
+  // edição). É só em memória — recolhe de novo se recarregar a página.
+  const finCategoriasColapsadas = new Set();
+  function finToggleDetalheCategoria(id, aberto) {
+    if (aberto) finCategoriasColapsadas.delete(id); else finCategoriasColapsadas.add(id);
+  }
+
   // Detalhamento: os itens de dentro de cada categoria de despesa (exceto
   // "Assinaturas", que já tem seu próprio card de gestão de recorrência).
+  // Cada categoria vira um accordion (igual pastas do Bloco de Notas) pra
+  // dar pra recolher o que não precisa ver e manter a visão macro organizada.
   function renderFinDetalhamento(contexto) {
     const categorias = finCategoriasCache.filter(c => c.contexto === contexto && c.tipo === 'despesa' && c.nome.trim().toLowerCase() !== 'assinaturas');
     if (!categorias.length) return '<p class="empty-note">Nenhuma categoria com detalhamento aqui.</p>';
@@ -1710,16 +1729,17 @@
       const itensCat = finEntriesCache.filter(i => i.categoria_id === cat.id);
       const subtotal = itensCat.reduce((s, i) => s + Number(i.valor || 0), 0);
       const linhasItens = itensCat.map(i => linhaFinItem(i)).join('');
+      const aberto = !finCategoriasColapsadas.has(cat.id);
       return `
-        <div class="fin-detalhe-bloco">
-          <div class="fin-detalhe-titulo"><span>${escapeHtml(cat.nome)}</span><span>${brl(subtotal)}</span></div>
+        <details class="fin-detalhe-bloco" ${aberto ? 'open' : ''} ontoggle="finToggleDetalheCategoria('${cat.id}', this.open)">
+          <summary class="fin-detalhe-titulo"><span><span class="fin-chevron">›</span>${escapeHtml(cat.nome)}</span><span>${brl(subtotal)}</span></summary>
           <table class="fin-grid">
             <tbody>
               ${linhasItens || '<tr><td colspan="4" class="empty-note">Nenhum item lançado ainda.</td></tr>'}
               ${linhaFinAdd(contexto, 'despesa', cat.id)}
             </tbody>
           </table>
-        </div>`;
+        </details>`;
     }).join('');
   }
 
