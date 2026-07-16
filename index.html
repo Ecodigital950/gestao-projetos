@@ -181,6 +181,9 @@
   .tm-editable:focus { box-shadow: 0 0 0 2px rgba(56,189,248,0.35); }
   .tm-editable:empty:before { content: attr(data-placeholder); color: var(--muted); }
   .tm-titulo { font-size: 16px; font-weight: 700; flex: 1; }
+  .tm-section-label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 700; margin: 0 0 6px; }
+  .tm-box { background: #0f1526; border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; min-height: 20px; margin: 0; }
+  .badge-etiqueta { font-size: 11px; padding: 3px 10px; border-radius: 999px; font-weight: 600; }
   .task-card .titulo { font-size: 13.5px; font-weight: 600; margin-bottom: 6px; }
   .task-card .descricao { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
   .task-card .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
@@ -533,7 +536,7 @@
                   <option value="alta">Alta</option>
                 </select>
               </div>
-              <div><label>Vencimento</label><input type="date" id="tm-vencimento" onchange="salvarCampoTarefaModal('data_vencimento', this.value || null)"></div>
+              <div><label>Vencimento</label><input type="text" id="tm-vencimento" placeholder="dd/mm/aaaa"></div>
               <div><label>Responsável</label><select id="tm-responsavel" onchange="salvarCampoTarefaModal('responsavel_id', this.value || null)"><option value="">Sem responsável</option></select></div>
             </div>
             <div class="form-row">
@@ -541,11 +544,17 @@
               <div><label>Coluna</label><select id="tm-coluna" onchange="salvarCampoTarefaModal('coluna_id', this.value)"></select></div>
             </div>
 
-            <label style="margin-top:6px; display:block;">Descrição</label>
-            <div id="tm-descricao" class="tm-editable" contenteditable="true" data-placeholder="Adicione uma descrição..." style="margin-bottom:16px;" onblur="salvarCampoTarefaModal('descricao', this.textContent.trim())"></div>
+            <label style="display:block; margin-bottom:6px;">Etiquetas</label>
+            <div id="tm-etiquetas-lista" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
+            <select id="tm-etiqueta-add" onchange="adicionarEtiquetaModal(this.value); this.value='';" style="margin-bottom:16px;">
+              <option value="">+ adicionar etiqueta...</option>
+            </select>
+
+            <label class="tm-section-label">Descrição</label>
+            <div id="tm-descricao" class="tm-editable tm-box" contenteditable="true" data-placeholder="Adicione uma descrição..." style="margin-bottom:16px;" onblur="salvarCampoTarefaModal('descricao', this.textContent.trim())"></div>
 
             <div style="display:flex; justify-content:space-between; align-items:baseline;">
-              <label style="margin:0;">Checklist</label>
+              <label class="tm-section-label" style="margin:0;">Checklist</label>
               <span id="tm-checklist-contador" style="font-size:11px; color:var(--muted);"></span>
             </div>
             <div class="task-checklist-bar-track" style="margin:6px 0 10px;"><div class="task-checklist-bar-fill" id="tm-checklist-bar" style="width:0%;"></div></div>
@@ -623,6 +632,19 @@
           </table>
         </div>
         <div class="card">
+          <h3 style="margin-top:0;">Etiquetas de Tarefas</h3>
+          <p class="placeholder" style="margin-bottom:12px;">Pra sinalizar cliente, tipo de trabalho etc. no card. Aparecem no cartão e no modal de detalhe da tarefa.</p>
+          <div class="form-row">
+            <div><label>Nome</label><input type="text" id="etq-nome" placeholder="Ex: Cliente X"></div>
+            <div><label>Cor</label><input type="color" id="etq-cor" value="#38bdf8" style="height:38px; padding:2px;"></div>
+          </div>
+          <button onclick="criarEtiquetaConfig()">Adicionar etiqueta</button>
+          <table style="margin-top:16px;">
+            <thead><tr><th>Etiqueta</th><th></th></tr></thead>
+            <tbody id="etiquetas-config-tbody"></tbody>
+          </table>
+        </div>
+        <div class="card">
           <h3 style="margin-top:0;">Categorias do Financeiro (Eco/Pessoal)</h3>
           <p class="placeholder" style="margin-bottom:12px;">Agrupam os lançamentos de Entrada/Despesa na grade do Financeiro e viram subtotal automático (ex: "Assinaturas").</p>
           <div class="form-row">
@@ -666,6 +688,7 @@
 
   async function init() {
     initDashPeriodo();
+    initTmVencimentoPicker();
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
       await afterLogin(session.user);
@@ -737,6 +760,7 @@
       carregarUsuarios();
       carregarCategoriasConfig();
       carregarColunasConfig();
+      carregarEtiquetasConfig();
       carregarFinCategoriasConfig();
     }
 
@@ -1425,6 +1449,49 @@
     carregarColunasConfig();
   }
 
+  // ---- Etiquetas de tarefas (Configurações) ----
+  async function carregarEtiquetasConfig() {
+    await carregarTaskLabels();
+    const tbody = document.getElementById('etiquetas-config-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = taskLabelsCache.map(e => `
+      <tr>
+        <td><span style="display:inline-flex; align-items:center; gap:8px;"><span style="width:10px; height:10px; border-radius:50%; background:${e.cor}; flex-shrink:0;"></span>${escapeHtml(e.nome)}</span></td>
+        <td>
+          <button class="row-action" onclick="editarEtiquetaConfig('${e.id}')">Editar</button>
+          <button class="row-action danger" onclick="excluirEtiquetaConfig('${e.id}')">Excluir</button>
+        </td>
+      </tr>`
+    ).join('') || '<tr><td colspan="2" class="empty-note">Nenhuma etiqueta cadastrada.</td></tr>';
+  }
+
+  async function criarEtiquetaConfig() {
+    const nome = document.getElementById('etq-nome').value.trim();
+    if (!nome) return;
+    const cor = document.getElementById('etq-cor').value || '#38bdf8';
+    const { error } = await sb.from('task_labels').insert({ nome, cor });
+    if (error) { alert('Erro ao criar etiqueta: ' + error.message); return; }
+    document.getElementById('etq-nome').value = '';
+    carregarEtiquetasConfig();
+  }
+
+  async function editarEtiquetaConfig(id) {
+    const e = taskLabelsCache.find(x => x.id === id);
+    if (!e) return;
+    const novoNome = prompt('Novo nome da etiqueta:', e.nome);
+    if (novoNome === null || !novoNome.trim()) return;
+    const { error } = await sb.from('task_labels').update({ nome: novoNome.trim() }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    carregarEtiquetasConfig();
+  }
+
+  async function excluirEtiquetaConfig(id) {
+    if (!confirm('Excluir essa etiqueta? Ela sai de todos os cards que a usam.')) return;
+    const { error } = await sb.from('task_labels').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    carregarEtiquetasConfig();
+  }
+
   // ---- Tarefas / Kanban ----
   let kanbanColumnsCache = [];
   let tasksCache = [];
@@ -1475,15 +1542,42 @@
   }
 
   let checklistCache = {}; // task_id -> [itens]
+  let taskLabelsCache = []; // todas as etiquetas cadastradas
+  let taskLabelLinksCache = {}; // task_id -> [label_id, ...]
+
+  function hexToRgba(hex, alpha) {
+    const h = (hex || '#38bdf8').replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16) || 0;
+    const g = parseInt(h.substring(2, 4), 16) || 0;
+    const b = parseInt(h.substring(4, 6), 16) || 0;
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  async function carregarTaskLabels() {
+    const { data } = await sb.from('task_labels').select('*').order('ordem').order('nome');
+    taskLabelsCache = data || [];
+  }
+
+  async function carregarTaskLabelLinks(taskIds) {
+    taskLabelLinksCache = {};
+    if (!taskIds.length) return;
+    const { data } = await sb.from('task_label_links').select('task_id,label_id').in('task_id', taskIds);
+    (data || []).forEach(l => {
+      if (!taskLabelLinksCache[l.task_id]) taskLabelLinksCache[l.task_id] = [];
+      taskLabelLinksCache[l.task_id].push(l.label_id);
+    });
+  }
 
   async function carregarTarefas() {
     await carregarTarefasSelects();
+    await carregarTaskLabels();
     const projetoFiltro = document.getElementById('tarefa-filtro-projeto').value;
     let query = sb.from('tasks').select('*').order('created_at', { ascending: true });
     if (projetoFiltro) query = query.eq('project_id', projetoFiltro);
     const { data } = await query;
     tasksCache = data || [];
     await carregarChecklistDeTarefas(tasksCache.map(t => t.id));
+    await carregarTaskLabelLinks(tasksCache.map(t => t.id));
     renderKanban();
   }
 
@@ -1515,10 +1609,12 @@
         const total = itensChecklist.length;
         const pctChecklist = total ? Math.round((feitos / total) * 100) : 0;
         const iniciais = iniciaisResponsavel(responsavel);
+        const labelsDaTarefa = (taskLabelLinksCache[t.id] || []).map(lid => taskLabelsCache.find(l => l.id === lid)).filter(Boolean);
         return `
           <div class="task-card prio-${t.prioridade}" draggable="true" ondragstart="dragStartTarefa(event,'${t.id}')" ondragend="dragEndTarefa(event)" onclick="abrirTarefaModal('${t.id}')">
             <div class="titulo">${escapeHtml(t.titulo)}</div>
             ${t.descricao ? `<div class="descricao">${escapeHtml(t.descricao)}</div>` : ''}
+            ${labelsDaTarefa.length ? `<div class="meta" style="margin-bottom:6px;">${labelsDaTarefa.map(l => `<span class="badge-etiqueta" style="background:${hexToRgba(l.cor, 0.18)}; color:${l.cor};">${escapeHtml(l.nome)}</span>`).join('')}</div>` : ''}
             ${projeto ? `<div class="meta" style="margin-bottom:6px;"><span class="badge-info">${escapeHtml(projeto.nome)}</span></div>` : ''}
             <div class="meta" style="justify-content:space-between; align-items:center; flex-wrap:nowrap;">
               <div style="display:flex; align-items:center; gap:6px;">
@@ -1688,6 +1784,19 @@
   // ---- Modal do cartão, estilo Trello: clica no card, edita direto ali,
   // sem botão "Salvar" — cada campo grava sozinho ao perder o foco/mudar. ----
   let tarefaModalId = null;
+  let tmVencimentoPicker = null;
+
+  function initTmVencimentoPicker() {
+    if (typeof flatpickr !== 'function' || tmVencimentoPicker) return;
+    tmVencimentoPicker = flatpickr('#tm-vencimento', {
+      dateFormat: 'Y-m-d',
+      altInput: true,
+      altFormat: 'd/m/Y',
+      locale: 'pt',
+      allowInput: true,
+      onChange: (datas, dataStr) => salvarCampoTarefaModal('data_vencimento', dataStr || null)
+    });
+  }
 
   function abrirTarefaModal(id) {
     const t = tasksCache.find(x => x.id === id);
@@ -1696,11 +1805,13 @@
     document.getElementById('tm-titulo').textContent = t.titulo || '';
     document.getElementById('tm-descricao').textContent = t.descricao || '';
     document.getElementById('tm-prioridade').value = t.prioridade;
-    document.getElementById('tm-vencimento').value = t.data_vencimento || '';
+    if (tmVencimentoPicker) tmVencimentoPicker.setDate(t.data_vencimento || null, false);
+    else document.getElementById('tm-vencimento').value = t.data_vencimento || '';
     document.getElementById('tm-responsavel').value = t.responsavel_id || '';
     document.getElementById('tm-projeto').value = t.project_id || '';
     document.getElementById('tm-coluna').value = t.coluna_id || '';
     renderChecklistModal();
+    renderEtiquetasModal();
     document.getElementById('tarefa-modal-overlay').classList.add('aberto');
   }
 
@@ -1715,7 +1826,44 @@
     const { error } = await sb.from('tasks').update({ [campo]: valor }).eq('id', idAlvo);
     if (error) { alert('Erro ao salvar: ' + error.message); return; }
     await carregarTarefas();
-    if (tarefaModalId === idAlvo) renderChecklistModal();
+    if (tarefaModalId === idAlvo) { renderChecklistModal(); renderEtiquetasModal(); }
+  }
+
+  // ---- Etiquetas da tarefa (dentro do modal) ----
+  function renderEtiquetasModal() {
+    const cont = document.getElementById('tm-etiquetas-lista');
+    const selectAdd = document.getElementById('tm-etiqueta-add');
+    if (!cont || !selectAdd || !tarefaModalId) return;
+    const idsAtuais = taskLabelLinksCache[tarefaModalId] || [];
+    const atuais = idsAtuais.map(id => taskLabelsCache.find(l => l.id === id)).filter(Boolean);
+    cont.innerHTML = atuais.map(l => `
+      <span class="badge-etiqueta" style="background:${hexToRgba(l.cor, 0.18)}; color:${l.cor}; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(l.nome)}
+        <span style="cursor:pointer;" onclick="removerEtiquetaModal('${l.id}')" title="Remover etiqueta">✕</span>
+      </span>`).join('') || '<span class="empty-note">Nenhuma etiqueta ainda.</span>';
+    const disponiveis = taskLabelsCache.filter(l => !idsAtuais.includes(l.id));
+    selectAdd.innerHTML = '<option value="">+ adicionar etiqueta...</option>' +
+      disponiveis.map(l => `<option value="${l.id}">${escapeHtml(l.nome)}</option>`).join('') +
+      (taskLabelsCache.length ? '' : '<option value="" disabled>Cadastre etiquetas em Configurações</option>');
+  }
+
+  async function adicionarEtiquetaModal(labelId) {
+    if (!labelId || !tarefaModalId) return;
+    const { error } = await sb.from('task_label_links').insert({ task_id: tarefaModalId, label_id: labelId });
+    if (error) { alert('Erro ao adicionar etiqueta: ' + error.message); return; }
+    if (!taskLabelLinksCache[tarefaModalId]) taskLabelLinksCache[tarefaModalId] = [];
+    taskLabelLinksCache[tarefaModalId].push(labelId);
+    renderEtiquetasModal();
+    renderKanban();
+  }
+
+  async function removerEtiquetaModal(labelId) {
+    if (!tarefaModalId) return;
+    const { error } = await sb.from('task_label_links').delete().eq('task_id', tarefaModalId).eq('label_id', labelId);
+    if (error) { alert('Erro ao remover etiqueta: ' + error.message); return; }
+    taskLabelLinksCache[tarefaModalId] = (taskLabelLinksCache[tarefaModalId] || []).filter(id => id !== labelId);
+    renderEtiquetasModal();
+    renderKanban();
   }
 
   async function excluirTarefaModal() {
