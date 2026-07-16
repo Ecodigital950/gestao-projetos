@@ -149,6 +149,10 @@
   .tab-toggle-group { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 3px; width: fit-content; }
   .tab-toggle { font-size: 12.5px; padding: 6px 14px; border-radius: 7px; border: none; cursor: pointer; background: transparent; color: var(--muted); font-weight: 500; }
   .tab-toggle.active { background: rgba(56,189,248,0.15); color: var(--info); }
+  .filtro-chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .filtro-chip { font-size: 13px; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--card-border); cursor: pointer; background: var(--card); color: var(--text); font-weight: 500; }
+  .filtro-chip:hover { border-color: var(--muted); }
+  .filtro-chip.active { border-color: var(--info); background: rgba(56,189,248,0.15); color: var(--info); }
   .cal-nav { display: none; align-items: center; gap: 10px; margin-left: auto; }
   .cal-nav span { font-size: 13.5px; font-weight: 600; min-width: 130px; text-align: center; }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
@@ -472,11 +476,7 @@
       </div>
       <div id="view-tarefas" class="view">
         <h2>Tarefas</h2>
-        <div class="card">
-          <div class="form-row">
-            <div><label>Projeto</label><select id="tarefa-filtro-projeto" onchange="carregarTarefas()"><option value="">Todos os projetos</option></select></div>
-          </div>
-        </div>
+        <div class="filtro-chip-row" id="tarefa-filtro-chips" style="margin-bottom:16px;"></div>
         <div class="card">
           <h3 style="margin-top:0;">Nova tarefa</h3>
           <p class="placeholder" style="margin-bottom:12px;">Só o título pra criar rápido. Prioridade, prazo, responsável, projeto, etiquetas e descrição você ajusta depois, clicando no card.</p>
@@ -1554,14 +1554,9 @@
     if (tmColSel) { const anterior = tmColSel.value; tmColSel.innerHTML = colOpts; tmColSel.value = anterior; }
 
     if (!projectsCache.length) await carregarProjetosSelects();
-    const filtroSel = document.getElementById('tarefa-filtro-projeto');
+    renderFiltroChips();
     const formSel = document.getElementById('tarefa-projeto');
     const projOpts = '<option value="">Sem projeto</option>' + projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
-    if (filtroSel) {
-      const anterior = filtroSel.value;
-      filtroSel.innerHTML = '<option value="">Todos os projetos</option>' + projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
-      filtroSel.value = anterior;
-    }
     if (formSel) formSel.innerHTML = projOpts;
     const tmProjSel = document.getElementById('tm-projeto');
     if (tmProjSel) { const anterior = tmProjSel.value; tmProjSel.innerHTML = projOpts; tmProjSel.value = anterior; }
@@ -1602,12 +1597,34 @@
     });
   }
 
+  let tarefaFiltroAtivo = 'todos'; // 'todos' | 'hoje' | project_id
+
+  function renderFiltroChips() {
+    const wrap = document.getElementById('tarefa-filtro-chips');
+    if (!wrap) return;
+    const opcoes = [{ id: 'todos', nome: 'Todos' }, { id: 'hoje', nome: 'Hoje' }, ...projectsCache];
+    wrap.innerHTML = opcoes.map(o => {
+      const ativo = o.id === tarefaFiltroAtivo ? ' active' : '';
+      return `<button type="button" class="filtro-chip${ativo}" onclick="selecionarFiltroTarefa('${o.id}')">${escapeHtml(o.nome)}</button>`;
+    }).join('');
+  }
+
+  function selecionarFiltroTarefa(valor) {
+    if (valor === tarefaFiltroAtivo) return;
+    tarefaFiltroAtivo = valor;
+    renderFiltroChips();
+    carregarTarefas();
+  }
+
   async function carregarTarefas() {
     await carregarTarefasSelects();
     await carregarTaskLabels();
-    const projetoFiltro = document.getElementById('tarefa-filtro-projeto').value;
     let query = sb.from('tasks').select('*').order('created_at', { ascending: true });
-    if (projetoFiltro) query = query.eq('project_id', projetoFiltro);
+    if (tarefaFiltroAtivo === 'hoje') {
+      query = query.lte('data_vencimento', formatDateLocal(new Date()));
+    } else if (tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos') {
+      query = query.eq('project_id', tarefaFiltroAtivo);
+    }
     const { data } = await query;
     tasksCache = data || [];
     await carregarChecklistDeTarefas(tasksCache.map(t => t.id));
@@ -1783,7 +1800,7 @@
   async function criarTarefaRapida(colunaId, inputEl) {
     const titulo = inputEl.value.trim();
     if (!titulo) return;
-    const projetoFiltro = document.getElementById('tarefa-filtro-projeto').value || null;
+    const projetoFiltro = (tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos' && tarefaFiltroAtivo !== 'hoje') ? tarefaFiltroAtivo : null;
     const { error } = await sb.from('tasks').insert({ titulo, coluna_id: colunaId, project_id: projetoFiltro, prioridade: 'media' });
     if (error) { alert('Erro ao criar tarefa: ' + error.message); return; }
     inputEl.value = '';
@@ -1797,9 +1814,11 @@
     const input = document.getElementById('tarefa-titulo');
     const titulo = input.value.trim();
     if (!titulo) return;
+    const projetoFiltro = (tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos' && tarefaFiltroAtivo !== 'hoje') ? tarefaFiltroAtivo : null;
     const payload = {
       titulo,
       coluna_id: document.getElementById('tarefa-coluna').value || null,
+      project_id: projetoFiltro,
       prioridade: 'media',
     };
     const { error } = await sb.from('tasks').insert(payload);
