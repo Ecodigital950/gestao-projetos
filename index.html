@@ -172,6 +172,15 @@
   .task-avatar { width: 20px; height: 20px; border-radius: 50%; font-size: 9px; font-weight: 700; color: #0c1120; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
   .task-checklist-bar-track { height: 4px; border-radius: 2px; background: var(--card-border); }
   .task-checklist-bar-fill { height: 4px; border-radius: 2px; background: var(--pos); }
+  .task-card { cursor: pointer; }
+
+  #tarefa-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  #tarefa-modal-overlay.aberto { display: flex; }
+  .tarefa-modal-card { width: 480px; max-width: 100%; margin: 0; }
+  .tm-editable { outline: none; border-radius: 6px; padding: 4px 6px; margin: -4px -6px; }
+  .tm-editable:focus { box-shadow: 0 0 0 2px rgba(56,189,248,0.35); }
+  .tm-editable:empty:before { content: attr(data-placeholder); color: var(--muted); }
+  .tm-titulo { font-size: 16px; font-weight: 700; flex: 1; }
   .task-card .titulo { font-size: 13.5px; font-weight: 600; margin-bottom: 6px; }
   .task-card .descricao { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
   .task-card .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
@@ -464,7 +473,8 @@
           </div>
         </div>
         <div class="card">
-          <h3 style="margin-top:0;" id="tarefa-form-titulo">Nova tarefa</h3>
+          <h3 style="margin-top:0;">Nova tarefa</h3>
+          <p class="placeholder" style="margin-bottom:12px;">Pra editar uma tarefa que já existe, clique nela no quadro ou no calendário.</p>
           <div class="form-row">
             <div><label>Título</label><input type="text" id="tarefa-titulo" placeholder="Ex: Enviar proposta"></div>
             <div><label>Projeto (opcional)</label><select id="tarefa-projeto"><option value="">Sem projeto</option></select></div>
@@ -483,16 +493,6 @@
             <div><label>Coluna</label><select id="tarefa-coluna"></select></div>
           </div>
           <button id="btn-tarefa" onclick="salvarTarefa()">Adicionar tarefa</button>
-          <button id="btn-tarefa-cancelar" class="secondary" onclick="cancelarEdicaoTarefa()" style="display:none;">Cancelar edição</button>
-
-          <div id="tarefa-checklist-section" style="display:none; margin-top:16px; border-top:1px solid var(--card-border); padding-top:14px;">
-            <h4 style="margin:0 0 10px 0; font-size:13px;">Checklist</h4>
-            <div id="tarefa-checklist-lista"></div>
-            <div class="form-row" style="margin-top:8px; align-items:flex-end;">
-              <div><input type="text" id="tarefa-checklist-novo-item" placeholder="Adicionar item..." onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarChecklistItem();}"></div>
-              <div style="flex:0;"><button type="button" class="secondary" onclick="adicionarChecklistItem()">Adicionar item</button></div>
-            </div>
-          </div>
         </div>
         <div class="tab-toggle-row">
           <div class="tab-toggle-group">
@@ -514,6 +514,50 @@
               <span><span class="cal-dot" style="display:inline-block; background:var(--info);"></span> Média</span>
               <span><span class="cal-dot" style="display:inline-block; background:var(--muted);"></span> Baixa</span>
               <span style="color:var(--neg);">⚠ Atrasada</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="tarefa-modal-overlay" onclick="if(event.target===this) fecharTarefaModal()">
+          <div class="card tarefa-modal-card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;">
+              <div id="tm-titulo" class="tm-editable tm-titulo" contenteditable="true" data-placeholder="Título da tarefa" onblur="salvarCampoTarefaModal('titulo', this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}"></div>
+              <button class="row-action" onclick="fecharTarefaModal()" style="font-size:16px; line-height:1; padding:2px 6px;">✕</button>
+            </div>
+
+            <div class="form-row">
+              <div><label>Prioridade</label>
+                <select id="tm-prioridade" onchange="salvarCampoTarefaModal('prioridade', this.value)">
+                  <option value="baixa">Baixa</option>
+                  <option value="media">Média</option>
+                  <option value="alta">Alta</option>
+                </select>
+              </div>
+              <div><label>Vencimento</label><input type="date" id="tm-vencimento" onchange="salvarCampoTarefaModal('data_vencimento', this.value || null)"></div>
+              <div><label>Responsável</label><select id="tm-responsavel" onchange="salvarCampoTarefaModal('responsavel_id', this.value || null)"><option value="">Sem responsável</option></select></div>
+            </div>
+            <div class="form-row">
+              <div><label>Projeto</label><select id="tm-projeto" onchange="salvarCampoTarefaModal('project_id', this.value || null)"><option value="">Sem projeto</option></select></div>
+              <div><label>Coluna</label><select id="tm-coluna" onchange="salvarCampoTarefaModal('coluna_id', this.value)"></select></div>
+            </div>
+
+            <label style="margin-top:6px; display:block;">Descrição</label>
+            <div id="tm-descricao" class="tm-editable" contenteditable="true" data-placeholder="Adicione uma descrição..." style="margin-bottom:16px;" onblur="salvarCampoTarefaModal('descricao', this.textContent.trim())"></div>
+
+            <div style="display:flex; justify-content:space-between; align-items:baseline;">
+              <label style="margin:0;">Checklist</label>
+              <span id="tm-checklist-contador" style="font-size:11px; color:var(--muted);"></span>
+            </div>
+            <div class="task-checklist-bar-track" style="margin:6px 0 10px;"><div class="task-checklist-bar-fill" id="tm-checklist-bar" style="width:0%;"></div></div>
+            <div id="tm-checklist-lista"></div>
+            <div class="form-row" style="margin-top:8px; align-items:flex-end;">
+              <div><input type="text" id="tm-checklist-novo-item" placeholder="Adicionar item..." onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarChecklistItemModal();}"></div>
+              <div style="flex:0;"><button type="button" class="secondary" onclick="adicionarChecklistItemModal()">Adicionar item</button></div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--card-border); margin-top:18px; padding-top:14px;">
+              <button type="button" class="row-action danger" onclick="excluirTarefaModal()">Excluir tarefa</button>
+              <span style="font-size:11px; color:var(--muted);">Salva sozinho ao sair do campo</span>
             </div>
           </div>
         </div>
@@ -1395,32 +1439,39 @@
     return (p.email || '?').trim().slice(0, 2).toUpperCase();
   }
   function corAvatar(id) { return corCategoria(id); }
-  let editingTaskId = null;
-
   async function carregarTarefasSelects() {
     const { data: cols } = await sb.from('kanban_columns').select('*').order('ordem');
     kanbanColumnsCache = cols || [];
+    const colOpts = kanbanColumnsCache.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
     const colSel = document.getElementById('tarefa-coluna');
     if (colSel) {
       const anterior = colSel.value;
-      colSel.innerHTML = kanbanColumnsCache.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+      colSel.innerHTML = colOpts;
       colSel.value = anterior || (kanbanColumnsCache[0] ? kanbanColumnsCache[0].id : '');
     }
+    const tmColSel = document.getElementById('tm-coluna');
+    if (tmColSel) { const anterior = tmColSel.value; tmColSel.innerHTML = colOpts; tmColSel.value = anterior; }
 
     if (!projectsCache.length) await carregarProjetosSelects();
     const filtroSel = document.getElementById('tarefa-filtro-projeto');
     const formSel = document.getElementById('tarefa-projeto');
+    const projOpts = '<option value="">Sem projeto</option>' + projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
     if (filtroSel) {
       const anterior = filtroSel.value;
       filtroSel.innerHTML = '<option value="">Todos os projetos</option>' + projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
       filtroSel.value = anterior;
     }
-    if (formSel) formSel.innerHTML = '<option value="">Sem projeto</option>' + projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+    if (formSel) formSel.innerHTML = projOpts;
+    const tmProjSel = document.getElementById('tm-projeto');
+    if (tmProjSel) { const anterior = tmProjSel.value; tmProjSel.innerHTML = projOpts; tmProjSel.value = anterior; }
 
     const { data: profs } = await sb.from('profiles').select('id,nome,email').order('email');
     profilesCacheForTasks = profs || [];
+    const respOpts = '<option value="">Sem responsável</option>' + profilesCacheForTasks.map(p => `<option value="${p.id}">${escapeHtml(p.nome || p.email)}</option>`).join('');
     const respSel = document.getElementById('tarefa-responsavel');
-    if (respSel) respSel.innerHTML = '<option value="">Sem responsável</option>' + profilesCacheForTasks.map(p => `<option value="${p.id}">${escapeHtml(p.nome || p.email)}</option>`).join('');
+    if (respSel) respSel.innerHTML = respOpts;
+    const tmRespSel = document.getElementById('tm-responsavel');
+    if (tmRespSel) { const anterior = tmRespSel.value; tmRespSel.innerHTML = respOpts; tmRespSel.value = anterior; }
   }
 
   let checklistCache = {}; // task_id -> [itens]
@@ -1465,7 +1516,7 @@
         const pctChecklist = total ? Math.round((feitos / total) * 100) : 0;
         const iniciais = iniciaisResponsavel(responsavel);
         return `
-          <div class="task-card prio-${t.prioridade}" draggable="true" ondragstart="dragStartTarefa(event,'${t.id}')" ondragend="dragEndTarefa(event)">
+          <div class="task-card prio-${t.prioridade}" draggable="true" ondragstart="dragStartTarefa(event,'${t.id}')" ondragend="dragEndTarefa(event)" onclick="abrirTarefaModal('${t.id}')">
             <div class="titulo">${escapeHtml(t.titulo)}</div>
             ${t.descricao ? `<div class="descricao">${escapeHtml(t.descricao)}</div>` : ''}
             ${projeto ? `<div class="meta" style="margin-bottom:6px;"><span class="badge-info">${escapeHtml(projeto.nome)}</span></div>` : ''}
@@ -1481,11 +1532,9 @@
               <div class="task-checklist-bar-track"><div class="task-checklist-bar-fill" style="width:${pctChecklist}%;"></div></div>
             </div>` : ''}
             <div class="actions">
-              <button class="row-action" onclick="editarTarefa('${t.id}')">Editar</button>
-              <button class="row-action danger" onclick="excluirTarefa('${t.id}')">Excluir</button>
               <span class="move">
-                <button class="row-action" ${idx === 0 ? 'disabled' : ''} onclick="moverTarefa('${t.id}', ${idx - 1})">◀</button>
-                <button class="row-action" ${idx === kanbanColumnsCache.length - 1 ? 'disabled' : ''} onclick="moverTarefa('${t.id}', ${idx + 1})">▶</button>
+                <button class="row-action" ${idx === 0 ? 'disabled' : ''} onclick="event.stopPropagation(); moverTarefa('${t.id}', ${idx - 1})">◀</button>
+                <button class="row-action" ${idx === kanbanColumnsCache.length - 1 ? 'disabled' : ''} onclick="event.stopPropagation(); moverTarefa('${t.id}', ${idx + 1})">▶</button>
               </span>
             </div>
           </div>`;
@@ -1542,7 +1591,7 @@
       const isHoje = dataStr === hojeStr;
       const chips = tarefasDia.slice(0, 3).map(t => {
         const atrasada = t.data_vencimento < hojeStr;
-        return `<div class="cal-chip" onclick="editarTarefa('${t.id}')" title="${escapeHtml(t.titulo)}">
+        return `<div class="cal-chip" onclick="abrirTarefaModal('${t.id}')" title="${escapeHtml(t.titulo)}">
           <span class="cal-dot" style="background:${cores[t.prioridade] || 'var(--muted)'};"></span>
           <span style="overflow:hidden; text-overflow:ellipsis;">${escapeHtml(t.titulo)}</span>
           ${atrasada ? '<span style="color:var(--neg);">⚠</span>' : ''}
@@ -1605,55 +1654,7 @@
     carregarTarefas();
   }
 
-  // ---- Checklist da tarefa ----
-  function renderChecklistEdicao() {
-    const cont = document.getElementById('tarefa-checklist-lista');
-    const itens = checklistCache[editingTaskId] || [];
-    cont.innerHTML = itens.map(i => `
-      <div class="checklist-item ${i.concluido ? 'done' : ''}">
-        <input type="checkbox" ${i.concluido ? 'checked' : ''} onchange="toggleChecklistItem('${i.id}', this.checked)">
-        <span>${escapeHtml(i.texto)}</span>
-        <button class="row-action danger" onclick="excluirChecklistItem('${i.id}')">Excluir</button>
-      </div>`).join('') || '<p class="empty-note">Nenhum item ainda.</p>';
-  }
-
-  async function adicionarChecklistItem() {
-    if (!editingTaskId) return;
-    const input = document.getElementById('tarefa-checklist-novo-item');
-    const texto = input.value.trim();
-    if (!texto) return;
-    const ordem = (checklistCache[editingTaskId] || []).length;
-    const { data, error } = await sb.from('task_checklist_items').insert({ task_id: editingTaskId, texto, ordem }).select().single();
-    if (error) { alert('Erro ao adicionar item: ' + error.message); return; }
-    if (!checklistCache[editingTaskId]) checklistCache[editingTaskId] = [];
-    checklistCache[editingTaskId].push(data);
-    input.value = '';
-    renderChecklistEdicao();
-    renderKanban();
-  }
-
-  async function toggleChecklistItem(id, concluido) {
-    const { error } = await sb.from('task_checklist_items').update({ concluido }).eq('id', id);
-    if (error) { alert('Erro: ' + error.message); return; }
-    Object.values(checklistCache).forEach(lista => {
-      const item = lista.find(i => i.id === id);
-      if (item) item.concluido = concluido;
-    });
-    renderChecklistEdicao();
-    renderKanban();
-  }
-
-  async function excluirChecklistItem(id) {
-    if (!confirm('Excluir esse item do checklist?')) return;
-    const { error } = await sb.from('task_checklist_items').delete().eq('id', id);
-    if (error) { alert('Erro ao excluir item: ' + error.message); return; }
-    Object.keys(checklistCache).forEach(taskId => {
-      checklistCache[taskId] = (checklistCache[taskId] || []).filter(i => i.id !== id);
-    });
-    renderChecklistEdicao();
-    renderKanban();
-  }
-
+  // ---- Nova tarefa (formulário do topo, só criação — editar é no modal) ----
   async function salvarTarefa() {
     const titulo = document.getElementById('tarefa-titulo').value.trim();
     if (!titulo) return;
@@ -1666,49 +1667,15 @@
       data_vencimento: document.getElementById('tarefa-vencimento').value || null,
       coluna_id: document.getElementById('tarefa-coluna').value || null,
     };
-    let error;
-    if (editingTaskId) {
-      ({ error } = await sb.from('tasks').update(payload).eq('id', editingTaskId));
-    } else {
-      ({ error } = await sb.from('tasks').insert(payload));
-    }
-    if (error) { alert('Erro ao salvar tarefa: ' + error.message); return; }
-    cancelarEdicaoTarefa();
-    carregarTarefas();
-  }
-
-  function editarTarefa(id) {
-    const t = tasksCache.find(x => x.id === id);
-    if (!t) return;
-    editingTaskId = id;
-    document.getElementById('tarefa-titulo').value = t.titulo;
-    document.getElementById('tarefa-descricao').value = t.descricao || '';
-    document.getElementById('tarefa-projeto').value = t.project_id || '';
-    document.getElementById('tarefa-responsavel').value = t.responsavel_id || '';
-    document.getElementById('tarefa-prioridade').value = t.prioridade;
-    document.getElementById('tarefa-vencimento').value = t.data_vencimento || '';
-    document.getElementById('tarefa-coluna').value = t.coluna_id || '';
-    document.getElementById('tarefa-form-titulo').textContent = 'Editar tarefa';
-    document.getElementById('btn-tarefa').textContent = 'Salvar alterações';
-    document.getElementById('btn-tarefa-cancelar').style.display = 'inline-block';
-    document.getElementById('tarefa-checklist-section').style.display = 'block';
-    renderChecklistEdicao();
-    document.getElementById('tarefa-titulo').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-
-  function cancelarEdicaoTarefa() {
-    editingTaskId = null;
+    const { error } = await sb.from('tasks').insert(payload);
+    if (error) { alert('Erro ao criar tarefa: ' + error.message); return; }
     document.getElementById('tarefa-titulo').value = '';
     document.getElementById('tarefa-descricao').value = '';
     document.getElementById('tarefa-projeto').value = '';
     document.getElementById('tarefa-responsavel').value = '';
     document.getElementById('tarefa-prioridade').value = 'media';
     document.getElementById('tarefa-vencimento').value = '';
-    if (kanbanColumnsCache[0]) document.getElementById('tarefa-coluna').value = kanbanColumnsCache[0].id;
-    document.getElementById('tarefa-form-titulo').textContent = 'Nova tarefa';
-    document.getElementById('btn-tarefa').textContent = 'Adicionar tarefa';
-    document.getElementById('btn-tarefa-cancelar').style.display = 'none';
-    document.getElementById('tarefa-checklist-section').style.display = 'none';
+    carregarTarefas();
   }
 
   async function excluirTarefa(id) {
@@ -1716,6 +1683,101 @@
     const { error } = await sb.from('tasks').delete().eq('id', id);
     if (error) { alert('Erro ao excluir: ' + error.message); return; }
     carregarTarefas();
+  }
+
+  // ---- Modal do cartão, estilo Trello: clica no card, edita direto ali,
+  // sem botão "Salvar" — cada campo grava sozinho ao perder o foco/mudar. ----
+  let tarefaModalId = null;
+
+  function abrirTarefaModal(id) {
+    const t = tasksCache.find(x => x.id === id);
+    if (!t) return;
+    tarefaModalId = id;
+    document.getElementById('tm-titulo').textContent = t.titulo || '';
+    document.getElementById('tm-descricao').textContent = t.descricao || '';
+    document.getElementById('tm-prioridade').value = t.prioridade;
+    document.getElementById('tm-vencimento').value = t.data_vencimento || '';
+    document.getElementById('tm-responsavel').value = t.responsavel_id || '';
+    document.getElementById('tm-projeto').value = t.project_id || '';
+    document.getElementById('tm-coluna').value = t.coluna_id || '';
+    renderChecklistModal();
+    document.getElementById('tarefa-modal-overlay').classList.add('aberto');
+  }
+
+  function fecharTarefaModal() {
+    document.getElementById('tarefa-modal-overlay').classList.remove('aberto');
+    tarefaModalId = null;
+  }
+
+  async function salvarCampoTarefaModal(campo, valor) {
+    if (!tarefaModalId) return;
+    const idAlvo = tarefaModalId;
+    const { error } = await sb.from('tasks').update({ [campo]: valor }).eq('id', idAlvo);
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    await carregarTarefas();
+    if (tarefaModalId === idAlvo) renderChecklistModal();
+  }
+
+  async function excluirTarefaModal() {
+    if (!tarefaModalId) return;
+    if (!confirm('Excluir essa tarefa?')) return;
+    const { error } = await sb.from('tasks').delete().eq('id', tarefaModalId);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    fecharTarefaModal();
+    carregarTarefas();
+  }
+
+  function renderChecklistModal() {
+    const cont = document.getElementById('tm-checklist-lista');
+    if (!cont || !tarefaModalId) return;
+    const itens = checklistCache[tarefaModalId] || [];
+    const feitos = itens.filter(i => i.concluido).length;
+    const pct = itens.length ? Math.round((feitos / itens.length) * 100) : 0;
+    document.getElementById('tm-checklist-contador').textContent = itens.length ? `${feitos}/${itens.length}` : '';
+    document.getElementById('tm-checklist-bar').style.width = pct + '%';
+    cont.innerHTML = itens.map(i => `
+      <div class="checklist-item ${i.concluido ? 'done' : ''}">
+        <input type="checkbox" ${i.concluido ? 'checked' : ''} onchange="toggleChecklistItemModal('${i.id}', this.checked)">
+        <span>${escapeHtml(i.texto)}</span>
+        <button class="row-action danger" onclick="excluirChecklistItemModal('${i.id}')">Excluir</button>
+      </div>`).join('') || '<p class="empty-note">Nenhum item ainda.</p>';
+  }
+
+  async function adicionarChecklistItemModal() {
+    if (!tarefaModalId) return;
+    const input = document.getElementById('tm-checklist-novo-item');
+    const texto = input.value.trim();
+    if (!texto) return;
+    const ordem = (checklistCache[tarefaModalId] || []).length;
+    const { data, error } = await sb.from('task_checklist_items').insert({ task_id: tarefaModalId, texto, ordem }).select().single();
+    if (error) { alert('Erro ao adicionar item: ' + error.message); return; }
+    if (!checklistCache[tarefaModalId]) checklistCache[tarefaModalId] = [];
+    checklistCache[tarefaModalId].push(data);
+    input.value = '';
+    renderChecklistModal();
+    renderKanban();
+  }
+
+  async function toggleChecklistItemModal(id, concluido) {
+    const { error } = await sb.from('task_checklist_items').update({ concluido }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    Object.values(checklistCache).forEach(lista => {
+      const item = lista.find(i => i.id === id);
+      if (item) item.concluido = concluido;
+    });
+    renderChecklistModal();
+    renderKanban();
+  }
+
+  async function excluirChecklistItemModal(id) {
+    if (!confirm('Excluir esse item do checklist?')) return;
+    const { error } = await sb.from('task_checklist_items').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir item: ' + error.message); return; }
+    Object.keys(checklistCache).forEach(taskId => {
+      checklistCache[taskId] = (checklistCache[taskId] || []).filter(i => i.id !== id);
+    });
+    renderChecklistModal();
+    renderKanban();
   }
 
   // ---- Financeiro mensal (Eco + Pessoal juntos) — grade agrupada por categoria ----
