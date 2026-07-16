@@ -555,7 +555,10 @@
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--card-border); margin-top:18px; padding-top:14px;">
-              <button type="button" class="row-action danger" onclick="excluirTarefaModal()">Excluir tarefa</button>
+              <div style="display:flex; align-items:center; gap:14px;">
+                <button type="button" class="row-action" onclick="if(tmVencimentoPicker) tmVencimentoPicker.open();" title="Definir data de vencimento" aria-label="Definir data de vencimento"><i class="ti ti-calendar"></i></button>
+                <button type="button" class="row-action danger" onclick="excluirTarefaModal()">Excluir tarefa</button>
+              </div>
               <span style="font-size:11px; color:var(--muted);">Salva sozinho ao sair do campo</span>
             </div>
           </div>
@@ -636,10 +639,11 @@
           <div class="form-row">
             <div><label>Nome</label><input type="text" id="etq-nome" placeholder="Ex: Cliente X"></div>
             <div><label>Cor</label><input type="color" id="etq-cor" value="#38bdf8" style="height:38px; padding:2px;"></div>
+            <div><label>Projeto (opcional)</label><select id="etq-projeto"><option value="">Todos os projetos</option></select></div>
           </div>
           <button onclick="criarEtiquetaConfig()">Adicionar etiqueta</button>
           <table style="margin-top:16px;">
-            <thead><tr><th>Etiqueta</th><th></th></tr></thead>
+            <thead><tr><th>Etiqueta</th><th>Projeto</th><th></th></tr></thead>
             <tbody id="etiquetas-config-tbody"></tbody>
           </table>
         </div>
@@ -1488,24 +1492,32 @@
   // ---- Etiquetas de tarefas (Configurações) ----
   async function carregarEtiquetasConfig() {
     await carregarTaskLabels();
+    if (!projectsCache.length) await carregarProjetosSelects();
+    const projSel = document.getElementById('etq-projeto');
+    if (projSel) projSel.innerHTML = '<option value="">Todos os projetos</option>' + projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
     const tbody = document.getElementById('etiquetas-config-tbody');
     if (!tbody) return;
-    tbody.innerHTML = taskLabelsCache.map(e => `
+    tbody.innerHTML = taskLabelsCache.map(e => {
+      const projeto = projectsCache.find(p => p.id === e.project_id);
+      return `
       <tr>
         <td><span style="display:inline-flex; align-items:center; gap:8px;"><span style="width:10px; height:10px; border-radius:50%; background:${e.cor}; flex-shrink:0;"></span>${escapeHtml(e.nome)}</span></td>
+        <td>${projeto ? escapeHtml(projeto.nome) : '<span class="empty-note">Todos</span>'}</td>
         <td>
           <button class="row-action" onclick="editarEtiquetaConfig('${e.id}')">Editar</button>
           <button class="row-action danger" onclick="excluirEtiquetaConfig('${e.id}')">Excluir</button>
         </td>
-      </tr>`
-    ).join('') || '<tr><td colspan="2" class="empty-note">Nenhuma etiqueta cadastrada.</td></tr>';
+      </tr>`;
+    }
+    ).join('') || '<tr><td colspan="3" class="empty-note">Nenhuma etiqueta cadastrada.</td></tr>';
   }
 
   async function criarEtiquetaConfig() {
     const nome = document.getElementById('etq-nome').value.trim();
     if (!nome) return;
     const cor = document.getElementById('etq-cor').value || '#38bdf8';
-    const { error } = await sb.from('task_labels').insert({ nome, cor });
+    const projectId = document.getElementById('etq-projeto').value || null;
+    const { error } = await sb.from('task_labels').insert({ nome, cor, project_id: projectId });
     if (error) { alert('Erro ao criar etiqueta: ' + error.message); return; }
     document.getElementById('etq-nome').value = '';
     carregarEtiquetasConfig();
@@ -1911,7 +1923,9 @@
         ${escapeHtml(l.nome)}
         <span style="cursor:pointer;" onclick="removerEtiquetaModal('${l.id}')" title="Remover etiqueta">✕</span>
       </span>`).join('') || '<span class="empty-note">Nenhuma etiqueta ainda.</span>';
-    const disponiveis = taskLabelsCache.filter(l => !idsAtuais.includes(l.id));
+    const tarefaAtual = tasksCache.find(t => t.id === tarefaModalId);
+    const projetoAtual = tarefaAtual ? tarefaAtual.project_id : null;
+    const disponiveis = taskLabelsCache.filter(l => !idsAtuais.includes(l.id) && (!l.project_id || l.project_id === projetoAtual));
     selectAdd.innerHTML = '<option value="">+ adicionar etiqueta...</option>' +
       disponiveis.map(l => `<option value="${l.id}">${escapeHtml(l.nome)}</option>`).join('') +
       (taskLabelsCache.length ? '' : '<option value="" disabled>Cadastre etiquetas em Configurações</option>');
