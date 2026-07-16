@@ -202,8 +202,10 @@
   .kanban-col-body.drag-over { background: rgba(56,189,248,0.06); border-radius: 8px; }
   .quick-add input { width: 100%; background: transparent; border: 1px dashed var(--card-border); font-size: 12.5px; margin-top: 4px; }
   .checklist-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
-  .checklist-item span { flex: 1; }
-  .checklist-item.done span { text-decoration: line-through; color: var(--muted); }
+  .checklist-item span.checklist-texto { flex: 1; cursor: pointer; border-radius: 4px; padding: 2px 4px; margin: -2px -4px; }
+  .checklist-item span.checklist-texto:hover { background: rgba(255,255,255,0.04); }
+  .checklist-item.done span.checklist-texto { text-decoration: line-through; color: var(--muted); }
+  .checklist-item input.checklist-texto-input { flex: 1; font-size: 13px; }
 
   .fin-grid { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .fin-grid td { padding: 6px 10px; border-bottom: 1px solid var(--card-border); vertical-align: middle; }
@@ -1874,9 +1876,35 @@
     cont.innerHTML = itens.map(i => `
       <div class="checklist-item ${i.concluido ? 'done' : ''}">
         <input type="checkbox" ${i.concluido ? 'checked' : ''} onchange="toggleChecklistItemModal('${i.id}', this.checked)">
-        <span>${escapeHtml(i.texto)}</span>
+        <span class="checklist-texto" title="Clique pra editar" onclick="editarChecklistItemTexto(this, '${i.id}')">${escapeHtml(i.texto)}</span>
         <button class="row-action danger" onclick="excluirChecklistItemModal('${i.id}')">Excluir</button>
       </div>`).join('') || '<p class="empty-note">Nenhum item ainda.</p>';
+  }
+
+  function editarChecklistItemTexto(spanEl, id) {
+    const item = (checklistCache[tarefaModalId] || []).find(i => i.id === id);
+    if (!item) return;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'checklist-texto-input';
+    input.value = item.texto;
+    input.onblur = () => salvarChecklistItemTexto(id, input.value);
+    input.onkeydown = (ev) => { if (ev.key === 'Enter') input.blur(); };
+    spanEl.replaceWith(input);
+    input.focus();
+    input.select();
+  }
+
+  async function salvarChecklistItemTexto(id, novoTexto) {
+    const texto = novoTexto.trim();
+    if (!texto) { renderChecklistModal(); return; }
+    const { error } = await sb.from('task_checklist_items').update({ texto }).eq('id', id);
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    Object.values(checklistCache).forEach(lista => {
+      const item = lista.find(i => i.id === id);
+      if (item) item.texto = texto;
+    });
+    renderChecklistModal();
   }
 
   async function adicionarChecklistItemModal() {
