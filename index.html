@@ -145,11 +145,33 @@
 
   button:disabled { opacity: 0.3; cursor: not-allowed; }
 
+  .tab-toggle-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .tab-toggle-group { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 3px; width: fit-content; }
+  .tab-toggle { font-size: 12.5px; padding: 6px 14px; border-radius: 7px; border: none; cursor: pointer; background: transparent; color: var(--muted); font-weight: 500; }
+  .tab-toggle.active { background: rgba(56,189,248,0.15); color: var(--info); }
+  .cal-nav { display: none; align-items: center; gap: 10px; margin-left: auto; }
+  .cal-nav span { font-size: 13.5px; font-weight: 600; min-width: 130px; text-align: center; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .cal-weekday { font-size: 11px; color: var(--muted); text-align: center; padding-bottom: 4px; }
+  .cal-day { background: #0f1526; border: 1px solid var(--card-border); border-radius: 8px; padding: 6px; min-height: 72px; }
+  .cal-day.hoje { background: rgba(56,189,248,0.1); border-color: var(--info); }
+  .cal-daynum { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .cal-day.hoje .cal-daynum { color: var(--info); font-weight: 600; }
+  .cal-chip { display: flex; align-items: center; gap: 3px; font-size: 10px; background: var(--card); border-radius: 4px; padding: 2px 4px; margin-bottom: 2px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; cursor: pointer; }
+  .cal-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .cal-mais { font-size: 9.5px; color: var(--muted); }
+
   .kanban-board { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
   .kanban-col { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 14px; min-width: 260px; max-width: 260px; flex-shrink: 0; }
   .kanban-col h4 { margin: 0 0 12px 0; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; }
   .kanban-col h4 .count { color: var(--muted); font-weight: 500; font-size: 12px; }
-  .task-card { background: #0f1526; border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .task-card { background: #0f1526; border: 1px solid var(--card-border); border-left: 3px solid var(--card-border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .task-card.prio-alta { border-left-color: var(--neg); }
+  .task-card.prio-media { border-left-color: var(--info); }
+  .task-card.prio-baixa { border-left-color: var(--muted); }
+  .task-avatar { width: 20px; height: 20px; border-radius: 50%; font-size: 9px; font-weight: 700; color: #0c1120; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .task-checklist-bar-track { height: 4px; border-radius: 2px; background: var(--card-border); }
+  .task-checklist-bar-fill { height: 4px; border-radius: 2px; background: var(--pos); }
   .task-card .titulo { font-size: 13.5px; font-weight: 600; margin-bottom: 6px; }
   .task-card .descricao { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
   .task-card .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
@@ -472,7 +494,29 @@
             </div>
           </div>
         </div>
+        <div class="tab-toggle-row">
+          <div class="tab-toggle-group">
+            <button type="button" id="tab-tarefas-kanban" class="tab-toggle active" onclick="mostrarVisaoTarefas('kanban')">Kanban</button>
+            <button type="button" id="tab-tarefas-calendario" class="tab-toggle" onclick="mostrarVisaoTarefas('calendario')">Calendário</button>
+          </div>
+          <div class="cal-nav" id="cal-nav">
+            <button type="button" class="row-action" onclick="calMudarMes(-1)">◀</button>
+            <span id="cal-mes-label"></span>
+            <button type="button" class="row-action" onclick="calMudarMes(1)">▶</button>
+          </div>
+        </div>
         <div class="kanban-board" id="kanban-board"></div>
+        <div id="tarefas-calendario" style="display:none;">
+          <div class="card">
+            <div class="cal-grid" id="cal-grid"></div>
+            <div style="display:flex; gap:14px; margin-top:14px; font-size:12px; color:var(--muted);">
+              <span><span class="cal-dot" style="display:inline-block; background:var(--neg);"></span> Alta</span>
+              <span><span class="cal-dot" style="display:inline-block; background:var(--info);"></span> Média</span>
+              <span><span class="cal-dot" style="display:inline-block; background:var(--muted);"></span> Baixa</span>
+              <span style="color:var(--neg);">⚠ Atrasada</span>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="view-projetos" class="view">
         <h2>Projetos</h2>
@@ -1341,6 +1385,16 @@
   let kanbanColumnsCache = [];
   let tasksCache = [];
   let profilesCacheForTasks = [];
+  let calMesAtual = new Date();
+  calMesAtual.setDate(1);
+
+  function iniciaisResponsavel(p) {
+    if (!p) return null;
+    const nome = (p.nome || '').trim();
+    if (nome) return nome.split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase();
+    return (p.email || '?').trim().slice(0, 2).toUpperCase();
+  }
+  function corAvatar(id) { return corCategoria(id); }
   let editingTaskId = null;
 
   async function carregarTarefasSelects() {
@@ -1407,17 +1461,25 @@
         const atrasado = t.data_vencimento && t.data_vencimento < hoje;
         const itensChecklist = checklistCache[t.id] || [];
         const feitos = itensChecklist.filter(i => i.concluido).length;
+        const total = itensChecklist.length;
+        const pctChecklist = total ? Math.round((feitos / total) * 100) : 0;
+        const iniciais = iniciaisResponsavel(responsavel);
         return `
-          <div class="task-card" draggable="true" ondragstart="dragStartTarefa(event,'${t.id}')" ondragend="dragEndTarefa(event)">
+          <div class="task-card prio-${t.prioridade}" draggable="true" ondragstart="dragStartTarefa(event,'${t.id}')" ondragend="dragEndTarefa(event)">
             <div class="titulo">${escapeHtml(t.titulo)}</div>
             ${t.descricao ? `<div class="descricao">${escapeHtml(t.descricao)}</div>` : ''}
-            <div class="meta">
-              <span class="badge-prio ${t.prioridade}">${t.prioridade}</span>
+            ${projeto ? `<div class="meta" style="margin-bottom:6px;"><span class="badge-info">${escapeHtml(projeto.nome)}</span></div>` : ''}
+            <div class="meta" style="justify-content:space-between; align-items:center; flex-wrap:nowrap;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                ${iniciais ? `<span class="task-avatar" style="background:${corAvatar(t.responsavel_id)};" title="${escapeHtml(responsavel.nome || responsavel.email)}">${iniciais}</span>` : ''}
+                <span class="badge-prio ${t.prioridade}">${t.prioridade}</span>
+              </div>
               ${t.data_vencimento ? `<span class="badge-info ${atrasado ? 'atrasado' : ''}">${t.data_vencimento.split('-').reverse().join('/')}</span>` : ''}
-              ${responsavel ? `<span class="badge-info">${escapeHtml(responsavel.nome || responsavel.email)}</span>` : ''}
-              ${projeto ? `<span class="badge-info">${escapeHtml(projeto.nome)}</span>` : ''}
-              ${itensChecklist.length ? `<span class="badge-info">☑ ${feitos}/${itensChecklist.length}</span>` : ''}
             </div>
+            ${total ? `<div style="margin-top:8px;">
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--muted); margin-bottom:3px;"><span>Checklist</span><span>${feitos}/${total}</span></div>
+              <div class="task-checklist-bar-track"><div class="task-checklist-bar-fill" style="width:${pctChecklist}%;"></div></div>
+            </div>` : ''}
             <div class="actions">
               <button class="row-action" onclick="editarTarefa('${t.id}')">Editar</button>
               <button class="row-action danger" onclick="excluirTarefa('${t.id}')">Excluir</button>
@@ -1439,6 +1501,57 @@
           </div>
         </div>`;
     }).join('');
+    renderCalendarioTarefas();
+  }
+
+  // ---- Tarefas: vista de calendário (alternativa ao Kanban, mesmos dados) ----
+  function mostrarVisaoTarefas(aba) {
+    const kanban = aba === 'kanban';
+    document.getElementById('kanban-board').style.display = kanban ? 'flex' : 'none';
+    document.getElementById('tarefas-calendario').style.display = kanban ? 'none' : 'block';
+    document.getElementById('cal-nav').style.display = kanban ? 'none' : 'flex';
+    document.getElementById('tab-tarefas-kanban').classList.toggle('active', kanban);
+    document.getElementById('tab-tarefas-calendario').classList.toggle('active', !kanban);
+    if (!kanban) renderCalendarioTarefas();
+  }
+
+  function calMudarMes(delta) {
+    calMesAtual.setMonth(calMesAtual.getMonth() + delta);
+    renderCalendarioTarefas();
+  }
+
+  function renderCalendarioTarefas() {
+    const grid = document.getElementById('cal-grid');
+    if (!grid) return;
+    const ano = calMesAtual.getFullYear();
+    const mes = calMesAtual.getMonth();
+    const label = calMesAtual.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    document.getElementById('cal-mes-label').textContent = label.charAt(0).toUpperCase() + label.slice(1);
+
+    const primeiroDia = new Date(ano, mes, 1).getDay();
+    const diasNoMes = new Date(ano, mes + 1, 0).getDate();
+    const hojeStr = formatDateLocal(new Date());
+    const cores = { alta: 'var(--neg)', media: 'var(--info)', baixa: 'var(--muted)' };
+    const nomesDias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+    let html = nomesDias.map(n => `<div class="cal-weekday">${n}</div>`).join('');
+    for (let i = 0; i < primeiroDia; i++) html += '<div></div>';
+    for (let d = 1; d <= diasNoMes; d++) {
+      const dataStr = `${ano}-${String(mes + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const tarefasDia = tasksCache.filter(t => t.data_vencimento === dataStr);
+      const isHoje = dataStr === hojeStr;
+      const chips = tarefasDia.slice(0, 3).map(t => {
+        const atrasada = t.data_vencimento < hojeStr;
+        return `<div class="cal-chip" onclick="editarTarefa('${t.id}')" title="${escapeHtml(t.titulo)}">
+          <span class="cal-dot" style="background:${cores[t.prioridade] || 'var(--muted)'};"></span>
+          <span style="overflow:hidden; text-overflow:ellipsis;">${escapeHtml(t.titulo)}</span>
+          ${atrasada ? '<span style="color:var(--neg);">⚠</span>' : ''}
+        </div>`;
+      }).join('');
+      const mais = tarefasDia.length > 3 ? `<div class="cal-mais">+${tarefasDia.length - 3} mais</div>` : '';
+      html += `<div class="cal-day ${isHoje ? 'hoje' : ''}"><div class="cal-daynum">${d}</div>${chips}${mais}</div>`;
+    }
+    grid.innerHTML = html;
   }
 
   async function moverTarefa(id, novoIdx) {
