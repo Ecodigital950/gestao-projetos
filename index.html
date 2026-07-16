@@ -588,9 +588,18 @@
       <div id="view-configuracoes" class="view">
         <h2>Configurações</h2>
         <div class="card">
+          <h3 style="margin-top:0;">Usuários</h3>
+          <p class="placeholder" style="margin-bottom:12px;">Crie um acesso pra alguém da equipe. A senha padrão é <strong>Suasenha.321</strong> — combine com a pessoa pra trocar depois de entrar.</p>
+          <div class="form-row" style="align-items:flex-end;">
+            <div><label>Nome</label><input type="text" id="novo-user-nome" placeholder="Ex: Maria Silva"></div>
+            <div><label>E-mail</label><input type="email" id="novo-user-email" placeholder="maria@empresa.com"></div>
+            <div style="flex:0;"><button id="btn-criar-usuario" onclick="criarUsuarioAdmin()">Criar usuário</button></div>
+          </div>
+        </div>
+        <div class="card">
           <p class="placeholder" style="margin-bottom:12px;">Gerencie quais seções cada usuário pode acessar.</p>
           <table>
-            <thead><tr><th>Usuário</th><th>Dashboard</th><th>Financeiro</th><th>Tarefas</th><th>Projetos</th><th>Config.</th></tr></thead>
+            <thead><tr><th>Usuário</th><th>Dashboard</th><th>Financeiro</th><th>Tarefas</th><th>Projetos</th><th>Config.</th><th></th></tr></thead>
             <tbody id="usuarios-tbody"></tbody>
           </table>
         </div>
@@ -738,7 +747,7 @@
 
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'block';
-    document.getElementById('user-email').textContent = profile.email + (profile.is_admin ? ' · admin' : '');
+    document.getElementById('user-email').textContent = (profile.nome || profile.email) + (profile.is_admin ? ' · admin' : '');
 
     renderNav();
     const firstModule = MODULES.find(m => currentPermissions.has(m));
@@ -1314,20 +1323,25 @@
   }
 
   // ---- Configurações: usuários e permissões ----
+  let usuariosCache = [];
+
   async function carregarUsuarios() {
     const { data: profiles } = await sb.from('profiles').select('*').order('created_at', { ascending: true });
+    usuariosCache = profiles || [];
     const { data: allPerms } = await sb.from('user_permissions').select('*');
     const tbody = document.getElementById('usuarios-tbody');
     tbody.innerHTML = '';
-    (profiles || []).forEach(u => {
+    usuariosCache.forEach(u => {
       const userPerms = new Set((allPerms || []).filter(p => p.user_id === u.id).map(p => p.modulo));
       const tr = document.createElement('tr');
-      let cells = `<td>${escapeHtml(u.email)}${u.is_admin ? ' <span style="color:var(--pos)">(admin)</span>' : ''}</td>`;
+      const nomeExibido = u.nome && u.nome !== u.email ? u.nome : (u.nome || u.email);
+      let cells = `<td>${escapeHtml(nomeExibido)}${u.nome && u.nome !== u.email ? `<div class="card-sub" style="margin:0;">${escapeHtml(u.email)}</div>` : ''}${u.is_admin ? ' <span style="color:var(--pos)">(admin)</span>' : ''}</td>`;
       MODULES.forEach(m => {
         const checked = u.is_admin || userPerms.has(m) ? 'checked' : '';
         const disabled = u.is_admin ? 'disabled' : '';
         cells += `<td><input type="checkbox" ${checked} ${disabled} onchange="togglePermissao('${u.id}','${m}',this.checked)"></td>`;
       });
+      cells += `<td><button class="row-action" onclick="editarNomeUsuario('${u.id}')">Editar nome</button></td>`;
       tr.innerHTML = cells;
       tbody.appendChild(tr);
     });
@@ -1339,6 +1353,37 @@
     } else {
       await sb.from('user_permissions').delete().eq('user_id', userId).eq('modulo', modulo);
     }
+  }
+
+  async function editarNomeUsuario(id) {
+    const u = usuariosCache.find(x => x.id === id);
+    if (!u) return;
+    const novoNome = prompt('Nome do usuário:', u.nome || '');
+    if (novoNome === null) return;
+    const { error } = await sb.from('profiles').update({ nome: novoNome.trim() || null }).eq('id', id);
+    if (error) { alert('Erro ao salvar nome: ' + error.message); return; }
+    carregarUsuarios();
+  }
+
+  async function criarUsuarioAdmin() {
+    const nome = document.getElementById('novo-user-nome').value.trim();
+    const email = document.getElementById('novo-user-email').value.trim();
+    if (!email) { alert('Informe o e-mail do usuário.'); return; }
+    const btn = document.getElementById('btn-criar-usuario');
+    if (btn) btn.disabled = true;
+    const { data, error } = await sb.functions.invoke('admin-create-user', { body: { email, nome } });
+    if (btn) btn.disabled = false;
+    if (error) {
+      let msg = error.message || 'Erro desconhecido';
+      try { const corpo = await error.context.json(); if (corpo?.error) msg = corpo.error; } catch (e) { /* ignora */ }
+      alert('Erro ao criar usuário: ' + msg);
+      return;
+    }
+    if (data?.error) { alert('Erro ao criar usuário: ' + data.error); return; }
+    document.getElementById('novo-user-nome').value = '';
+    document.getElementById('novo-user-email').value = '';
+    alert('Usuário criado! Peça pra essa pessoa entrar com a senha padrão Suasenha.321 e trocar depois.');
+    carregarUsuarios();
   }
 
   // ---- Configurações: categorias de custo ----
