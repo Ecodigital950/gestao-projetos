@@ -477,25 +477,12 @@
         </div>
         <div class="card">
           <h3 style="margin-top:0;">Nova tarefa</h3>
-          <p class="placeholder" style="margin-bottom:12px;">Pra editar uma tarefa que já existe, clique nela no quadro ou no calendário.</p>
-          <div class="form-row">
-            <div><label>Título</label><input type="text" id="tarefa-titulo" placeholder="Ex: Enviar proposta"></div>
-            <div><label>Projeto (opcional)</label><select id="tarefa-projeto"><option value="">Sem projeto</option></select></div>
-            <div><label>Responsável</label><select id="tarefa-responsavel"><option value="">Sem responsável</option></select></div>
-          </div>
-          <div class="form-row">
-            <div><label>Descrição (opcional)</label><input type="text" id="tarefa-descricao" placeholder="Detalhes da tarefa"></div>
-            <div><label>Prioridade</label>
-              <select id="tarefa-prioridade">
-                <option value="baixa">Baixa</option>
-                <option value="media" selected>Média</option>
-                <option value="alta">Alta</option>
-              </select>
-            </div>
-            <div><label>Vencimento (opcional)</label><input type="date" id="tarefa-vencimento"></div>
+          <p class="placeholder" style="margin-bottom:12px;">Só o título pra criar rápido. Prioridade, prazo, responsável, projeto, etiquetas e descrição você ajusta depois, clicando no card.</p>
+          <div class="form-row" style="align-items:flex-end;">
+            <div style="flex:2;"><label>Título</label><input type="text" id="tarefa-titulo" placeholder="Ex: Enviar proposta" onkeydown="if(event.key==='Enter'){event.preventDefault();salvarTarefa();}"></div>
             <div><label>Coluna</label><select id="tarefa-coluna"></select></div>
+            <div style="flex:0;"><button id="btn-tarefa" onclick="salvarTarefa()">Adicionar tarefa</button></div>
           </div>
-          <button id="btn-tarefa" onclick="salvarTarefa()">Adicionar tarefa</button>
         </div>
         <div class="tab-toggle-row">
           <div class="tab-toggle-group">
@@ -1611,7 +1598,7 @@
         const iniciais = iniciaisResponsavel(responsavel);
         const labelsDaTarefa = (taskLabelLinksCache[t.id] || []).map(lid => taskLabelsCache.find(l => l.id === lid)).filter(Boolean);
         return `
-          <div class="task-card prio-${t.prioridade}" draggable="true" ondragstart="dragStartTarefa(event,'${t.id}')" ondragend="dragEndTarefa(event)" onclick="abrirTarefaModal('${t.id}')">
+          <div class="task-card prio-${t.prioridade}" draggable="true" ondragstart="dragStartTarefa(event,'${t.id}')" ondragend="dragEndTarefa(event)" onclick="abrirTarefaModalSeNaoArrastou('${t.id}')">
             <div class="titulo">${escapeHtml(t.titulo)}</div>
             ${t.descricao ? `<div class="descricao">${escapeHtml(t.descricao)}</div>` : ''}
             ${labelsDaTarefa.length ? `<div class="meta" style="margin-bottom:6px;">${labelsDaTarefa.map(l => `<span class="badge-etiqueta" style="background:${hexToRgba(l.cor, 0.18)}; color:${l.cor};">${escapeHtml(l.nome)}</span>`).join('')}</div>` : ''}
@@ -1709,8 +1696,10 @@
 
   // ---- Drag and drop nativo (desktop) ----
   let draggedTaskId = null;
+  let arrastandoCard = false; // impede o clique (que abre o modal) de "roubar" o drag
 
   function dragStartTarefa(ev, id) {
+    arrastandoCard = true;
     draggedTaskId = id;
     ev.dataTransfer.effectAllowed = 'move';
     ev.dataTransfer.setData('text/plain', id);
@@ -1718,6 +1707,10 @@
   }
   function dragEndTarefa(ev) {
     ev.target.classList.remove('dragging');
+    setTimeout(() => { arrastandoCard = false; }, 50);
+  }
+  function abrirTarefaModalSeNaoArrastou(id) {
+    if (!arrastandoCard) abrirTarefaModal(id);
   }
   function allowDropTarefa(ev) {
     ev.preventDefault();
@@ -1750,27 +1743,22 @@
     carregarTarefas();
   }
 
-  // ---- Nova tarefa (formulário do topo, só criação — editar é no modal) ----
+  // ---- Nova tarefa (formulário do topo, estilo Trello: só título + coluna.
+  // Prioridade/prazo/responsável/projeto/etiquetas/descrição se ajustam
+  // depois, clicando no card — igual Trello, ClickUp e Asana fazem.) ----
   async function salvarTarefa() {
-    const titulo = document.getElementById('tarefa-titulo').value.trim();
+    const input = document.getElementById('tarefa-titulo');
+    const titulo = input.value.trim();
     if (!titulo) return;
     const payload = {
       titulo,
-      descricao: document.getElementById('tarefa-descricao').value.trim() || null,
-      project_id: document.getElementById('tarefa-projeto').value || null,
-      responsavel_id: document.getElementById('tarefa-responsavel').value || null,
-      prioridade: document.getElementById('tarefa-prioridade').value,
-      data_vencimento: document.getElementById('tarefa-vencimento').value || null,
       coluna_id: document.getElementById('tarefa-coluna').value || null,
+      prioridade: 'media',
     };
     const { error } = await sb.from('tasks').insert(payload);
     if (error) { alert('Erro ao criar tarefa: ' + error.message); return; }
-    document.getElementById('tarefa-titulo').value = '';
-    document.getElementById('tarefa-descricao').value = '';
-    document.getElementById('tarefa-projeto').value = '';
-    document.getElementById('tarefa-responsavel').value = '';
-    document.getElementById('tarefa-prioridade').value = 'media';
-    document.getElementById('tarefa-vencimento').value = '';
+    input.value = '';
+    input.focus();
     carregarTarefas();
   }
 
