@@ -217,6 +217,10 @@
   .ajuda-icone { cursor: pointer; color: var(--muted); font-size: 13px; margin-left: 4px; vertical-align: -1px; }
   .ajuda-icone:hover { color: var(--info); }
   .ajuda-popover { position: fixed; display: none; background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; max-width: 260px; box-shadow: 0 4px 14px rgba(0,0,0,0.45); z-index: 2000; color: var(--text); }
+  .mini-popover { position: fixed; display: none; background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; padding: 6px; min-width: 200px; max-height: 260px; overflow-y: auto; box-shadow: 0 4px 14px rgba(0,0,0,0.45); z-index: 2000; }
+  .mini-popover label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .mini-popover label:hover { background: rgba(255,255,255,0.06); }
+  .mini-popover input[type="checkbox"] { accent-color: var(--info); }
   .task-card { cursor: grab; }
   .task-card.dragging { opacity: 0.6; cursor: grabbing; }
   .task-card-ghost { opacity: 0.5; background: rgba(56,189,248,0.10) !important; border: 1.5px dashed var(--info) !important; box-shadow: none !important; }
@@ -568,9 +572,8 @@
 
             <label style="display:block; margin-bottom:6px;">Responsáveis <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('responsaveis', event)"></i></label>
             <div id="tm-responsaveis-lista" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
-            <select id="tm-responsavel-add" onchange="adicionarResponsavelModal(this.value); this.value='';" style="margin-bottom:16px;">
-              <option value="">+ atribuir...</option>
-            </select>
+            <button type="button" class="secondary" id="tm-responsavel-btn" onclick="abrirResponsavelPopover(event)" style="margin-bottom:16px;">+ atribuir...</button>
+            <div id="tm-responsavel-popover" class="mini-popover"></div>
 
             <label style="display:block; margin-bottom:6px;">Etiquetas</label>
             <div id="tm-etiquetas-lista" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
@@ -779,6 +782,10 @@
     const pop = document.getElementById('ajuda-popover');
     if (pop && pop.style.display === 'block' && !pop.contains(ev.target) && !ev.target.classList.contains('ajuda-icone')) {
       pop.style.display = 'none';
+    }
+    const respPop = document.getElementById('tm-responsavel-popover');
+    if (respPop && respPop.style.display === 'block' && !respPop.contains(ev.target) && ev.target.id !== 'tm-responsavel-btn') {
+      respPop.style.display = 'none';
     }
   });
 
@@ -2324,8 +2331,8 @@
   // ---- Responsáveis da tarefa (múltiplos, dentro do modal) ----
   function renderResponsaveisModal() {
     const cont = document.getElementById('tm-responsaveis-lista');
-    const selectAdd = document.getElementById('tm-responsavel-add');
-    if (!cont || !selectAdd || !tarefaModalId) return;
+    const pop = document.getElementById('tm-responsavel-popover');
+    if (!cont || !pop || !tarefaModalId) return;
     const idsAtuais = taskAssigneeLinksCache[tarefaModalId] || [];
     const atuais = idsAtuais.map(id => profilesCacheForTasks.find(p => p.id === id)).filter(Boolean);
     cont.innerHTML = atuais.map(p => `
@@ -2333,9 +2340,31 @@
         ${escapeHtml(p.nome || p.email)}
         <span style="cursor:pointer;" onclick="removerResponsavelModal('${p.id}')" title="Remover responsável">✕</span>
       </span>`).join('') || '<span class="empty-note">Ninguém atribuído ainda.</span>';
-    const disponiveis = profilesCacheForTasks.filter(p => !idsAtuais.includes(p.id));
-    selectAdd.innerHTML = '<option value="">+ atribuir...</option>' +
-      disponiveis.map(p => `<option value="${p.id}">${escapeHtml(p.nome || p.email)}</option>`).join('');
+    // Checklist com todo mundo — marcar/desmarcar não fecha o popover, então
+    // dá pra atribuir o Bruno E a Gaby na mesma abertura, sem reabrir o
+    // dropdown pra cada pessoa (era assim que funcionava antes, com um
+    // <select> de escolha única por vez).
+    pop.innerHTML = profilesCacheForTasks.map(p => `
+      <label>
+        <input type="checkbox" ${idsAtuais.includes(p.id) ? 'checked' : ''} onchange="toggleResponsavelModal('${p.id}', this.checked)">
+        <span class="task-avatar" style="background:${corAvatar(p.id)};">${iniciaisResponsavel(p)}</span>
+        ${escapeHtml(p.nome || p.email)}
+      </label>`).join('') || '<span class="empty-note" style="padding:6px 8px;">Nenhum usuário cadastrado.</span>';
+  }
+
+  function abrirResponsavelPopover(ev) {
+    ev.stopPropagation();
+    const pop = document.getElementById('tm-responsavel-popover');
+    const rect = ev.target.getBoundingClientRect();
+    const left = Math.min(rect.left, window.innerWidth - 240);
+    pop.style.top = (rect.bottom + 6) + 'px';
+    pop.style.left = Math.max(8, left) + 'px';
+    pop.style.display = pop.style.display === 'block' ? 'none' : 'block';
+  }
+
+  async function toggleResponsavelModal(profileId, marcado) {
+    if (marcado) await adicionarResponsavelModal(profileId);
+    else await removerResponsavelModal(profileId);
   }
 
   async function adicionarResponsavelModal(profileId) {
