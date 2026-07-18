@@ -569,9 +569,17 @@
 
             <label style="display:block; margin-bottom:6px;">Etiquetas</label>
             <div id="tm-etiquetas-lista" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
-            <select id="tm-etiqueta-add" onchange="adicionarEtiquetaModal(this.value); this.value='';" style="margin-bottom:16px;">
+            <select id="tm-etiqueta-add" onchange="tratarSelecaoEtiquetaModal(this.value); this.value='';" style="margin-bottom:8px;">
               <option value="">+ adicionar etiqueta...</option>
             </select>
+            <div id="tm-etiqueta-nova" class="form-row" style="display:none; align-items:flex-end; margin-bottom:16px;">
+              <div style="flex:2;"><label>Nome da etiqueta</label><input type="text" id="tm-etiqueta-nome" placeholder="Ex: Cliente X" onkeydown="if(event.key==='Enter'){event.preventDefault();criarEtiquetaModalInline();}"></div>
+              <div><label>Cor</label><input type="color" id="tm-etiqueta-cor" value="#38bdf8" style="height:38px; padding:2px;"></div>
+              <div style="flex:0; display:flex; gap:6px;">
+                <button type="button" onclick="criarEtiquetaModalInline()">Criar</button>
+                <button type="button" class="secondary" onclick="cancelarEtiquetaModalInline()">Cancelar</button>
+              </div>
+            </div>
 
             <label class="tm-section-label">Descrição</label>
             <div id="tm-descricao" class="tm-editable tm-box" contenteditable="true" data-placeholder="Adicione uma descrição..." style="margin-bottom:16px;" onblur="salvarCampoTarefaModal('descricao', this.textContent.trim())"></div>
@@ -2204,7 +2212,42 @@
     const disponiveis = taskLabelsCache.filter(l => !idsAtuais.includes(l.id) && (!l.project_id || l.project_id === projetoAtual));
     selectAdd.innerHTML = '<option value="">+ adicionar etiqueta...</option>' +
       disponiveis.map(l => `<option value="${l.id}">${escapeHtml(l.nome)}</option>`).join('') +
-      (taskLabelsCache.length ? '' : '<option value="" disabled>Cadastre etiquetas em Configurações</option>');
+      '<option value="__nova__">+ Criar nova etiqueta...</option>';
+    const nova = document.getElementById('tm-etiqueta-nova');
+    if (nova) nova.style.display = 'none';
+  }
+
+  function tratarSelecaoEtiquetaModal(valor) {
+    if (valor === '__nova__') {
+      const nova = document.getElementById('tm-etiqueta-nova');
+      if (nova) nova.style.display = 'flex';
+      const nomeInput = document.getElementById('tm-etiqueta-nome');
+      if (nomeInput) nomeInput.focus();
+      return;
+    }
+    adicionarEtiquetaModal(valor);
+  }
+
+  function cancelarEtiquetaModalInline() {
+    const nova = document.getElementById('tm-etiqueta-nova');
+    if (nova) nova.style.display = 'none';
+    const nomeInput = document.getElementById('tm-etiqueta-nome');
+    if (nomeInput) nomeInput.value = '';
+  }
+
+  async function criarEtiquetaModalInline() {
+    const nomeInput = document.getElementById('tm-etiqueta-nome');
+    const nome = nomeInput.value.trim();
+    if (!nome) return;
+    const cor = document.getElementById('tm-etiqueta-cor').value || '#38bdf8';
+    // project_id fica null de propósito: etiqueta criada aqui é global,
+    // igual o Bruno pediu ("já fica geral global essa etiqueta").
+    const { data, error } = await sb.from('task_labels').insert({ nome, cor, project_id: null }).select().single();
+    if (error) { alert('Erro ao criar etiqueta: ' + error.message); return; }
+    taskLabelsCache.push(data);
+    nomeInput.value = '';
+    cancelarEtiquetaModalInline();
+    await adicionarEtiquetaModal(data.id);
   }
 
   async function adicionarEtiquetaModal(labelId) {
