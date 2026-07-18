@@ -349,6 +349,11 @@
           <div class="grid-kpi" id="fin-kpis"></div>
 
           <div class="card">
+            <h3 style="margin-top:0;">Notas <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('notasfinanceiro', event)"></i></h3>
+            <textarea id="fin-notas" placeholder="Anotações livres sobre o financeiro desse projeto..." style="width:100%; min-height:90px; resize:vertical;" onblur="salvarNotasFinanceiro(this.value)"></textarea>
+          </div>
+
+          <div class="card">
             <h3 style="margin-top:0;">Custos fixos deste projeto</h3>
             <p class="placeholder" style="margin-bottom:12px;">Assinaturas e mensalidades. O valor padrão se repete todo mês sozinho — se um mês tiver uma cobrança diferente (extra ou menor), edite direto o lançamento daquele mês na tabela abaixo, sem afetar os próximos meses.</p>
             <div class="form-row">
@@ -766,7 +771,8 @@
     soneca: 'Esconde o cartão do quadro até a data escolhida, sem apagar ele. Reaparece sozinho quando a data chega, e enquanto isso fica listado em "em soneca" no rodapé da coluna.',
     hoje: 'Junta as atividades pendentes (ligação, reunião, lembrete) de todos os seus projetos numa lista só, ordenada por data — pra ver o que precisa fazer sem entrar projeto por projeto.',
     fundoquadro: 'Escolha uma cor ou uma imagem (cole uma URL) de fundo por projeto. Ela aparece atrás do quadro quando você filtra as Tarefas por esse projeto.',
-    responsaveis: 'Uma tarefa pode ter mais de uma pessoa atribuída. Todas aparecem como avatares empilhados no cartão do Kanban.'
+    responsaveis: 'Uma tarefa pode ter mais de uma pessoa atribuída. Todas aparecem como avatares empilhados no cartão do Kanban.',
+    notasfinanceiro: 'Anotações livres sobre o financeiro desse projeto — contexto de negociação, combinados com o cliente, lembretes etc. Salva sozinho quando você clica fora do campo.'
   };
 
   function mostrarAjuda(chave, ev) {
@@ -1062,7 +1068,10 @@
   let costCategoriesCache = [];
 
   async function carregarProjetosSelects() {
-    const { data } = await sb.from('projects').select('id,nome').order('nome');
+    // Traz cor_fundo/imagem_fundo_url/notas_financeiro também — não é só
+    // pra popular selects, esse cache é reaproveitado pelo Kanban
+    // (aplicarFundoQuadro) e agora pelo Financeiro (notas por projeto).
+    const { data } = await sb.from('projects').select('id,nome,cor_fundo,imagem_fundo_url,notas_financeiro').order('nome');
     projectsCache = data || [];
     const dashSel = document.getElementById('dash-projeto');
     const finSel = document.getElementById('fin-projeto');
@@ -1227,6 +1236,11 @@
     document.getElementById('fin-projeto-view').style.display = 'block';
     document.getElementById('fin-mensal-view').style.display = 'none';
 
+    if (!projectsCache.length) await carregarProjetosSelects();
+    const projetoAtual = projectsCache.find(p => p.id === projetoId);
+    const notasEl = document.getElementById('fin-notas');
+    if (notasEl) notasEl.value = (projetoAtual && projetoAtual.notas_financeiro) || '';
+
     await preencherCustosFixosDoMes(projetoId);
     await carregarCustosFixos(projetoId);
 
@@ -1262,6 +1276,15 @@
       `<tr><td>${r.tipo}</td><td>${brl(r.valor)}</td><td>${r.vendas}</td><td>${r.data}</td>` +
       `<td><button class="row-action" onclick="editarReceita('${r.id}')">Editar</button> <button class="row-action danger" onclick="excluirReceita('${r.id}')">Excluir</button></td></tr>`
     ).join('') || '<tr><td colspan="5" class="empty-note">Nenhuma receita lançada.</td></tr>';
+  }
+
+  async function salvarNotasFinanceiro(texto) {
+    const projetoId = document.getElementById('fin-projeto').value;
+    if (!projetoId || projetoId === '__financeiro__') return;
+    const { error } = await sb.from('projects').update({ notas_financeiro: texto }).eq('id', projetoId);
+    if (error) { alert('Erro ao salvar notas: ' + error.message); return; }
+    const projetoAtual = projectsCache.find(p => p.id === projetoId);
+    if (projetoAtual) projetoAtual.notas_financeiro = texto;
   }
 
   async function lancarCusto() {
