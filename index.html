@@ -534,10 +534,20 @@
                 </select>
               </div>
               <div><label>Vencimento</label><input type="text" id="tm-vencimento" placeholder="dd/mm/aaaa"></div>
+              <div><label>Repetir</label>
+                <select id="tm-repeticao" onchange="salvarCampoTarefaModal('repeticao', this.value || null)">
+                  <option value="">Não repete</option>
+                  <option value="diaria">Diária</option>
+                  <option value="semanal">Semanal</option>
+                  <option value="mensal">Mensal</option>
+                </select>
+              </div>
             </div>
-            <div class="form-row">
+            <div class="form-row" style="align-items:flex-end;">
               <div><label>Projeto</label><select id="tm-projeto" onchange="salvarCampoTarefaModal('project_id', this.value || null)"><option value="">Sem projeto</option></select></div>
               <div><label>Coluna</label><select id="tm-coluna" onchange="salvarCampoTarefaModal('coluna_id', this.value)"></select></div>
+              <div><label>Soneca até</label><input type="date" id="tm-soneca" onchange="salvarCampoTarefaModal('soneca_ate', this.value || null)"></div>
+              <div style="flex:0;"><button type="button" class="secondary" onclick="document.getElementById('tm-soneca').value=''; salvarCampoTarefaModal('soneca_ate', null);">Acordar</button></div>
             </div>
 
             <label style="display:block; margin-bottom:6px;">Responsáveis</label>
@@ -1761,7 +1771,9 @@
     }
     const hoje = formatDateLocal(new Date());
     board.innerHTML = kanbanColumnsCache.map((col, idx) => {
-      const tarefasDaColuna = tasksCache.filter(t => t.coluna_id === col.id);
+      const todasDaColuna = tasksCache.filter(t => t.coluna_id === col.id);
+      const tarefasDaColuna = todasDaColuna.filter(t => !t.soneca_ate || t.soneca_ate <= hoje);
+      const emSoneca = todasDaColuna.filter(t => t.soneca_ate && t.soneca_ate > hoje);
       const cards = tarefasDaColuna.map(t => {
         const responsaveis = (taskAssigneeLinksCache[t.id] || []).map(pid => profilesCacheForTasks.find(p => p.id === pid)).filter(Boolean);
         const projeto = projectsCache.find(p => p.id === t.project_id);
@@ -1785,7 +1797,10 @@
           <div class="task-card prio-${t.prioridade}" draggable="true" ondragstart="dragStartTarefa(event,'${t.id}')" ondragend="dragEndTarefa(event)" onclick="abrirTarefaModalSeNaoArrastou('${t.id}')">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
               <div class="titulo">${escapeHtml(t.titulo)}</div>
-              ${iconeAtividade}
+              <span style="display:flex; gap:6px; flex-shrink:0;">
+                ${t.repeticao ? `<i class="ti ti-repeat" style="font-size:14px; color:var(--muted);" title="Repete: ${t.repeticao}"></i>` : ''}
+                ${iconeAtividade}
+              </span>
             </div>
             ${t.descricao ? `<div class="descricao">${escapeHtml(t.descricao)}</div>` : ''}
             ${labelsDaTarefa.length ? `<div class="meta" style="margin-bottom:6px;">${labelsDaTarefa.map(l => `<span class="badge-etiqueta" style="background:${hexToRgba(l.cor, 0.18)}; color:${l.cor};">${escapeHtml(l.nome)}</span>`).join('')}</div>` : ''}
@@ -1820,6 +1835,15 @@
           <div class="quick-add">
             <input type="text" placeholder="+ Adicionar um cartão" onkeydown="if(event.key==='Enter'){event.preventDefault();criarTarefaRapida('${col.id}', this);}">
           </div>
+          ${emSoneca.length ? `
+          <details style="margin-top:8px;">
+            <summary style="font-size:11px; color:var(--muted); cursor:pointer;">${emSoneca.length} em soneca</summary>
+            ${emSoneca.map(t => `
+              <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; padding:4px 0; color:var(--muted);">
+                <span>${escapeHtml(t.titulo)} <span style="opacity:0.7;">até ${t.soneca_ate.split('-').reverse().join('/')}</span></span>
+                <button class="row-action" onclick="acordarTarefaAgora('${t.id}')">Acordar</button>
+              </div>`).join('')}
+          </details>` : ''}
         </div>`;
     }).join('');
     renderCalendarioTarefas();
@@ -1875,11 +1899,66 @@
     grid.innerHTML = html;
   }
 
+  // ---- Automações estilo Trello (recorrência + mover pra última coluna) ----
+  function ultimaColunaId() {
+    return kanbanColumnsCache.length ? kanbanColumnsCache[kanbanColumnsCache.length - 1].id : null;
+  }
+
+  function proximaDataRecorrencia(dataBase, tipo) {
+    const base = dataBase ? new Date(dataBase + 'T00:00:00') : new Date();
+    if (tipo === 'diaria') base.setDate(base.getDate() + 1);
+    else if (tipo === 'semanal') base.setDate(base.getDate() + 7);
+    else if (tipo === 'mensal') base.setMonth(base.getMonth() + 1);
+    return formatDateLocal(base);
+  }
+
+  async function tratarRecorrenciaTarefa(taskId) {
+    const t = tasksCache.find(x => x.id === taskId);
+    if (!t || !t.repeticao) return;
+    const novaData = proximaDataRecorrencia(t.data_vencimento, t.repeticao);
+    const primeiraColuna = kanbanColumnsCache[0];
+    await sb.from('tasks').insert({
+      titulo: t.titulo, descricao: t.descricao, prioridade: t.prioridade,
+      project_id: t.project_id, coluna_id: primeiraColuna ? primeiraColuna.id : null,
+      data_vencimento: novaData, repeticao: t.repeticao
+    });
+  }
+
+  async function tratarMovimentoParaColuna(taskId, novaColunaId) {
+    if (novaColunaId && novaColunaId === ultimaColunaId()) {
+      await tratarRecorrenciaTarefa(taskId);
+    }
+  }
+
+  async function verificarAutoConclusaoChecklist(taskId) {
+    if (!taskId) return;
+    const itens = checklistCache[taskId] || [];
+    if (!itens.length) return;
+    const todosFeitos = itens.every(i => i.concluido);
+    const tarefa = tasksCache.find(t => t.id === taskId);
+    const ultima = ultimaColunaId();
+    if (todosFeitos && tarefa && ultima && tarefa.coluna_id !== ultima) {
+      const { error } = await sb.from('tasks').update({ coluna_id: ultima }).eq('id', taskId);
+      if (!error) {
+        await tratarMovimentoParaColuna(taskId, ultima);
+        await carregarTarefas();
+        if (tarefaModalId === taskId) { const colSel = document.getElementById('tm-coluna'); if (colSel) colSel.value = ultima; }
+      }
+    }
+  }
+
+  async function acordarTarefaAgora(id) {
+    const { error } = await sb.from('tasks').update({ soneca_ate: null }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    carregarTarefas();
+  }
+
   async function moverTarefa(id, novoIdx) {
     const novaColuna = kanbanColumnsCache[novoIdx];
     if (!novaColuna) return;
     const { error } = await sb.from('tasks').update({ coluna_id: novaColuna.id }).eq('id', id);
     if (error) { alert('Erro ao mover tarefa: ' + error.message); return; }
+    await tratarMovimentoParaColuna(id, novaColuna.id);
     carregarTarefas();
   }
 
@@ -1918,6 +1997,7 @@
     if (!tarefa || tarefa.coluna_id === colunaId) return;
     const { error } = await sb.from('tasks').update({ coluna_id: colunaId }).eq('id', id);
     if (error) { alert('Erro ao mover tarefa: ' + error.message); return; }
+    await tratarMovimentoParaColuna(id, colunaId);
     carregarTarefas();
   }
 
@@ -2002,6 +2082,8 @@
     else document.getElementById('tm-vencimento').value = t.data_vencimento || '';
     document.getElementById('tm-projeto').value = t.project_id || '';
     document.getElementById('tm-coluna').value = t.coluna_id || '';
+    document.getElementById('tm-repeticao').value = t.repeticao || '';
+    document.getElementById('tm-soneca').value = t.soneca_ate || '';
     renderChecklistModal();
     renderEtiquetasModal();
     renderResponsaveisModal();
@@ -2019,6 +2101,7 @@
     const idAlvo = tarefaModalId;
     const { error } = await sb.from('tasks').update({ [campo]: valor }).eq('id', idAlvo);
     if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    if (campo === 'coluna_id') await tratarMovimentoParaColuna(idAlvo, valor);
     await carregarTarefas();
     if (tarefaModalId === idAlvo) { renderChecklistModal(); renderEtiquetasModal(); }
   }
@@ -2238,6 +2321,7 @@
     });
     renderChecklistModal();
     renderKanban();
+    await verificarAutoConclusaoChecklist(tarefaModalId);
   }
 
   async function salvarChecklistItemResponsavel(id, responsavelId) {
