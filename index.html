@@ -211,6 +211,9 @@
   .task-card .actions { display: flex; gap: 6px; align-items: center; }
   .task-card .actions .move { display: flex; gap: 2px; margin-left: auto; }
   .empty-col { color: var(--muted); font-size: 12px; padding: 8px 0; }
+  .ajuda-icone { cursor: pointer; color: var(--muted); font-size: 13px; margin-left: 4px; vertical-align: -1px; }
+  .ajuda-icone:hover { color: var(--info); }
+  .ajuda-popover { position: fixed; display: none; background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; max-width: 260px; box-shadow: 0 4px 14px rgba(0,0,0,0.45); z-index: 2000; color: var(--text); }
   .task-card[draggable="true"] { cursor: grab; }
   .task-card.dragging { opacity: 0.35; }
   .kanban-col-body { min-height: 28px; }
@@ -286,6 +289,7 @@
 </div>
 
 <div id="app-screen">
+  <div id="ajuda-popover" class="ajuda-popover"></div>
   <div class="layout">
     <div class="sidebar" id="sidebar">
       <h1><span class="txt">Gestor de Projetos</span><button type="button" class="sidebar-toggle" onclick="alternarSidebar()" title="Minimizar menu" aria-label="Minimizar menu"><i class="ti ti-layout-sidebar-left-collapse"></i></button></h1>
@@ -507,6 +511,7 @@
             <button type="button" id="tab-tarefas-calendario" class="tab-toggle" onclick="mostrarVisaoTarefas('calendario')">Calendário</button>
             <button type="button" id="tab-tarefas-atividades" class="tab-toggle" onclick="mostrarVisaoTarefas('atividades')">Hoje</button>
           </div>
+          <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('hoje', event)"></i>
           <div class="cal-nav" id="cal-nav">
             <button type="button" class="row-action" onclick="calMudarMes(-1)">◀</button>
             <span id="cal-mes-label"></span>
@@ -550,7 +555,7 @@
                 </select>
               </div>
               <div><label>Vencimento</label><input type="text" id="tm-vencimento" placeholder="dd/mm/aaaa"></div>
-              <div><label>Repetir</label>
+              <div><label>Repetir <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('repeticao', event)"></i></label>
                 <select id="tm-repeticao" onchange="salvarCampoTarefaModal('repeticao', this.value || null)">
                   <option value="">Não repete</option>
                   <option value="diaria">Diária</option>
@@ -562,11 +567,11 @@
             <div class="form-row" style="align-items:flex-end;">
               <div><label>Projeto</label><select id="tm-projeto" onchange="salvarCampoTarefaModal('project_id', this.value || null)"><option value="">Sem projeto</option></select></div>
               <div><label>Coluna</label><select id="tm-coluna" onchange="salvarCampoTarefaModal('coluna_id', this.value)"></select></div>
-              <div><label>Soneca até</label><input type="date" id="tm-soneca" onchange="salvarCampoTarefaModal('soneca_ate', this.value || null)"></div>
+              <div><label>Soneca até <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('soneca', event)"></i></label><input type="date" id="tm-soneca" onchange="salvarCampoTarefaModal('soneca_ate', this.value || null)"></div>
               <div style="flex:0;"><button type="button" class="secondary" onclick="document.getElementById('tm-soneca').value=''; salvarCampoTarefaModal('soneca_ate', null);">Acordar</button></div>
             </div>
 
-            <label style="display:block; margin-bottom:6px;">Responsáveis</label>
+            <label style="display:block; margin-bottom:6px;">Responsáveis <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('responsaveis', event)"></i></label>
             <div id="tm-responsaveis-lista" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
             <select id="tm-responsavel-add" onchange="adicionarResponsavelModal(this.value); this.value='';" style="margin-bottom:16px;">
               <option value="">+ atribuir...</option>
@@ -582,7 +587,7 @@
             <div id="tm-descricao" class="tm-editable tm-box" contenteditable="true" data-placeholder="Adicione uma descrição..." style="margin-bottom:16px;" onblur="salvarCampoTarefaModal('descricao', this.textContent.trim())"></div>
 
             <div style="display:flex; justify-content:space-between; align-items:baseline;">
-              <label class="tm-section-label" style="margin:0;">Atividades</label>
+              <label class="tm-section-label" style="margin:0;">Atividades <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('atividades', event)"></i></label>
             </div>
             <div id="tm-atividades-lista" style="margin:8px 0;"></div>
             <div class="form-row" style="align-items:flex-end; margin-bottom:16px;">
@@ -639,7 +644,7 @@
         <div class="card">
           <p class="placeholder" style="margin-bottom:12px;">A cor e a imagem de fundo aparecem atrás do Kanban quando você filtra as Tarefas por esse projeto — igual o fundo de quadro do Trello.</p>
           <table>
-            <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th><th>Cor de fundo</th><th>Imagem de fundo (URL)</th></tr></thead>
+            <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th><th>Cor de fundo <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('fundoquadro', event)"></i></th><th>Imagem de fundo (URL)</th></tr></thead>
             <tbody id="projetos-tbody"></tbody>
           </table>
           <p class="empty-note" id="projetos-empty" style="display:none;">Nenhum projeto cadastrado ainda.</p>
@@ -745,6 +750,34 @@
   let currentUser = null;
   let currentProfile = null;
   let currentPermissions = new Set();
+
+  // ---- Ícones de ajuda clicáveis (explicam funções novas) ----
+  const AJUDA_TEXTOS = {
+    atividades: 'Agende ligações, reuniões ou lembretes dentro da tarefa. O ícone que aparece no cartão do Kanban mostra se a próxima atividade está em dia (verde) ou atrasada (vermelho) — assim dá pra ver o que precisa de atenção sem abrir cartão por cartão.',
+    repeticao: 'Quando essa tarefa chega na última coluna do quadro, uma cópia nova é criada sozinha na primeira coluna, com a data de vencimento avançada (diária, semanal ou mensal). Serve pra tarefas que se repetem, tipo reunião semanal ou cobrança mensal.',
+    soneca: 'Esconde o cartão do quadro até a data escolhida, sem apagar ele. Reaparece sozinho quando a data chega, e enquanto isso fica listado em "em soneca" no rodapé da coluna.',
+    hoje: 'Junta as atividades pendentes (ligação, reunião, lembrete) de todos os seus projetos numa lista só, ordenada por data — pra ver o que precisa fazer sem entrar projeto por projeto.',
+    fundoquadro: 'Escolha uma cor ou uma imagem (cole uma URL) de fundo por projeto. Ela aparece atrás do quadro quando você filtra as Tarefas por esse projeto.',
+    responsaveis: 'Uma tarefa pode ter mais de uma pessoa atribuída. Todas aparecem como avatares empilhados no cartão do Kanban.'
+  };
+
+  function mostrarAjuda(chave, ev) {
+    ev.stopPropagation();
+    const pop = document.getElementById('ajuda-popover');
+    pop.textContent = AJUDA_TEXTOS[chave] || '';
+    const rect = ev.target.getBoundingClientRect();
+    const left = Math.min(rect.left, window.innerWidth - 280);
+    pop.style.top = (rect.bottom + 6) + 'px';
+    pop.style.left = Math.max(8, left) + 'px';
+    pop.style.display = 'block';
+  }
+
+  document.addEventListener('click', (ev) => {
+    const pop = document.getElementById('ajuda-popover');
+    if (pop && pop.style.display === 'block' && !pop.contains(ev.target) && !ev.target.classList.contains('ajuda-icone')) {
+      pop.style.display = 'none';
+    }
+  });
 
   async function init() {
     initSidebarState();
