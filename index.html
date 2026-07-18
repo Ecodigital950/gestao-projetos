@@ -233,6 +233,8 @@
   .checklist-item span.checklist-texto:hover { background: rgba(255,255,255,0.04); }
   .checklist-item.done span.checklist-texto { text-decoration: line-through; color: var(--muted); }
   .checklist-item input.checklist-texto-input { flex: 1; font-size: 13px; }
+  .checklist-move { display: flex; gap: 2px; flex-shrink: 0; }
+  .checklist-move .row-action { padding: 1px 5px; font-size: 10px; }
   .checklist-item-extra { display: flex; gap: 8px; padding: 0 0 8px 26px; }
   .checklist-item-extra select, .checklist-item-extra input[type="date"] { font-size: 11.5px; padding: 3px 6px; height: 26px; background: transparent; border: 1px dashed var(--card-border); color: var(--muted); }
   .checklist-item-extra select:not([value=""]), .checklist-item-extra input[type="date"]:valid { color: var(--text); }
@@ -2464,16 +2466,40 @@
     document.getElementById('tm-checklist-contador').textContent = itens.length ? `${feitos}/${itens.length}` : '';
     document.getElementById('tm-checklist-bar').style.width = pct + '%';
     const respOpts = '<option value="">+ atribuir</option>' + profilesCacheForTasks.map(p => `<option value="${p.id}">${escapeHtml(p.nome || p.email)}</option>`).join('');
-    cont.innerHTML = itens.map(i => `
+    cont.innerHTML = itens.map((i, idx) => `
       <div class="checklist-item ${i.concluido ? 'done' : ''}">
         <input type="checkbox" ${i.concluido ? 'checked' : ''} onchange="toggleChecklistItemModal('${i.id}', this.checked)">
         <span class="checklist-texto" title="Clique pra editar" onclick="editarChecklistItemTexto(this, '${i.id}')">${escapeHtml(i.texto)}</span>
+        <span class="checklist-move">
+          <button class="row-action" ${idx === 0 ? 'disabled' : ''} onclick="moverChecklistItem('${i.id}', -1)" title="Mover pra cima">▲</button>
+          <button class="row-action" ${idx === itens.length - 1 ? 'disabled' : ''} onclick="moverChecklistItem('${i.id}', 1)" title="Mover pra baixo">▼</button>
+        </span>
         <button class="row-action danger" onclick="excluirChecklistItemModal('${i.id}')">Excluir</button>
       </div>
       <div class="checklist-item-extra">
         <select onchange="salvarChecklistItemResponsavel('${i.id}', this.value || null)">${respOpts.replace(`value="${i.responsavel_id || ''}"`, `value="${i.responsavel_id || ''}" selected`)}</select>
         <input type="date" value="${i.data_vencimento || ''}" onchange="salvarChecklistItemData('${i.id}', this.value || null)">
       </div>`).join('') || '<p class="empty-note">Nenhum item ainda.</p>';
+  }
+
+  async function moverChecklistItem(id, direcao) {
+    const itens = checklistCache[tarefaModalId] || [];
+    const idx = itens.findIndex(i => i.id === id);
+    const novoIdx = idx + direcao;
+    if (idx < 0 || novoIdx < 0 || novoIdx >= itens.length) return;
+    const itemA = itens[idx];
+    const itemB = itens[novoIdx];
+    const ordemA = itemA.ordem;
+    const ordemB = itemB.ordem;
+    const [r1, r2] = await Promise.all([
+      sb.from('task_checklist_items').update({ ordem: ordemB }).eq('id', itemA.id),
+      sb.from('task_checklist_items').update({ ordem: ordemA }).eq('id', itemB.id),
+    ]);
+    if (r1.error || r2.error) { alert('Erro ao mover item: ' + (r1.error || r2.error).message); return; }
+    itemA.ordem = ordemB;
+    itemB.ordem = ordemA;
+    checklistCache[tarefaModalId].sort((a, b) => a.ordem - b.ordem);
+    renderChecklistModal();
   }
 
   function editarChecklistItemTexto(spanEl, id) {
