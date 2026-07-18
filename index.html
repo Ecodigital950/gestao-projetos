@@ -166,6 +166,8 @@
   .cal-mais { font-size: 9.5px; color: var(--muted); }
 
   .kanban-board { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
+  .kanban-board-wrap { border-radius: 14px; padding: 14px; background-size: cover; background-position: center; transition: background 0.2s; }
+  .col-flag { width: 34px; height: 24px; border-radius: 4px 4px 4px 0; margin-bottom: 8px; }
   .kanban-col { background: var(--card); border: 1px solid var(--card-border); border-radius: 14px; padding: 14px; min-width: 260px; max-width: 260px; flex-shrink: 0; }
   .kanban-col h4 { margin: 0 0 12px 0; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; }
   .kanban-col h4 .count { color: var(--muted); font-weight: 500; font-size: 12px; }
@@ -501,7 +503,9 @@
             <button type="button" class="row-action" onclick="calMudarMes(1)">▶</button>
           </div>
         </div>
-        <div class="kanban-board" id="kanban-board"></div>
+        <div class="kanban-board-wrap" id="kanban-board-wrap">
+          <div class="kanban-board" id="kanban-board"></div>
+        </div>
         <div id="tarefas-calendario" style="display:none;">
           <div class="card">
             <div class="cal-grid" id="cal-grid"></div>
@@ -607,8 +611,9 @@
           <button onclick="criarProjeto()">Adicionar projeto</button>
         </div>
         <div class="card">
+          <p class="placeholder" style="margin-bottom:12px;">A cor e a imagem de fundo aparecem atrás do Kanban quando você filtra as Tarefas por esse projeto — igual o fundo de quadro do Trello.</p>
           <table>
-            <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th></tr></thead>
+            <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th><th>Cor de fundo</th><th>Imagem de fundo (URL)</th></tr></thead>
             <tbody id="projetos-tbody"></tbody>
           </table>
           <p class="empty-note" id="projetos-empty" style="display:none;">Nenhum projeto cadastrado ainda.</p>
@@ -842,9 +847,27 @@
     empty.style.display = 'none';
     data.forEach(p => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${escapeHtml(p.nome)}</td><td>${escapeHtml(p.status)}</td><td>${p.data_inicio || '-'}</td><td>${p.data_fim || '-'}</td>`;
+      tr.innerHTML = `<td>${escapeHtml(p.nome)}</td><td>${escapeHtml(p.status)}</td><td>${p.data_inicio || '-'}</td><td>${p.data_fim || '-'}</td>
+        <td><input type="color" value="${p.cor_fundo || '#0f1526'}" style="height:28px; padding:1px; width:44px;" onchange="salvarCorFundoProjeto('${p.id}', this.value)"></td>
+        <td><input type="text" value="${escapeHtml(p.imagem_fundo_url || '')}" placeholder="https://..." style="width:160px;" onblur="salvarImagemFundoProjeto('${p.id}', this.value.trim())"></td>`;
       tbody.appendChild(tr);
     });
+  }
+
+  async function salvarCorFundoProjeto(id, cor) {
+    const { error } = await sb.from('projects').update({ cor_fundo: cor }).eq('id', id);
+    if (error) { alert('Erro ao salvar cor de fundo: ' + error.message); return; }
+    const p = projectsCache.find(x => x.id === id);
+    if (p) p.cor_fundo = cor;
+    aplicarFundoQuadro();
+  }
+
+  async function salvarImagemFundoProjeto(id, url) {
+    const { error } = await sb.from('projects').update({ imagem_fundo_url: url || null }).eq('id', id);
+    if (error) { alert('Erro ao salvar imagem de fundo: ' + error.message); return; }
+    const p = projectsCache.find(x => x.id === id);
+    if (p) p.imagem_fundo_url = url || null;
+    aplicarFundoQuadro();
   }
 
   async function criarProjeto() {
@@ -1700,6 +1723,24 @@
     await carregarTaskAssignees(tasksCache.map(t => t.id));
     await carregarTaskActivities(tasksCache.map(t => t.id));
     renderKanban();
+    aplicarFundoQuadro();
+  }
+
+  function aplicarFundoQuadro() {
+    const wrap = document.getElementById('kanban-board-wrap');
+    if (!wrap) return;
+    const ehProjeto = tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos' && tarefaFiltroAtivo !== 'hoje';
+    const projeto = ehProjeto ? projectsCache.find(p => p.id === tarefaFiltroAtivo) : null;
+    if (projeto && projeto.imagem_fundo_url) {
+      wrap.style.backgroundColor = '';
+      wrap.style.backgroundImage = `linear-gradient(rgba(12,17,32,0.4), rgba(12,17,32,0.4)), url('${projeto.imagem_fundo_url}')`;
+    } else if (projeto && projeto.cor_fundo) {
+      wrap.style.backgroundImage = '';
+      wrap.style.backgroundColor = projeto.cor_fundo;
+    } else {
+      wrap.style.backgroundImage = '';
+      wrap.style.backgroundColor = 'transparent';
+    }
   }
 
   async function carregarChecklistDeTarefas(taskIds) {
@@ -1771,7 +1812,8 @@
       const corCol = col.cor || corCategoria(col.id);
       return `
         <div class="kanban-col">
-          <h4 style="background:${hexToRgba(corCol, 0.15)}; color:${corCol}; margin:-14px -14px 12px; padding:10px 14px; border-radius:14px 14px 0 0;">${escapeHtml(col.nome)} <span class="count" style="color:${corCol}; opacity:0.75;">${tarefasDaColuna.length}</span></h4>
+          <div class="col-flag" style="background:repeating-linear-gradient(45deg, ${corCol}, ${corCol} 5px, ${hexToRgba(corCol, 0.55)} 5px, ${hexToRgba(corCol, 0.55)} 10px);" title="Cor da coluna"></div>
+          <h4>${escapeHtml(col.nome)} <span class="count">${tarefasDaColuna.length}</span></h4>
           <div class="kanban-col-body" ondragover="allowDropTarefa(event)" ondragleave="dragLeaveColuna(event)" ondrop="dropTarefaNaColuna(event,'${col.id}')">
             ${cards}
           </div>
