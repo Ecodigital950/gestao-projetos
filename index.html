@@ -176,11 +176,11 @@
   .cal-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
   .cal-mais { font-size: 9.5px; color: var(--muted); }
 
-  .kanban-board { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; }
-  .kanban-board-wrap { border-radius: 14px; padding: 14px; background-size: cover; background-position: center; background-color: rgba(255,255,255,0.025); transition: background 0.2s; }
-  .col-flag { width: 30px; height: 8px; border-radius: 3px; margin-bottom: 6px; }
-  .kanban-col { background: rgba(255,255,255,0.045); border: none; border-radius: 8px; padding: 10px 10px 6px 10px; min-width: 258px; max-width: 258px; flex-shrink: 0; }
-  .kanban-col h4 { margin: 0 0 10px 0; font-size: 14px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .kanban-board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; }
+  .kanban-board-wrap { border-radius: 14px; padding: 16px; background-size: cover; background-position: center; background-color: rgba(255,255,255,0.025); transition: background 0.2s; }
+  .col-flag { width: 100%; height: 6px; border-radius: 3px; margin-bottom: 8px; }
+  .kanban-col { background: rgba(255,255,255,0.045); border: none; border-radius: 8px; padding: 12px 12px 8px 12px; min-width: 300px; max-width: 300px; flex-shrink: 0; }
+  .kanban-col h4 { margin: 0 0 12px 0; font-size: 16px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
   .kanban-col h4 .count { color: var(--muted); font-weight: 500; font-size: 12.5px; }
   .task-card { background: #22272b; border: none; border-radius: 8px; padding: 8px 8px 8px 12px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.35); transition: box-shadow 0.12s, background 0.12s; }
   .task-card:hover { background: #282e33; box-shadow: 0 2px 6px rgba(0,0,0,0.45); }
@@ -495,16 +495,6 @@
       <div id="view-tarefas" class="view">
         <h2>Tarefas</h2>
         <div class="filtro-chip-row" id="tarefa-filtro-chips" style="margin-bottom:16px;"></div>
-        <div class="card">
-          <h3 style="margin-top:0;">Nova tarefa</h3>
-          <p class="placeholder" style="margin-bottom:12px;">Só o título pra criar rápido. Prioridade, prazo, responsável, projeto, etiquetas e descrição você ajusta depois, clicando no card.</p>
-          <div class="form-row" style="align-items:flex-end;">
-            <div style="flex:2;"><label>Título</label><input type="text" id="tarefa-titulo" placeholder="Ex: Enviar proposta" onkeydown="if(event.key==='Enter'){event.preventDefault();salvarTarefa();}"></div>
-            <div><label>Vencimento</label><input type="text" id="tarefa-vencimento" placeholder="dd/mm/aaaa"></div>
-            <div><label>Coluna</label><select id="tarefa-coluna"></select></div>
-            <div style="flex:0;"><button id="btn-tarefa" onclick="salvarTarefa()">Adicionar tarefa</button></div>
-          </div>
-        </div>
         <div class="tab-toggle-row">
           <div class="tab-toggle-group">
             <button type="button" id="tab-tarefas-kanban" class="tab-toggle active" onclick="mostrarVisaoTarefas('kanban')">Kanban</button>
@@ -783,7 +773,6 @@
     initSidebarState();
     initDashPeriodo();
     initTmVencimentoPicker();
-    initTarefaVencimentoPicker();
     const { data: { session } } = await sb.auth.getSession();
     if (session) {
       await afterLogin(session.user);
@@ -2130,29 +2119,6 @@
     carregarTarefas();
   }
 
-  // ---- Nova tarefa (formulário do topo, estilo Trello: só título + coluna.
-  // Prioridade/prazo/responsável/projeto/etiquetas/descrição se ajustam
-  // depois, clicando no card — igual Trello, ClickUp e Asana fazem.) ----
-  async function salvarTarefa() {
-    const input = document.getElementById('tarefa-titulo');
-    const titulo = input.value.trim();
-    if (!titulo) return;
-    const projetoFiltro = (tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos' && tarefaFiltroAtivo !== 'hoje') ? tarefaFiltroAtivo : null;
-    const payload = {
-      titulo,
-      coluna_id: document.getElementById('tarefa-coluna').value || null,
-      project_id: projetoFiltro,
-      data_vencimento: document.getElementById('tarefa-vencimento').value || null,
-      prioridade: 'media',
-    };
-    const { error } = await sb.from('tasks').insert(payload);
-    if (error) { alert('Erro ao criar tarefa: ' + error.message); return; }
-    input.value = '';
-    input.focus();
-    if (tarefaVencimentoPicker) tarefaVencimentoPicker.clear();
-    carregarTarefas();
-  }
-
   async function excluirTarefa(id) {
     if (!confirm('Excluir essa tarefa?')) return;
     const { error } = await sb.from('tasks').delete().eq('id', id);
@@ -2164,18 +2130,6 @@
   // sem botão "Salvar" — cada campo grava sozinho ao perder o foco/mudar. ----
   let tarefaModalId = null;
   let tmVencimentoPicker = null;
-  let tarefaVencimentoPicker = null;
-
-  function initTarefaVencimentoPicker() {
-    if (typeof flatpickr !== 'function' || tarefaVencimentoPicker) return;
-    tarefaVencimentoPicker = flatpickr('#tarefa-vencimento', {
-      dateFormat: 'Y-m-d',
-      altInput: true,
-      altFormat: 'd/m/Y',
-      locale: 'pt',
-      allowInput: true
-    });
-  }
 
   function initTmVencimentoPicker() {
     if (typeof flatpickr !== 'function' || tmVencimentoPicker) return;
