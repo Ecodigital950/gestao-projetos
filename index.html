@@ -6,6 +6,7 @@
 <title>Gestor de Projetos</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
@@ -216,10 +217,11 @@
   .ajuda-icone { cursor: pointer; color: var(--muted); font-size: 13px; margin-left: 4px; vertical-align: -1px; }
   .ajuda-icone:hover { color: var(--info); }
   .ajuda-popover { position: fixed; display: none; background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.5; max-width: 260px; box-shadow: 0 4px 14px rgba(0,0,0,0.45); z-index: 2000; color: var(--text); }
-  .task-card[draggable="true"] { cursor: grab; }
-  .task-card.dragging { opacity: 0.35; }
+  .task-card { cursor: grab; }
+  .task-card.dragging { opacity: 0.6; cursor: grabbing; }
+  .task-card-ghost { opacity: 0.5; background: rgba(56,189,248,0.10) !important; border: 1.5px dashed var(--info) !important; box-shadow: none !important; }
+  .task-card-ghost * { opacity: 0; }
   .kanban-col-body { min-height: 28px; }
-  .kanban-col-body.drag-over { background: rgba(56,189,248,0.06); border-radius: 8px; }
   .quick-add input { width: 100%; background: transparent; border: 1px dashed var(--card-border); font-size: 12.5px; margin-top: 4px; }
   .checklist-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
   .checklist-item span.checklist-texto { flex: 1; cursor: pointer; border-radius: 4px; padding: 2px 4px; margin: -2px -4px; }
@@ -1858,7 +1860,7 @@
             : `<i class="ti ti-circle-check" style="font-size:15px; color:var(--pos);" title="Próxima atividade: ${escapeHtml(proximaAtividade.titulo)}"></i>`;
         }
         return `
-          <div class="task-card prio-${t.prioridade}" draggable="true" ondragstart="dragStartTarefa(event,'${t.id}')" ondragend="dragEndTarefa(event)" onclick="abrirTarefaModalSeNaoArrastou('${t.id}')">
+          <div class="task-card prio-${t.prioridade}" data-task-id="${t.id}" onclick="abrirTarefaModalSeNaoArrastou('${t.id}')">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
               <div class="titulo">${escapeHtml(t.titulo)}</div>
               <span style="display:flex; gap:6px; flex-shrink:0;">
@@ -1898,7 +1900,7 @@
               <button class="row-action" ${idx === kanbanColumnsCache.length - 1 ? 'disabled' : ''} onclick="moverColuna('${col.id}', 1)" title="Mover coluna para a direita">▶</button>
             </span>
           </h4>
-          <div class="kanban-col-body" ondragover="allowDropTarefa(event)" ondragleave="dragLeaveColuna(event)" ondrop="dropTarefaNaColuna(event,'${col.id}')">
+          <div class="kanban-col-body" data-coluna-id="${col.id}">
             ${cards}
           </div>
           <div class="quick-add">
@@ -1916,6 +1918,7 @@
         </div>`;
     }).join('');
     renderCalendarioTarefas();
+    initSortableKanban();
   }
 
   // ---- Reordenar colunas do Kanban direto no board (sem precisar ir em
@@ -2106,42 +2109,45 @@
     carregarTarefas();
   }
 
-  // ---- Drag and drop nativo (desktop) ----
-  let draggedTaskId = null;
+  // ---- Drag and drop com SortableJS (biblioteca por trás de vários clones
+  // de Trello) — pega-e-segura suave, com placeholder mostrando onde o
+  // cartão vai cair, em vez do drag nativo do HTML5 que exigia mirar exato
+  // no alvo e não mostrava nenhum indício de onde ia soltar. ----
   let arrastandoCard = false; // impede o clique (que abre o modal) de "roubar" o drag
+  let sortableInstances = [];
 
-  function dragStartTarefa(ev, id) {
-    arrastandoCard = true;
-    draggedTaskId = id;
-    ev.dataTransfer.effectAllowed = 'move';
-    ev.dataTransfer.setData('text/plain', id);
-    ev.target.classList.add('dragging');
-  }
-  function dragEndTarefa(ev) {
-    ev.target.classList.remove('dragging');
-    setTimeout(() => { arrastandoCard = false; }, 50);
-  }
   function abrirTarefaModalSeNaoArrastou(id) {
     if (!arrastandoCard) abrirTarefaModal(id);
   }
-  function allowDropTarefa(ev) {
-    ev.preventDefault();
-    ev.currentTarget.classList.add('drag-over');
+
+  function initSortableKanban() {
+    if (typeof Sortable !== 'function') return;
+    sortableInstances.forEach(s => s.destroy());
+    sortableInstances = [];
+    document.querySelectorAll('.kanban-col-body').forEach(body => {
+      const instancia = Sortable.create(body, {
+        group: 'kanban-tarefas',
+        animation: 150,
+        filter: '.empty-col',
+        ghostClass: 'task-card-ghost',
+        chosenClass: 'dragging',
+        onStart: () => { arrastandoCard = true; },
+        onEnd: (ev) => {
+          setTimeout(() => { arrastandoCard = false; }, 50);
+          moverTarefaViaSortable(ev.item.dataset.taskId, ev.to.dataset.colunaId, ev.from.dataset.colunaId);
+        }
+      });
+      sortableInstances.push(instancia);
+    });
   }
-  function dragLeaveColuna(ev) {
-    ev.currentTarget.classList.remove('drag-over');
-  }
-  async function dropTarefaNaColuna(ev, colunaId) {
-    ev.preventDefault();
-    ev.currentTarget.classList.remove('drag-over');
-    const id = draggedTaskId || ev.dataTransfer.getData('text/plain');
-    draggedTaskId = null;
-    if (!id) return;
-    const tarefa = tasksCache.find(t => t.id === id);
-    if (!tarefa || tarefa.coluna_id === colunaId) return;
-    const { error } = await sb.from('tasks').update({ coluna_id: colunaId }).eq('id', id);
-    if (error) { alert('Erro ao mover tarefa: ' + error.message); return; }
-    await tratarMovimentoParaColuna(id, colunaId);
+
+  async function moverTarefaViaSortable(taskId, novaColunaId, colunaAntigaId) {
+    if (!taskId || !novaColunaId || novaColunaId === colunaAntigaId) return;
+    const tarefa = tasksCache.find(t => t.id === taskId);
+    if (!tarefa) return;
+    const { error } = await sb.from('tasks').update({ coluna_id: novaColunaId }).eq('id', taskId);
+    if (error) { alert('Erro ao mover tarefa: ' + error.message); carregarTarefas(); return; }
+    await tratarMovimentoParaColuna(taskId, novaColunaId);
     carregarTarefas();
   }
 
