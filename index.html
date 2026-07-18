@@ -162,6 +162,10 @@
   .tab-toggle { font-size: 12.5px; padding: 6px 14px; border-radius: 7px; border: none; cursor: pointer; background: transparent; color: var(--muted); font-weight: 500; }
   .tab-toggle.active { background: rgba(56,189,248,0.15); color: var(--info); }
   .filtro-chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tarefas-topo-row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; margin-bottom: 16px; }
+  .tarefas-topo-row .filtro-chip-row { flex: 1 1 280px; margin-bottom: 0; }
+  #tarefa-nota-rapida-wrap { flex: 1 1 200px; max-width: 340px; min-width: 140px; }
+  #tarefa-nota-rapida { width: 100%; min-height: 34px; max-height: 70px; resize: vertical; font-size: 12.5px; padding: 6px 8px; }
   .filtro-chip { font-size: 13px; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--card-border); cursor: pointer; background: var(--card); color: var(--text); font-weight: 500; }
   .filtro-chip:hover { border-color: var(--muted); }
   .filtro-chip.active { border-color: var(--info); background: rgba(56,189,248,0.15); color: var(--info); }
@@ -510,7 +514,12 @@
       </div>
       <div id="view-tarefas" class="view">
         <h2>Tarefas</h2>
-        <div class="filtro-chip-row" id="tarefa-filtro-chips" style="margin-bottom:16px;"></div>
+        <div class="tarefas-topo-row">
+          <div class="filtro-chip-row" id="tarefa-filtro-chips"></div>
+          <div id="tarefa-nota-rapida-wrap" style="display:none;">
+            <textarea id="tarefa-nota-rapida" placeholder="Nota rápida antes de criar o cartão..." onblur="salvarNotaRapidaProjeto(this.value)"></textarea>
+          </div>
+        </div>
         <div class="tab-toggle-row">
           <div class="tab-toggle-group">
             <button type="button" id="tab-tarefas-kanban" class="tab-toggle active" onclick="mostrarVisaoTarefas('kanban')">Kanban</button>
@@ -1071,7 +1080,7 @@
     // Traz cor_fundo/imagem_fundo_url/notas_financeiro também — não é só
     // pra popular selects, esse cache é reaproveitado pelo Kanban
     // (aplicarFundoQuadro) e agora pelo Financeiro (notas por projeto).
-    const { data } = await sb.from('projects').select('id,nome,cor_fundo,imagem_fundo_url,notas_financeiro').order('nome');
+    const { data } = await sb.from('projects').select('id,nome,cor_fundo,imagem_fundo_url,notas_financeiro,notas_tarefas').order('nome');
     projectsCache = data || [];
     const dashSel = document.getElementById('dash-projeto');
     const finSel = document.getElementById('fin-projeto');
@@ -1832,8 +1841,35 @@
     await carregarTaskLabelLinks(tasksCache.map(t => t.id));
     await carregarTaskAssignees(tasksCache.map(t => t.id));
     await carregarTaskActivities(tasksCache.map(t => t.id));
+    atualizarNotaRapida();
     renderKanban();
     aplicarFundoQuadro();
+  }
+
+  // ---- Nota rápida por projeto, no topo do Kanban — só um rascunho pra
+  // anotar algo antes de virar cartão. Some em "Todos"/"Hoje" porque não
+  // existe "o projeto" nesses filtros; aparece só dentro de um projeto
+  // específico. Divide a largura com os chips (flex), então conforme mais
+  // projetos forem criados e os chips ocuparem mais espaço, o campo de
+  // nota encolhe sozinho (e pode até cair pra linha de baixo, já que o
+  // container tem flex-wrap). ----
+  function atualizarNotaRapida() {
+    const wrap = document.getElementById('tarefa-nota-rapida-wrap');
+    const campo = document.getElementById('tarefa-nota-rapida');
+    if (!wrap || !campo) return;
+    const ehProjeto = tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos' && tarefaFiltroAtivo !== 'hoje';
+    const projeto = ehProjeto ? projectsCache.find(p => p.id === tarefaFiltroAtivo) : null;
+    wrap.style.display = projeto ? 'block' : 'none';
+    campo.value = (projeto && projeto.notas_tarefas) || '';
+  }
+
+  async function salvarNotaRapidaProjeto(texto) {
+    const ehProjeto = tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos' && tarefaFiltroAtivo !== 'hoje';
+    if (!ehProjeto) return;
+    const { error } = await sb.from('projects').update({ notas_tarefas: texto }).eq('id', tarefaFiltroAtivo);
+    if (error) { alert('Erro ao salvar nota: ' + error.message); return; }
+    const projeto = projectsCache.find(p => p.id === tarefaFiltroAtivo);
+    if (projeto) projeto.notas_tarefas = texto;
   }
 
   function aplicarFundoQuadro() {
