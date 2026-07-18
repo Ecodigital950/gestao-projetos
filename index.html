@@ -210,6 +210,9 @@
   .checklist-item span.checklist-texto:hover { background: rgba(255,255,255,0.04); }
   .checklist-item.done span.checklist-texto { text-decoration: line-through; color: var(--muted); }
   .checklist-item input.checklist-texto-input { flex: 1; font-size: 13px; }
+  .checklist-item-extra { display: flex; gap: 8px; padding: 0 0 8px 26px; }
+  .checklist-item-extra select, .checklist-item-extra input[type="date"] { font-size: 11.5px; padding: 3px 6px; height: 26px; background: transparent; border: 1px dashed var(--card-border); color: var(--muted); }
+  .checklist-item-extra select:not([value=""]), .checklist-item-extra input[type="date"]:valid { color: var(--text); }
 
   .fin-grid { width: 100%; border-collapse: collapse; font-size: 13.5px; }
   .fin-grid td { padding: 6px 10px; border-bottom: 1px solid var(--card-border); vertical-align: middle; }
@@ -1967,11 +1970,16 @@
     const pct = itens.length ? Math.round((feitos / itens.length) * 100) : 0;
     document.getElementById('tm-checklist-contador').textContent = itens.length ? `${feitos}/${itens.length}` : '';
     document.getElementById('tm-checklist-bar').style.width = pct + '%';
+    const respOpts = '<option value="">+ atribuir</option>' + profilesCacheForTasks.map(p => `<option value="${p.id}">${escapeHtml(p.nome || p.email)}</option>`).join('');
     cont.innerHTML = itens.map(i => `
       <div class="checklist-item ${i.concluido ? 'done' : ''}">
         <input type="checkbox" ${i.concluido ? 'checked' : ''} onchange="toggleChecklistItemModal('${i.id}', this.checked)">
         <span class="checklist-texto" title="Clique pra editar" onclick="editarChecklistItemTexto(this, '${i.id}')">${escapeHtml(i.texto)}</span>
         <button class="row-action danger" onclick="excluirChecklistItemModal('${i.id}')">Excluir</button>
+      </div>
+      <div class="checklist-item-extra">
+        <select onchange="salvarChecklistItemResponsavel('${i.id}', this.value || null)">${respOpts.replace(`value="${i.responsavel_id || ''}"`, `value="${i.responsavel_id || ''}" selected`)}</select>
+        <input type="date" value="${i.data_vencimento || ''}" onchange="salvarChecklistItemData('${i.id}', this.value || null)">
       </div>`).join('') || '<p class="empty-note">Nenhum item ainda.</p>';
   }
 
@@ -2025,6 +2033,24 @@
     });
     renderChecklistModal();
     renderKanban();
+  }
+
+  async function salvarChecklistItemResponsavel(id, responsavelId) {
+    const { error } = await sb.from('task_checklist_items').update({ responsavel_id: responsavelId }).eq('id', id);
+    if (error) { alert('Erro ao atribuir: ' + error.message); return; }
+    Object.values(checklistCache).forEach(lista => {
+      const item = lista.find(i => i.id === id);
+      if (item) item.responsavel_id = responsavelId;
+    });
+  }
+
+  async function salvarChecklistItemData(id, dataStr) {
+    const { error } = await sb.from('task_checklist_items').update({ data_vencimento: dataStr }).eq('id', id);
+    if (error) { alert('Erro ao definir data: ' + error.message); return; }
+    Object.values(checklistCache).forEach(lista => {
+      const item = lista.find(i => i.id === id);
+      if (item) item.data_vencimento = dataStr;
+    });
   }
 
   async function excluirChecklistItemModal(id) {
