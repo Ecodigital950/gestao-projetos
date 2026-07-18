@@ -530,12 +530,17 @@
                 </select>
               </div>
               <div><label>Vencimento</label><input type="text" id="tm-vencimento" placeholder="dd/mm/aaaa"></div>
-              <div><label>Responsável</label><select id="tm-responsavel" onchange="salvarCampoTarefaModal('responsavel_id', this.value || null)"><option value="">Sem responsável</option></select></div>
             </div>
             <div class="form-row">
               <div><label>Projeto</label><select id="tm-projeto" onchange="salvarCampoTarefaModal('project_id', this.value || null)"><option value="">Sem projeto</option></select></div>
               <div><label>Coluna</label><select id="tm-coluna" onchange="salvarCampoTarefaModal('coluna_id', this.value)"></select></div>
             </div>
+
+            <label style="display:block; margin-bottom:6px;">Responsáveis</label>
+            <div id="tm-responsaveis-lista" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
+            <select id="tm-responsavel-add" onchange="adicionarResponsavelModal(this.value); this.value='';" style="margin-bottom:16px;">
+              <option value="">+ atribuir...</option>
+            </select>
 
             <label style="display:block; margin-bottom:6px;">Etiquetas</label>
             <div id="tm-etiquetas-lista" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;"></div>
@@ -545,6 +550,23 @@
 
             <label class="tm-section-label">Descrição</label>
             <div id="tm-descricao" class="tm-editable tm-box" contenteditable="true" data-placeholder="Adicione uma descrição..." style="margin-bottom:16px;" onblur="salvarCampoTarefaModal('descricao', this.textContent.trim())"></div>
+
+            <div style="display:flex; justify-content:space-between; align-items:baseline;">
+              <label class="tm-section-label" style="margin:0;">Atividades</label>
+            </div>
+            <div id="tm-atividades-lista" style="margin:8px 0;"></div>
+            <div class="form-row" style="align-items:flex-end; margin-bottom:16px;">
+              <div><label>Tipo</label>
+                <select id="tm-atividade-tipo">
+                  <option value="ligacao">Ligação</option>
+                  <option value="reuniao">Reunião</option>
+                  <option value="lembrete" selected>Lembrete</option>
+                </select>
+              </div>
+              <div style="flex:2;"><label>Título</label><input type="text" id="tm-atividade-titulo" placeholder="Ex: Follow-up com o cliente"></div>
+              <div><label>Quando</label><input type="datetime-local" id="tm-atividade-quando"></div>
+              <div style="flex:0;"><button type="button" class="secondary" onclick="adicionarAtividadeModal()">Agendar</button></div>
+            </div>
 
             <div style="display:flex; justify-content:space-between; align-items:baseline;">
               <label class="tm-section-label" style="margin:0;">Checklist</label>
@@ -629,10 +651,11 @@
           <div class="form-row">
             <div><label>Nome</label><input type="text" id="col-nome" placeholder="Ex: Aguardando Cliente"></div>
             <div><label>Ordem</label><input type="number" id="col-ordem" value="0"></div>
+            <div><label>Cor</label><input type="color" id="col-cor" value="#38bdf8" style="height:38px; padding:2px;"></div>
           </div>
           <button onclick="criarColunaConfig()">Adicionar coluna</button>
           <table style="margin-top:16px;">
-            <thead><tr><th>Nome</th><th>Ordem</th><th></th></tr></thead>
+            <thead><tr><th>Nome</th><th>Ordem</th><th>Cor</th><th></th></tr></thead>
             <tbody id="colunas-config-tbody"></tbody>
           </table>
         </div>
@@ -1456,19 +1479,30 @@
       <tr>
         <td>${escapeHtml(c.nome)}</td>
         <td>${c.ordem}</td>
+        <td><input type="color" value="${c.cor || '#38bdf8'}" style="height:28px; padding:1px; width:44px;" onchange="salvarCorColuna('${c.id}', this.value)"></td>
         <td>
           <button class="row-action" onclick="editarColunaConfig('${c.id}')">Editar</button>
           <button class="row-action danger" onclick="excluirColunaConfig('${c.id}')">Excluir</button>
         </td>
       </tr>`
-    ).join('') || '<tr><td colspan="3" class="empty-note">Nenhuma coluna cadastrada.</td></tr>';
+    ).join('') || '<tr><td colspan="4" class="empty-note">Nenhuma coluna cadastrada.</td></tr>';
+  }
+
+  async function salvarCorColuna(id, cor) {
+    const { error } = await sb.from('kanban_columns').update({ cor }).eq('id', id);
+    if (error) { alert('Erro ao salvar cor: ' + error.message); return; }
+    const c = colunasConfigCache.find(x => x.id === id);
+    if (c) c.cor = cor;
+    const kc = kanbanColumnsCache.find(x => x.id === id);
+    if (kc) { kc.cor = cor; renderKanban(); }
   }
 
   async function criarColunaConfig() {
     const nome = document.getElementById('col-nome').value.trim();
     if (!nome) return;
     const ordem = parseInt(document.getElementById('col-ordem').value || '0', 10);
-    const { error } = await sb.from('kanban_columns').insert({ nome, ordem });
+    const cor = document.getElementById('col-cor').value || '#38bdf8';
+    const { error } = await sb.from('kanban_columns').insert({ nome, ordem, cor });
     if (error) { alert('Erro ao criar coluna: ' + error.message); return; }
     document.getElementById('col-nome').value = '';
     document.getElementById('col-ordem').value = '0';
@@ -1580,16 +1614,13 @@
 
     const { data: profs } = await sb.from('profiles').select('id,nome,email').order('email');
     profilesCacheForTasks = profs || [];
-    const respOpts = '<option value="">Sem responsável</option>' + profilesCacheForTasks.map(p => `<option value="${p.id}">${escapeHtml(p.nome || p.email)}</option>`).join('');
-    const respSel = document.getElementById('tarefa-responsavel');
-    if (respSel) respSel.innerHTML = respOpts;
-    const tmRespSel = document.getElementById('tm-responsavel');
-    if (tmRespSel) { const anterior = tmRespSel.value; tmRespSel.innerHTML = respOpts; tmRespSel.value = anterior; }
   }
 
   let checklistCache = {}; // task_id -> [itens]
   let taskLabelsCache = []; // todas as etiquetas cadastradas
   let taskLabelLinksCache = {}; // task_id -> [label_id, ...]
+  let taskAssigneeLinksCache = {}; // task_id -> [profile_id, ...]
+  let taskActivitiesCache = {}; // task_id -> [atividades]
 
   function hexToRgba(hex, alpha) {
     const h = (hex || '#38bdf8').replace('#', '');
@@ -1611,6 +1642,26 @@
     (data || []).forEach(l => {
       if (!taskLabelLinksCache[l.task_id]) taskLabelLinksCache[l.task_id] = [];
       taskLabelLinksCache[l.task_id].push(l.label_id);
+    });
+  }
+
+  async function carregarTaskAssignees(taskIds) {
+    taskAssigneeLinksCache = {};
+    if (!taskIds.length) return;
+    const { data } = await sb.from('task_assignees').select('task_id,profile_id').in('task_id', taskIds);
+    (data || []).forEach(l => {
+      if (!taskAssigneeLinksCache[l.task_id]) taskAssigneeLinksCache[l.task_id] = [];
+      taskAssigneeLinksCache[l.task_id].push(l.profile_id);
+    });
+  }
+
+  async function carregarTaskActivities(taskIds) {
+    taskActivitiesCache = {};
+    if (!taskIds.length) return;
+    const { data } = await sb.from('task_activities').select('*').in('task_id', taskIds).order('quando');
+    (data || []).forEach(a => {
+      if (!taskActivitiesCache[a.task_id]) taskActivitiesCache[a.task_id] = [];
+      taskActivitiesCache[a.task_id].push(a);
     });
   }
 
@@ -1646,6 +1697,8 @@
     tasksCache = data || [];
     await carregarChecklistDeTarefas(tasksCache.map(t => t.id));
     await carregarTaskLabelLinks(tasksCache.map(t => t.id));
+    await carregarTaskAssignees(tasksCache.map(t => t.id));
+    await carregarTaskActivities(tasksCache.map(t => t.id));
     renderKanban();
   }
 
@@ -1669,25 +1722,37 @@
     board.innerHTML = kanbanColumnsCache.map((col, idx) => {
       const tarefasDaColuna = tasksCache.filter(t => t.coluna_id === col.id);
       const cards = tarefasDaColuna.map(t => {
-        const responsavel = profilesCacheForTasks.find(p => p.id === t.responsavel_id);
+        const responsaveis = (taskAssigneeLinksCache[t.id] || []).map(pid => profilesCacheForTasks.find(p => p.id === pid)).filter(Boolean);
         const projeto = projectsCache.find(p => p.id === t.project_id);
         const atrasado = t.data_vencimento && t.data_vencimento < hoje;
         const itensChecklist = checklistCache[t.id] || [];
         const feitos = itensChecklist.filter(i => i.concluido).length;
         const total = itensChecklist.length;
         const pctChecklist = total ? Math.round((feitos / total) * 100) : 0;
-        const iniciais = iniciaisResponsavel(responsavel);
         const labelsDaTarefa = (taskLabelLinksCache[t.id] || []).map(lid => taskLabelsCache.find(l => l.id === lid)).filter(Boolean);
+        const atividades = taskActivitiesCache[t.id] || [];
+        const pendentes = atividades.filter(a => !a.concluida).sort((a, b) => a.quando.localeCompare(b.quando));
+        const proximaAtividade = pendentes[0] || null;
+        let iconeAtividade = '';
+        if (proximaAtividade) {
+          const atrasadaAtividade = proximaAtividade.quando < new Date().toISOString();
+          iconeAtividade = atrasadaAtividade
+            ? `<i class="ti ti-alert-circle" style="font-size:15px; color:var(--neg);" title="Atividade atrasada: ${escapeHtml(proximaAtividade.titulo)}"></i>`
+            : `<i class="ti ti-circle-check" style="font-size:15px; color:var(--pos);" title="Próxima atividade: ${escapeHtml(proximaAtividade.titulo)}"></i>`;
+        }
         return `
           <div class="task-card prio-${t.prioridade}" draggable="true" ondragstart="dragStartTarefa(event,'${t.id}')" ondragend="dragEndTarefa(event)" onclick="abrirTarefaModalSeNaoArrastou('${t.id}')">
-            <div class="titulo">${escapeHtml(t.titulo)}</div>
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div class="titulo">${escapeHtml(t.titulo)}</div>
+              ${iconeAtividade}
+            </div>
             ${t.descricao ? `<div class="descricao">${escapeHtml(t.descricao)}</div>` : ''}
             ${labelsDaTarefa.length ? `<div class="meta" style="margin-bottom:6px;">${labelsDaTarefa.map(l => `<span class="badge-etiqueta" style="background:${hexToRgba(l.cor, 0.18)}; color:${l.cor};">${escapeHtml(l.nome)}</span>`).join('')}</div>` : ''}
             ${projeto ? `<div class="meta" style="margin-bottom:6px;"><span class="badge-info">${escapeHtml(projeto.nome)}</span></div>` : ''}
             <div class="meta" style="justify-content:space-between; align-items:center; flex-wrap:nowrap;">
-              <div style="display:flex; align-items:center; gap:6px;">
-                ${iniciais ? `<span class="task-avatar" style="background:${corAvatar(t.responsavel_id)};" title="${escapeHtml(responsavel.nome || responsavel.email)}">${iniciais}</span>` : ''}
-                <span class="badge-prio ${t.prioridade}">${t.prioridade}</span>
+              <div style="display:flex; align-items:center;">
+                ${responsaveis.map((r, ri) => `<span class="task-avatar" style="background:${corAvatar(r.id)}; ${ri > 0 ? 'margin-left:-6px;' : ''} border:2px solid #0f1526;" title="${escapeHtml(r.nome || r.email)}">${iniciaisResponsavel(r)}</span>`).join('')}
+                <span class="badge-prio ${t.prioridade}" style="margin-left:${responsaveis.length ? '6px' : '0'};"><i class="ti ti-flag-filled" style="font-size:11px; vertical-align:-1px;"></i> ${t.prioridade}</span>
               </div>
               ${t.data_vencimento ? `<span class="badge-info ${atrasado ? 'atrasado' : ''}">${t.data_vencimento.split('-').reverse().join('/')}</span>` : ''}
             </div>
@@ -1703,9 +1768,10 @@
             </div>
           </div>`;
       }).join('') || '<div class="empty-col">Nenhuma tarefa</div>';
+      const corCol = col.cor || corCategoria(col.id);
       return `
         <div class="kanban-col">
-          <h4>${escapeHtml(col.nome)} <span class="count">${tarefasDaColuna.length}</span></h4>
+          <h4 style="background:${hexToRgba(corCol, 0.15)}; color:${corCol}; margin:-14px -14px 12px; padding:10px 14px; border-radius:14px 14px 0 0;">${escapeHtml(col.nome)} <span class="count" style="color:${corCol}; opacity:0.75;">${tarefasDaColuna.length}</span></h4>
           <div class="kanban-col-body" ondragover="allowDropTarefa(event)" ondragleave="dragLeaveColuna(event)" ondrop="dropTarefaNaColuna(event,'${col.id}')">
             ${cards}
           </div>
@@ -1892,11 +1958,12 @@
     document.getElementById('tm-prioridade').value = t.prioridade;
     if (tmVencimentoPicker) tmVencimentoPicker.setDate(t.data_vencimento || null, false);
     else document.getElementById('tm-vencimento').value = t.data_vencimento || '';
-    document.getElementById('tm-responsavel').value = t.responsavel_id || '';
     document.getElementById('tm-projeto').value = t.project_id || '';
     document.getElementById('tm-coluna').value = t.coluna_id || '';
     renderChecklistModal();
     renderEtiquetasModal();
+    renderResponsaveisModal();
+    renderAtividadesModal();
     document.getElementById('tarefa-modal-overlay').classList.add('aberto');
   }
 
@@ -1950,6 +2017,102 @@
     if (error) { alert('Erro ao remover etiqueta: ' + error.message); return; }
     taskLabelLinksCache[tarefaModalId] = (taskLabelLinksCache[tarefaModalId] || []).filter(id => id !== labelId);
     renderEtiquetasModal();
+    renderKanban();
+  }
+
+  // ---- Responsáveis da tarefa (múltiplos, dentro do modal) ----
+  function renderResponsaveisModal() {
+    const cont = document.getElementById('tm-responsaveis-lista');
+    const selectAdd = document.getElementById('tm-responsavel-add');
+    if (!cont || !selectAdd || !tarefaModalId) return;
+    const idsAtuais = taskAssigneeLinksCache[tarefaModalId] || [];
+    const atuais = idsAtuais.map(id => profilesCacheForTasks.find(p => p.id === id)).filter(Boolean);
+    cont.innerHTML = atuais.map(p => `
+      <span class="badge-etiqueta" style="background:${hexToRgba(corAvatar(p.id), 0.18)}; color:${corAvatar(p.id)}; display:inline-flex; align-items:center; gap:6px;">
+        ${escapeHtml(p.nome || p.email)}
+        <span style="cursor:pointer;" onclick="removerResponsavelModal('${p.id}')" title="Remover responsável">✕</span>
+      </span>`).join('') || '<span class="empty-note">Ninguém atribuído ainda.</span>';
+    const disponiveis = profilesCacheForTasks.filter(p => !idsAtuais.includes(p.id));
+    selectAdd.innerHTML = '<option value="">+ atribuir...</option>' +
+      disponiveis.map(p => `<option value="${p.id}">${escapeHtml(p.nome || p.email)}</option>`).join('');
+  }
+
+  async function adicionarResponsavelModal(profileId) {
+    if (!profileId || !tarefaModalId) return;
+    const { error } = await sb.from('task_assignees').insert({ task_id: tarefaModalId, profile_id: profileId });
+    if (error) { alert('Erro ao atribuir: ' + error.message); return; }
+    if (!taskAssigneeLinksCache[tarefaModalId]) taskAssigneeLinksCache[tarefaModalId] = [];
+    taskAssigneeLinksCache[tarefaModalId].push(profileId);
+    renderResponsaveisModal();
+    renderKanban();
+  }
+
+  async function removerResponsavelModal(profileId) {
+    if (!tarefaModalId) return;
+    const { error } = await sb.from('task_assignees').delete().eq('task_id', tarefaModalId).eq('profile_id', profileId);
+    if (error) { alert('Erro ao remover: ' + error.message); return; }
+    taskAssigneeLinksCache[tarefaModalId] = (taskAssigneeLinksCache[tarefaModalId] || []).filter(id => id !== profileId);
+    renderResponsaveisModal();
+    renderKanban();
+  }
+
+  // ---- Atividades da tarefa (dentro do modal) ----
+  const ICONE_ATIVIDADE = { ligacao: 'ti-phone', reuniao: 'ti-users', lembrete: 'ti-bell' };
+
+  function renderAtividadesModal() {
+    const cont = document.getElementById('tm-atividades-lista');
+    if (!cont || !tarefaModalId) return;
+    const atividades = (taskActivitiesCache[tarefaModalId] || []).slice().sort((a, b) => a.quando.localeCompare(b.quando));
+    const agora = new Date().toISOString();
+    cont.innerHTML = atividades.map(a => {
+      const atrasada = !a.concluida && a.quando < agora;
+      const quandoFmt = new Date(a.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      return `
+      <div class="checklist-item ${a.concluida ? 'done' : ''}">
+        <input type="checkbox" ${a.concluida ? 'checked' : ''} onchange="toggleAtividadeModal('${a.id}', this.checked)">
+        <i class="ti ${ICONE_ATIVIDADE[a.tipo] || 'ti-bell'}" style="font-size:14px; color:var(--muted);"></i>
+        <span class="checklist-texto" style="cursor:default;">${escapeHtml(a.titulo)} <span style="color:${atrasada ? 'var(--neg)' : 'var(--muted)'};">· ${quandoFmt}</span></span>
+        <button class="row-action danger" onclick="excluirAtividadeModal('${a.id}')">Excluir</button>
+      </div>`;
+    }).join('') || '<p class="empty-note">Nenhuma atividade agendada.</p>';
+  }
+
+  async function adicionarAtividadeModal() {
+    if (!tarefaModalId) return;
+    const titulo = document.getElementById('tm-atividade-titulo').value.trim();
+    const quandoLocal = document.getElementById('tm-atividade-quando').value;
+    if (!titulo || !quandoLocal) { alert('Preencha o título e a data/hora da atividade.'); return; }
+    const tipo = document.getElementById('tm-atividade-tipo').value;
+    const quando = new Date(quandoLocal).toISOString();
+    const { data, error } = await sb.from('task_activities').insert({ task_id: tarefaModalId, tipo, titulo, quando }).select().single();
+    if (error) { alert('Erro ao agendar atividade: ' + error.message); return; }
+    if (!taskActivitiesCache[tarefaModalId]) taskActivitiesCache[tarefaModalId] = [];
+    taskActivitiesCache[tarefaModalId].push(data);
+    document.getElementById('tm-atividade-titulo').value = '';
+    document.getElementById('tm-atividade-quando').value = '';
+    renderAtividadesModal();
+    renderKanban();
+  }
+
+  async function toggleAtividadeModal(id, concluida) {
+    const { error } = await sb.from('task_activities').update({ concluida }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    Object.values(taskActivitiesCache).forEach(lista => {
+      const a = lista.find(x => x.id === id);
+      if (a) a.concluida = concluida;
+    });
+    renderAtividadesModal();
+    renderKanban();
+  }
+
+  async function excluirAtividadeModal(id) {
+    if (!confirm('Excluir essa atividade?')) return;
+    const { error } = await sb.from('task_activities').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    Object.keys(taskActivitiesCache).forEach(taskId => {
+      taskActivitiesCache[taskId] = (taskActivitiesCache[taskId] || []).filter(a => a.id !== id);
+    });
+    renderAtividadesModal();
     renderKanban();
   }
 
