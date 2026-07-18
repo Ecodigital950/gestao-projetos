@@ -505,6 +505,7 @@
           <div class="tab-toggle-group">
             <button type="button" id="tab-tarefas-kanban" class="tab-toggle active" onclick="mostrarVisaoTarefas('kanban')">Kanban</button>
             <button type="button" id="tab-tarefas-calendario" class="tab-toggle" onclick="mostrarVisaoTarefas('calendario')">Calendário</button>
+            <button type="button" id="tab-tarefas-atividades" class="tab-toggle" onclick="mostrarVisaoTarefas('atividades')">Hoje</button>
           </div>
           <div class="cal-nav" id="cal-nav">
             <button type="button" class="row-action" onclick="calMudarMes(-1)">◀</button>
@@ -524,6 +525,12 @@
               <span><span class="cal-dot" style="display:inline-block; background:var(--muted);"></span> Baixa</span>
               <span style="color:var(--neg);">⚠ Atrasada</span>
             </div>
+          </div>
+        </div>
+        <div id="tarefas-atividades" style="display:none;">
+          <div class="card">
+            <p class="placeholder" style="margin-bottom:12px;">Atividades pendentes de todos os projetos, num só lugar — igual o "Follow-up" do Pipedrive.</p>
+            <div id="atividades-hoje-lista"></div>
           </div>
         </div>
 
@@ -1874,15 +1881,69 @@
     renderCalendarioTarefas();
   }
 
-  // ---- Tarefas: vista de calendário (alternativa ao Kanban, mesmos dados) ----
+  // ---- Tarefas: vista de calendário e central de atividades (alternativas ao Kanban, mesmos dados) ----
   function mostrarVisaoTarefas(aba) {
-    const kanban = aba === 'kanban';
-    document.getElementById('kanban-board').style.display = kanban ? 'flex' : 'none';
-    document.getElementById('tarefas-calendario').style.display = kanban ? 'none' : 'block';
-    document.getElementById('cal-nav').style.display = kanban ? 'none' : 'flex';
-    document.getElementById('tab-tarefas-kanban').classList.toggle('active', kanban);
-    document.getElementById('tab-tarefas-calendario').classList.toggle('active', !kanban);
-    if (!kanban) renderCalendarioTarefas();
+    document.getElementById('kanban-board-wrap').style.display = aba === 'kanban' ? 'block' : 'none';
+    document.getElementById('tarefas-calendario').style.display = aba === 'calendario' ? 'block' : 'none';
+    document.getElementById('tarefas-atividades').style.display = aba === 'atividades' ? 'block' : 'none';
+    document.getElementById('cal-nav').style.display = aba === 'calendario' ? 'flex' : 'none';
+    document.getElementById('tab-tarefas-kanban').classList.toggle('active', aba === 'kanban');
+    document.getElementById('tab-tarefas-calendario').classList.toggle('active', aba === 'calendario');
+    document.getElementById('tab-tarefas-atividades').classList.toggle('active', aba === 'atividades');
+    if (aba === 'calendario') renderCalendarioTarefas();
+    if (aba === 'atividades') carregarAtividadesHoje();
+  }
+
+  // ---- Central de atividades (estilo "o que fazer hoje" do Pipedrive, cruzando todos os projetos) ----
+  const ICONE_ATIVIDADE_LISTA = { ligacao: 'ti-phone', reuniao: 'ti-users', lembrete: 'ti-bell' };
+
+  async function carregarAtividadesHoje() {
+    const cont = document.getElementById('atividades-hoje-lista');
+    if (!cont) return;
+    cont.innerHTML = '<p class="empty-note">Carregando...</p>';
+    const { data, error } = await sb.from('task_activities').select('*, tasks(id, titulo, project_id)').order('quando');
+    if (error) { cont.innerHTML = `<p class="empty-note">Erro ao carregar: ${escapeHtml(error.message)}</p>`; return; }
+    const agora = new Date().toISOString();
+    const hojeStr = formatDateLocal(new Date());
+    const pendentes = (data || []).filter(a => !a.concluida && a.tasks);
+    const concluidas = (data || []).filter(a => a.concluida && a.tasks);
+    const atrasadas = pendentes.filter(a => a.quando < agora);
+    const deHoje = pendentes.filter(a => a.quando >= agora && a.quando.slice(0, 10) === hojeStr);
+    const proximas = pendentes.filter(a => a.quando >= agora && a.quando.slice(0, 10) !== hojeStr);
+
+    function linhaAtividade(a) {
+      const projeto = projectsCache.find(p => p.id === a.tasks.project_id);
+      const quandoFmt = new Date(a.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      return `
+        <div class="checklist-item ${a.concluida ? 'done' : ''}">
+          <input type="checkbox" ${a.concluida ? 'checked' : ''} onchange="toggleAtividadeListaHoje('${a.id}', this.checked)">
+          <i class="ti ${ICONE_ATIVIDADE_LISTA[a.tipo] || 'ti-bell'}" style="font-size:14px; color:var(--muted);"></i>
+          <span class="checklist-texto" style="cursor:pointer;" onclick="abrirTarefaDeAtividade('${a.tasks.id}')">
+            ${escapeHtml(a.titulo)}
+            <span style="color:var(--muted);"> · ${escapeHtml(a.tasks.titulo)}${projeto ? ' · ' + escapeHtml(projeto.nome) : ''} · ${quandoFmt}</span>
+          </span>
+        </div>`;
+    }
+
+    let html = '';
+    if (atrasadas.length) html += `<h3 style="font-size:13px; color:var(--neg); margin:0 0 6px;">Atrasadas</h3>` + atrasadas.map(linhaAtividade).join('');
+    if (deHoje.length) html += `<h3 style="font-size:13px; margin:16px 0 6px;">Hoje</h3>` + deHoje.map(linhaAtividade).join('');
+    if (proximas.length) html += `<h3 style="font-size:13px; margin:16px 0 6px; color:var(--muted);">Próximas</h3>` + proximas.map(linhaAtividade).join('');
+    if (!atrasadas.length && !deHoje.length && !proximas.length) html += '<p class="empty-note">Nenhuma atividade pendente. Agende uma dentro de uma tarefa.</p>';
+    if (concluidas.length) {
+      html += `<details style="margin-top:16px;"><summary style="font-size:12px; color:var(--muted); cursor:pointer;">${concluidas.length} concluídas</summary>` + concluidas.map(linhaAtividade).join('') + '</details>';
+    }
+    cont.innerHTML = html;
+  }
+
+  async function toggleAtividadeListaHoje(id, concluida) {
+    const { error } = await sb.from('task_activities').update({ concluida }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    Object.values(taskActivitiesCache).forEach(lista => {
+      const a = lista.find(x => x.id === id);
+      if (a) a.concluida = concluida;
+    });
+    carregarAtividadesHoje();
   }
 
   function calMudarMes(delta) {
@@ -2094,6 +2155,15 @@
       allowInput: true,
       onChange: (datas, dataStr) => salvarCampoTarefaModal('data_vencimento', dataStr || null)
     });
+  }
+
+  async function abrirTarefaDeAtividade(taskId) {
+    if (!tasksCache.find(t => t.id === taskId)) {
+      tarefaFiltroAtivo = 'todos';
+      await carregarTarefas();
+    }
+    mostrarVisaoTarefas('kanban');
+    abrirTarefaModal(taskId);
   }
 
   function abrirTarefaModal(id) {
