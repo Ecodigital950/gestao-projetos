@@ -177,11 +177,11 @@
   .cal-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
   .cal-mais { font-size: 9.5px; color: var(--muted); }
 
-  .kanban-board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; }
-  .kanban-board-wrap { border-radius: 14px; padding: 16px; background-size: cover; background-position: center; background-color: rgba(255,255,255,0.025); transition: background 0.2s; }
-  .col-flag { width: 100%; height: 6px; border-radius: 3px; margin-bottom: 8px; }
-  .kanban-col { background: rgba(255,255,255,0.045); border: none; border-radius: 8px; padding: 12px 12px 8px 12px; min-width: 300px; max-width: 300px; flex-shrink: 0; }
-  .kanban-col h4 { margin: 0 0 12px 0; font-size: 16px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
+  .kanban-board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; height: 100%; }
+  .kanban-board-wrap { border-radius: 14px; padding: 16px; background-size: cover; background-position: center; background-color: rgba(255,255,255,0.025); transition: background 0.2s; overflow: hidden; }
+  .col-flag { width: 100%; height: 6px; border-radius: 3px; margin-bottom: 8px; flex-shrink: 0; }
+  .kanban-col { background: rgba(255,255,255,0.045); border: none; border-radius: 8px; padding: 12px 12px 8px 12px; min-width: 300px; max-width: 300px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; }
+  .kanban-col h4 { margin: 0 0 12px 0; font-size: 16px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
   .kanban-col h4 .count { color: var(--muted); font-weight: 500; font-size: 12.5px; }
   .col-move { display: flex; gap: 2px; flex-shrink: 0; }
   .col-move .row-action { padding: 1px 5px; font-size: 11px; }
@@ -221,7 +221,8 @@
   .task-card.dragging { opacity: 0.6; cursor: grabbing; }
   .task-card-ghost { opacity: 0.5; background: rgba(56,189,248,0.10) !important; border: 1.5px dashed var(--info) !important; box-shadow: none !important; }
   .task-card-ghost * { opacity: 0; }
-  .kanban-col-body { min-height: 28px; }
+  .kanban-col-body { min-height: 0; flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; }
+  .quick-add { flex-shrink: 0; }
   .quick-add input { width: 100%; background: transparent; border: 1px dashed var(--card-border); font-size: 12.5px; margin-top: 4px; }
   .checklist-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
   .checklist-item span.checklist-texto { flex: 1; cursor: pointer; border-radius: 4px; padding: 2px 4px; margin: -2px -4px; }
@@ -889,6 +890,7 @@
     const sb2 = document.getElementById('sidebar');
     sb2.classList.toggle('collapsed');
     localStorage.setItem('sidebarColapsada', sb2.classList.contains('collapsed') ? '1' : '0');
+    if (typeof ajustarAlturaKanban === 'function') setTimeout(ajustarAlturaKanban, 220);
   }
 
   function initSidebarState() {
@@ -1919,7 +1921,21 @@
     }).join('');
     renderCalendarioTarefas();
     initSortableKanban();
+    ajustarAlturaKanban();
   }
+
+  // ---- Altura do quadro igual o Trello: a página não rola, quem rola é
+  // cada coluna por dentro. Calculado via JS (não dá pra fixar um valor
+  // fixo em CSS porque o topo do quadro varia — cabeçalho, chips de
+  // projeto e abas Kanban/Calendário/Hoje ficam acima dele). ----
+  function ajustarAlturaKanban() {
+    const wrap = document.getElementById('kanban-board-wrap');
+    if (!wrap || wrap.style.display === 'none') return;
+    const topo = wrap.getBoundingClientRect().top;
+    const altura = window.innerHeight - topo - 24;
+    wrap.style.height = Math.max(altura, 240) + 'px';
+  }
+  window.addEventListener('resize', ajustarAlturaKanban);
 
   // ---- Reordenar colunas do Kanban direto no board (sem precisar ir em
   // Configurações) — troca o campo "ordem" entre a coluna e a vizinha. ----
@@ -1953,6 +1969,7 @@
     document.getElementById('tab-tarefas-atividades').classList.toggle('active', aba === 'atividades');
     if (aba === 'calendario') renderCalendarioTarefas();
     if (aba === 'atividades') carregarAtividadesHoje();
+    if (aba === 'kanban') ajustarAlturaKanban();
   }
 
   // ---- Central de atividades (estilo "o que fazer hoje" do Pipedrive, cruzando todos os projetos) ----
