@@ -182,6 +182,8 @@
   .kanban-col { background: rgba(255,255,255,0.045); border: none; border-radius: 8px; padding: 12px 12px 8px 12px; min-width: 300px; max-width: 300px; flex-shrink: 0; }
   .kanban-col h4 { margin: 0 0 12px 0; font-size: 16px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; }
   .kanban-col h4 .count { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+  .col-move { display: flex; gap: 2px; flex-shrink: 0; }
+  .col-move .row-action { padding: 1px 5px; font-size: 11px; }
   .task-card { background: #22272b; border: none; border-radius: 8px; padding: 8px 8px 8px 12px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.35); transition: box-shadow 0.12s, background 0.12s; }
   .task-card:hover { background: #282e33; box-shadow: 0 2px 6px rgba(0,0,0,0.45); }
   .task-avatar { width: 20px; height: 20px; border-radius: 50%; font-size: 9px; font-weight: 700; color: #0c1120; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -1889,7 +1891,13 @@
       return `
         <div class="kanban-col">
           <div class="col-flag" style="background:repeating-linear-gradient(45deg, ${corCol}, ${corCol} 5px, ${hexToRgba(corCol, 0.55)} 5px, ${hexToRgba(corCol, 0.55)} 10px);" title="Cor da coluna"></div>
-          <h4>${escapeHtml(col.nome)} <span class="count">${tarefasDaColuna.length}</span></h4>
+          <h4>
+            <span>${escapeHtml(col.nome)} <span class="count">${tarefasDaColuna.length}</span></span>
+            <span class="col-move">
+              <button class="row-action" ${idx === 0 ? 'disabled' : ''} onclick="moverColuna('${col.id}', -1)" title="Mover coluna para a esquerda">◀</button>
+              <button class="row-action" ${idx === kanbanColumnsCache.length - 1 ? 'disabled' : ''} onclick="moverColuna('${col.id}', 1)" title="Mover coluna para a direita">▶</button>
+            </span>
+          </h4>
           <div class="kanban-col-body" ondragover="allowDropTarefa(event)" ondragleave="dragLeaveColuna(event)" ondrop="dropTarefaNaColuna(event,'${col.id}')">
             ${cards}
           </div>
@@ -1908,6 +1916,27 @@
         </div>`;
     }).join('');
     renderCalendarioTarefas();
+  }
+
+  // ---- Reordenar colunas do Kanban direto no board (sem precisar ir em
+  // Configurações) — troca o campo "ordem" entre a coluna e a vizinha. ----
+  async function moverColuna(id, direcao) {
+    const idx = kanbanColumnsCache.findIndex(c => c.id === id);
+    const novoIdx = idx + direcao;
+    if (idx < 0 || novoIdx < 0 || novoIdx >= kanbanColumnsCache.length) return;
+    const colA = kanbanColumnsCache[idx];
+    const colB = kanbanColumnsCache[novoIdx];
+    const ordemA = colA.ordem;
+    const ordemB = colB.ordem;
+    const [r1, r2] = await Promise.all([
+      sb.from('kanban_columns').update({ ordem: ordemB }).eq('id', colA.id),
+      sb.from('kanban_columns').update({ ordem: ordemA }).eq('id', colB.id),
+    ]);
+    if (r1.error || r2.error) { alert('Erro ao mover coluna: ' + (r1.error || r2.error).message); return; }
+    colA.ordem = ordemB;
+    colB.ordem = ordemA;
+    kanbanColumnsCache.sort((a, b) => a.ordem - b.ordem);
+    renderKanban();
   }
 
   // ---- Tarefas: vista de calendário e central de atividades (alternativas ao Kanban, mesmos dados) ----
