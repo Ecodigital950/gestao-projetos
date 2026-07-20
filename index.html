@@ -974,13 +974,20 @@
     aplicarFundoQuadro();
   }
 
+  // Sempre entra no fim da fila de chips — quem quiser outra posição
+  // arrasta depois (reordenação da Fase 28).
+  function proximaOrdemProjeto() {
+    const maxOrdem = projectsCache.reduce((max, p) => Math.max(max, p.ordem || 0), 0);
+    return maxOrdem + 10;
+  }
+
   async function criarProjeto() {
     const nome = document.getElementById('np-nome').value.trim();
     if (!nome) return;
     const status = document.getElementById('np-status').value;
     const data_inicio = document.getElementById('np-inicio').value || null;
     const data_fim = document.getElementById('np-fim').value || null;
-    const { error } = await sb.from('projects').insert({ nome, status, data_inicio, data_fim, responsavel_id: currentUser.id });
+    const { error } = await sb.from('projects').insert({ nome, status, data_inicio, data_fim, responsavel_id: currentUser.id, ordem: proximaOrdemProjeto() });
     if (error) { alert('Erro ao criar projeto: ' + error.message); return; }
     document.getElementById('np-nome').value = '';
     carregarProjetos();
@@ -1082,7 +1089,7 @@
     // Traz cor_fundo/imagem_fundo_url/notas_financeiro também — não é só
     // pra popular selects, esse cache é reaproveitado pelo Kanban
     // (aplicarFundoQuadro) e agora pelo Financeiro (notas por projeto).
-    const { data } = await sb.from('projects').select('id,nome,cor_fundo,imagem_fundo_url,notas_financeiro,notas_tarefas').order('nome');
+    const { data } = await sb.from('projects').select('id,nome,cor_fundo,imagem_fundo_url,notas_financeiro,notas_tarefas,ordem').order('ordem', { ascending: true, nullsFirst: false }).order('nome');
     projectsCache = data || [];
     const dashSel = document.getElementById('dash-projeto');
     const finSel = document.getElementById('fin-projeto');
@@ -1814,11 +1821,16 @@
   function renderFiltroChips() {
     const wrap = document.getElementById('tarefa-filtro-chips');
     if (!wrap) return;
-    const opcoes = [{ id: 'todos', nome: 'Todos' }, { id: 'hoje', nome: 'Hoje' }, ...projectsCache];
-    wrap.innerHTML = opcoes.map(o => {
+    const fixos = [{ id: 'todos', nome: 'Todos' }, { id: 'hoje', nome: 'Hoje' }];
+    const chipHtml = (o, arrastavel) => {
       const ativo = o.id === tarefaFiltroAtivo ? ' active' : '';
-      return `<button type="button" class="filtro-chip${ativo}" onclick="selecionarFiltroTarefa('${o.id}')">${escapeHtml(o.nome)}</button>`;
-    }).join('') + `<button type="button" class="filtro-chip filtro-chip-add" onclick="criarProjetoRapido()" title="Criar novo projeto/Kanban">+</button>`;
+      const dataAttr = arrastavel ? ` data-project-id="${o.id}"` : '';
+      return `<button type="button" class="filtro-chip${ativo}"${dataAttr} onclick="selecionarFiltroTarefaSeNaoArrastou('${o.id}')">${escapeHtml(o.nome)}</button>`;
+    };
+    wrap.innerHTML = fixos.map(o => chipHtml(o, false)).join('') +
+      `<span id="tarefa-filtro-chips-projetos" style="display:contents;">${projectsCache.map(o => chipHtml(o, true)).join('')}</span>` +
+      `<button type="button" class="filtro-chip filtro-chip-add" onclick="criarProjetoRapido()" title="Criar novo projeto/Kanban">+</button>`;
+    initSortableChips();
   }
 
   function selecionarFiltroTarefa(valor) {
@@ -1828,13 +1840,50 @@
     carregarTarefas();
   }
 
+  // ---- Reordenar os chips de projeto arrastando (Todos/Hoje/+ ficam de
+  // fora — vivem fora do container arrastável, então nunca trocam de
+  // lugar). Reaproveita o SortableJS já carregado pro Kanban. ----
+  let arrastandoChip = false;
+  let sortableChipsInstance = null;
+
+  function selecionarFiltroTarefaSeNaoArrastou(valor) {
+    if (!arrastandoChip) selecionarFiltroTarefa(valor);
+  }
+
+  function initSortableChips() {
+    if (typeof Sortable !== 'function') return;
+    const cont = document.getElementById('tarefa-filtro-chips-projetos');
+    if (!cont) return;
+    if (sortableChipsInstance) sortableChipsInstance.destroy();
+    sortableChipsInstance = Sortable.create(cont, {
+      animation: 150,
+      onStart: () => { arrastandoChip = true; },
+      onEnd: (ev) => {
+        setTimeout(() => { arrastandoChip = false; }, 50);
+        const ids = Array.from(cont.children).map(el => el.dataset.projectId);
+        salvarOrdemProjetos(ids);
+      }
+    });
+  }
+
+  async function salvarOrdemProjetos(ids) {
+    const resultados = await Promise.all(ids.map((id, idx) => sb.from('projects').update({ ordem: idx * 10 }).eq('id', id)));
+    const erro = resultados.find(r => r.error);
+    if (erro) { alert('Erro ao salvar ordem dos projetos: ' + erro.error.message); return; }
+    ids.forEach((id, idx) => {
+      const p = projectsCache.find(x => x.id === id);
+      if (p) p.ordem = idx * 10;
+    });
+    projectsCache.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+  }
+
   // ---- Criar projeto direto da tela de Tarefas (botão "+" ao lado dos
   // chips) — mesmo insert do formulário de Projetos, só que sem sair
   // daqui, e já pula pro Kanban novo assim que cria. ----
   async function criarProjetoRapido() {
     const nome = prompt('Nome do novo projeto (vira um Kanban novo aqui do lado):');
     if (!nome || !nome.trim()) return;
-    const { data, error } = await sb.from('projects').insert({ nome: nome.trim(), status: 'ativo', responsavel_id: currentUser.id }).select().single();
+    const { data, error } = await sb.from('projects').insert({ nome: nome.trim(), status: 'ativo', responsavel_id: currentUser.id, ordem: proximaOrdemProjeto() }).select().single();
     if (error) { alert('Erro ao criar projeto: ' + error.message); return; }
     await carregarProjetosSelects();
     tarefaFiltroAtivo = data.id;
