@@ -781,7 +781,7 @@
     atividades: 'Agende ligações, reuniões ou lembretes dentro da tarefa. O ícone que aparece no cartão do Kanban mostra se a próxima atividade está em dia (verde) ou atrasada (vermelho) — assim dá pra ver o que precisa de atenção sem abrir cartão por cartão.',
     repeticao: 'Quando essa tarefa chega na última coluna do quadro, uma cópia nova é criada sozinha na primeira coluna, com a data de vencimento avançada (diária, semanal ou mensal). Serve pra tarefas que se repetem, tipo reunião semanal ou cobrança mensal.',
     soneca: 'Esconde o cartão do quadro até a data escolhida, sem apagar ele. Reaparece sozinho quando a data chega, e enquanto isso fica listado em "em soneca" no rodapé da coluna.',
-    hoje: 'Junta as atividades pendentes (ligação, reunião, lembrete) de todos os seus projetos numa lista só, ordenada por data — pra ver o que precisa fazer sem entrar projeto por projeto.',
+    hoje: 'Junta as atividades pendentes (ligação, reunião, lembrete) E as tarefas com data de vencimento de todos os seus projetos numa lista só, ordenada por data — pra ver o que precisa fazer sem entrar projeto por projeto.',
     fundoquadro: 'Escolha uma cor ou uma imagem (cole uma URL) de fundo por projeto. Ela aparece atrás do quadro quando você filtra as Tarefas por esse projeto.',
     responsaveis: 'Uma tarefa pode ter mais de uma pessoa atribuída. Todas aparecem como avatares empilhados no cartão do Kanban.',
     notasfinanceiro: 'Anotações livres sobre o financeiro desse projeto — contexto de negociação, combinados com o cliente, lembretes etc. Salva sozinho quando você clica fora do campo.'
@@ -2109,41 +2109,85 @@
   // ---- Central de atividades (estilo "o que fazer hoje" do Pipedrive, cruzando todos os projetos) ----
   const ICONE_ATIVIDADE_LISTA = { ligacao: 'ti-phone', reuniao: 'ti-users', lembrete: 'ti-bell' };
 
+  // ---- Aba "Hoje": junta 2 fontes diferentes na mesma lista —
+  // atividades agendadas (ligação/reunião/lembrete, task_activities) E
+  // tarefas com data de vencimento (tasks.data_vencimento). Antes só
+  // entravam atividades; um cartão que só tinha "Vencimento" preenchido
+  // (sem nenhuma atividade agendada) nunca aparecia aqui, o que não fazia
+  // sentido pra uma tela que se propõe a mostrar "o que preciso fazer
+  // hoje". Tarefa já na última coluna (concluída) ou em soneca não entra.
   async function carregarAtividadesHoje() {
     const cont = document.getElementById('atividades-hoje-lista');
     if (!cont) return;
     cont.innerHTML = '<p class="empty-note">Carregando...</p>';
-    const { data, error } = await sb.from('task_activities').select('*, tasks(id, titulo, project_id)').order('quando');
-    if (error) { cont.innerHTML = `<p class="empty-note">Erro ao carregar: ${escapeHtml(error.message)}</p>`; return; }
     const agora = new Date().toISOString();
     const hojeStr = formatDateLocal(new Date());
-    const pendentes = (data || []).filter(a => !a.concluida && a.tasks);
-    const concluidas = (data || []).filter(a => a.concluida && a.tasks);
-    const atrasadas = pendentes.filter(a => a.quando < agora);
-    const deHoje = pendentes.filter(a => a.quando >= agora && a.quando.slice(0, 10) === hojeStr);
-    const proximas = pendentes.filter(a => a.quando >= agora && a.quando.slice(0, 10) !== hojeStr);
 
-    function linhaAtividade(a) {
-      const projeto = projectsCache.find(p => p.id === a.tasks.project_id);
-      const quandoFmt = new Date(a.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const [{ data: dataAtividades, error: erroAtividades }, { data: dataTarefas, error: erroTarefas }] = await Promise.all([
+      sb.from('task_activities').select('*, tasks(id, titulo, project_id)').order('quando'),
+      sb.from('tasks').select('id, titulo, project_id, data_vencimento, coluna_id, soneca_ate').not('data_vencimento', 'is', null)
+    ]);
+    if (erroAtividades || erroTarefas) {
+      cont.innerHTML = `<p class="empty-note">Erro ao carregar: ${escapeHtml((erroAtividades || erroTarefas).message)}</p>`;
+      return;
+    }
+
+    const ultima = ultimaColunaId();
+    const itensAtividade = (dataAtividades || []).filter(a => a.tasks).map(a => ({
+      origem: 'atividade', id: a.id, taskId: a.tasks.id, concluida: a.concluida,
+      quando: a.quando, tituloLinha: a.titulo, tarefaTitulo: a.tasks.titulo, projectId: a.tasks.project_id,
+      icone: ICONE_ATIVIDADE_LISTA[a.tipo] || 'ti-bell'
+    }));
+    const itensTarefa = (dataTarefas || [])
+      .filter(t => t.coluna_id !== ultima)
+      .filter(t => !t.soneca_ate || t.soneca_ate <= hojeStr)
+      .map(t => ({
+        origem: 'tarefa', id: t.id, taskId: t.id, concluida: false,
+        dataVencimento: t.data_vencimento, tituloLinha: 'Vencimento', tarefaTitulo: t.titulo, projectId: t.project_id,
+        icone: 'ti-calendar-event'
+      }));
+
+    const pendentesAtividades = itensAtividade.filter(a => !a.concluida);
+    const concluidas = itensAtividade.filter(a => a.concluida);
+    const atrasadas = [
+      ...pendentesAtividades.filter(a => a.quando < agora),
+      ...itensTarefa.filter(t => t.dataVencimento < hojeStr)
+    ];
+    const deHoje = [
+      ...pendentesAtividades.filter(a => a.quando >= agora && a.quando.slice(0, 10) === hojeStr),
+      ...itensTarefa.filter(t => t.dataVencimento === hojeStr)
+    ];
+    const proximas = [
+      ...pendentesAtividades.filter(a => a.quando >= agora && a.quando.slice(0, 10) !== hojeStr),
+      ...itensTarefa.filter(t => t.dataVencimento > hojeStr)
+    ];
+
+    function linhaItemHoje(item) {
+      const projeto = projectsCache.find(p => p.id === item.projectId);
+      const quandoFmt = item.origem === 'atividade'
+        ? new Date(item.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+        : item.dataVencimento.split('-').reverse().join('/');
+      const checkbox = item.origem === 'atividade'
+        ? `<input type="checkbox" ${item.concluida ? 'checked' : ''} onchange="toggleAtividadeListaHoje('${item.id}', this.checked)">`
+        : `<span style="width:13px; display:inline-block;"></span>`;
       return `
-        <div class="checklist-item ${a.concluida ? 'done' : ''}">
-          <input type="checkbox" ${a.concluida ? 'checked' : ''} onchange="toggleAtividadeListaHoje('${a.id}', this.checked)">
-          <i class="ti ${ICONE_ATIVIDADE_LISTA[a.tipo] || 'ti-bell'}" style="font-size:14px; color:var(--muted);"></i>
-          <span class="checklist-texto" style="cursor:pointer;" onclick="abrirTarefaDeAtividade('${a.tasks.id}')">
-            ${escapeHtml(a.titulo)}
-            <span style="color:var(--muted);"> · ${escapeHtml(a.tasks.titulo)}${projeto ? ' · ' + escapeHtml(projeto.nome) : ''} · ${quandoFmt}</span>
+        <div class="checklist-item ${item.concluida ? 'done' : ''}">
+          ${checkbox}
+          <i class="ti ${item.icone}" style="font-size:14px; color:var(--muted);"></i>
+          <span class="checklist-texto" style="cursor:pointer;" onclick="abrirTarefaDeAtividade('${item.taskId}')">
+            ${escapeHtml(item.tituloLinha)}
+            <span style="color:var(--muted);"> · ${escapeHtml(item.tarefaTitulo)}${projeto ? ' · ' + escapeHtml(projeto.nome) : ''} · ${quandoFmt}</span>
           </span>
         </div>`;
     }
 
     let html = '';
-    if (atrasadas.length) html += `<h3 style="font-size:13px; color:var(--neg); margin:0 0 6px;">Atrasadas</h3>` + atrasadas.map(linhaAtividade).join('');
-    if (deHoje.length) html += `<h3 style="font-size:13px; margin:16px 0 6px;">Hoje</h3>` + deHoje.map(linhaAtividade).join('');
-    if (proximas.length) html += `<h3 style="font-size:13px; margin:16px 0 6px; color:var(--muted);">Próximas</h3>` + proximas.map(linhaAtividade).join('');
-    if (!atrasadas.length && !deHoje.length && !proximas.length) html += '<p class="empty-note">Nenhuma atividade pendente. Agende uma dentro de uma tarefa.</p>';
+    if (atrasadas.length) html += `<h3 style="font-size:13px; color:var(--neg); margin:0 0 6px;">Atrasadas</h3>` + atrasadas.map(linhaItemHoje).join('');
+    if (deHoje.length) html += `<h3 style="font-size:13px; margin:16px 0 6px;">Hoje</h3>` + deHoje.map(linhaItemHoje).join('');
+    if (proximas.length) html += `<h3 style="font-size:13px; margin:16px 0 6px; color:var(--muted);">Próximas</h3>` + proximas.map(linhaItemHoje).join('');
+    if (!atrasadas.length && !deHoje.length && !proximas.length) html += '<p class="empty-note">Nenhuma atividade ou vencimento pendente.</p>';
     if (concluidas.length) {
-      html += `<details style="margin-top:16px;"><summary style="font-size:12px; color:var(--muted); cursor:pointer;">${concluidas.length} concluídas</summary>` + concluidas.map(linhaAtividade).join('') + '</details>';
+      html += `<details style="margin-top:16px;"><summary style="font-size:12px; color:var(--muted); cursor:pointer;">${concluidas.length} concluídas</summary>` + concluidas.map(linhaItemHoje).join('') + '</details>';
     }
     cont.innerHTML = html;
   }
