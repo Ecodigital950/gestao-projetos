@@ -169,6 +169,8 @@
   .filtro-chip { font-size: 13px; padding: 8px 18px; border-radius: 999px; border: 1px solid var(--card-border); cursor: pointer; background: var(--card); color: var(--text); font-weight: 500; }
   .filtro-chip:hover { border-color: var(--muted); }
   .filtro-chip.active { border-color: var(--info); background: rgba(56,189,248,0.15); color: var(--info); }
+  .filtro-chip-add { padding: 8px 14px; border-style: dashed; color: var(--muted); font-weight: 700; }
+  .filtro-chip-add:hover { color: var(--info); border-color: var(--info); }
   .cal-nav { display: none; align-items: center; gap: 10px; margin-left: auto; }
   .cal-nav span { font-size: 13.5px; font-weight: 600; min-width: 130px; text-align: center; }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
@@ -1816,12 +1818,26 @@
     wrap.innerHTML = opcoes.map(o => {
       const ativo = o.id === tarefaFiltroAtivo ? ' active' : '';
       return `<button type="button" class="filtro-chip${ativo}" onclick="selecionarFiltroTarefa('${o.id}')">${escapeHtml(o.nome)}</button>`;
-    }).join('');
+    }).join('') + `<button type="button" class="filtro-chip filtro-chip-add" onclick="criarProjetoRapido()" title="Criar novo projeto/Kanban">+</button>`;
   }
 
   function selecionarFiltroTarefa(valor) {
     if (valor === tarefaFiltroAtivo) return;
     tarefaFiltroAtivo = valor;
+    renderFiltroChips();
+    carregarTarefas();
+  }
+
+  // ---- Criar projeto direto da tela de Tarefas (botão "+" ao lado dos
+  // chips) — mesmo insert do formulário de Projetos, só que sem sair
+  // daqui, e já pula pro Kanban novo assim que cria. ----
+  async function criarProjetoRapido() {
+    const nome = prompt('Nome do novo projeto (vira um Kanban novo aqui do lado):');
+    if (!nome || !nome.trim()) return;
+    const { data, error } = await sb.from('projects').insert({ nome: nome.trim(), status: 'ativo', responsavel_id: currentUser.id }).select().single();
+    if (error) { alert('Erro ao criar projeto: ' + error.message); return; }
+    await carregarProjetosSelects();
+    tarefaFiltroAtivo = data.id;
     renderFiltroChips();
     carregarTarefas();
   }
