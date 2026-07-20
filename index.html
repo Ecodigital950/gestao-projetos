@@ -1829,7 +1829,7 @@
   async function carregarTarefas() {
     await carregarTarefasSelects();
     await carregarTaskLabels();
-    let query = sb.from('tasks').select('*').order('created_at', { ascending: true });
+    let query = sb.from('tasks').select('*').order('ordem', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
     if (tarefaFiltroAtivo === 'hoje') {
       query = query.lte('data_vencimento', formatDateLocal(new Date()));
     } else if (tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos') {
@@ -2144,15 +2144,27 @@
     return formatDateLocal(base);
   }
 
+  // ---- Ordem vertical dos cartões dentro da coluna (persistida em
+  // tasks.ordem) — mesma técnica de "média entre vizinhos" já usada nas
+  // linhas do Financeiro (fin_entries), só grava a tarefa que se moveu,
+  // sem precisar renumerar a coluna inteira. ----
+  function proximaOrdemNaColuna(colunaId) {
+    const tarefasDaColuna = tasksCache.filter(t => t.coluna_id === colunaId);
+    const maxOrdem = tarefasDaColuna.reduce((max, t) => Math.max(max, t.ordem || 0), 0);
+    return maxOrdem + 10;
+  }
+
   async function tratarRecorrenciaTarefa(taskId) {
     const t = tasksCache.find(x => x.id === taskId);
     if (!t || !t.repeticao) return;
     const novaData = proximaDataRecorrencia(t.data_vencimento, t.repeticao);
     const primeiraColuna = kanbanColumnsCache[0];
+    const colunaDestinoId = primeiraColuna ? primeiraColuna.id : null;
     await sb.from('tasks').insert({
       titulo: t.titulo, descricao: t.descricao, prioridade: t.prioridade,
-      project_id: t.project_id, coluna_id: primeiraColuna ? primeiraColuna.id : null,
-      data_vencimento: novaData, repeticao: t.repeticao
+      project_id: t.project_id, coluna_id: colunaDestinoId,
+      data_vencimento: novaData, repeticao: t.repeticao,
+      ordem: colunaDestinoId ? proximaOrdemNaColuna(colunaDestinoId) : null
     });
   }
 
@@ -2170,7 +2182,7 @@
     const tarefa = tasksCache.find(t => t.id === taskId);
     const ultima = ultimaColunaId();
     if (todosFeitos && tarefa && ultima && tarefa.coluna_id !== ultima) {
-      const { error } = await sb.from('tasks').update({ coluna_id: ultima }).eq('id', taskId);
+      const { error } = await sb.from('tasks').update({ coluna_id: ultima, ordem: proximaOrdemNaColuna(ultima) }).eq('id', taskId);
       if (!error) {
         await tratarMovimentoParaColuna(taskId, ultima);
         await carregarTarefas();
@@ -2188,7 +2200,7 @@
   async function moverTarefa(id, novoIdx) {
     const novaColuna = kanbanColumnsCache[novoIdx];
     if (!novaColuna) return;
-    const { error } = await sb.from('tasks').update({ coluna_id: novaColuna.id }).eq('id', id);
+    const { error } = await sb.from('tasks').update({ coluna_id: novaColuna.id, ordem: proximaOrdemNaColuna(novaColuna.id) }).eq('id', id);
     if (error) { alert('Erro ao mover tarefa: ' + error.message); return; }
     await tratarMovimentoParaColuna(id, novaColuna.id);
     carregarTarefas();
@@ -2219,20 +2231,42 @@
         onStart: () => { arrastandoCard = true; },
         onEnd: (ev) => {
           setTimeout(() => { arrastandoCard = false; }, 50);
-          moverTarefaViaSortable(ev.item.dataset.taskId, ev.to.dataset.colunaId, ev.from.dataset.colunaId);
+          moverTarefaViaSortable(ev.item.dataset.taskId, ev.to.dataset.colunaId, ev.from.dataset.colunaId, ev.item);
         }
       });
       sortableInstances.push(instancia);
     });
   }
 
-  async function moverTarefaViaSortable(taskId, novaColunaId, colunaAntigaId) {
-    if (!taskId || !novaColunaId || novaColunaId === colunaAntigaId) return;
+  // Calcula a nova ordem olhando quem ficou imediatamente antes/depois do
+  // cartão na posição em que ele foi solto (o Sortable já moveu o elemento
+  // no DOM antes do onEnd disparar) — média entre os vizinhos, igual o
+  // truque das linhas do Financeiro. Isso é o que faltava: antes, mover um
+  // cartão de posição dentro da MESMA coluna não gravava nada, então na
+  // próxima atualização ele voltava pro lugar de sempre.
+  function calcularNovaOrdemTarefa(cardEl) {
+    if (!cardEl || !cardEl.parentElement) return 10;
+    const irmaos = Array.from(cardEl.parentElement.children).filter(el => el.classList.contains('task-card'));
+    const idx = irmaos.indexOf(cardEl);
+    const anterior = idx > 0 ? tasksCache.find(t => t.id === irmaos[idx - 1].dataset.taskId) : null;
+    const proximo = idx >= 0 && idx < irmaos.length - 1 ? tasksCache.find(t => t.id === irmaos[idx + 1].dataset.taskId) : null;
+    if (anterior && proximo) return (anterior.ordem + proximo.ordem) / 2;
+    if (anterior) return anterior.ordem + 10;
+    if (proximo) return proximo.ordem - 10;
+    return 10;
+  }
+
+  async function moverTarefaViaSortable(taskId, novaColunaId, colunaAntigaId, cardEl) {
+    if (!taskId || !novaColunaId) return;
     const tarefa = tasksCache.find(t => t.id === taskId);
     if (!tarefa) return;
-    const { error } = await sb.from('tasks').update({ coluna_id: novaColunaId }).eq('id', taskId);
+    const mudouColuna = novaColunaId !== colunaAntigaId;
+    const novaOrdem = calcularNovaOrdemTarefa(cardEl);
+    const { error } = await sb.from('tasks').update({ coluna_id: novaColunaId, ordem: novaOrdem }).eq('id', taskId);
     if (error) { alert('Erro ao mover tarefa: ' + error.message); carregarTarefas(); return; }
-    await tratarMovimentoParaColuna(taskId, novaColunaId);
+    tarefa.coluna_id = novaColunaId;
+    tarefa.ordem = novaOrdem;
+    if (mudouColuna) await tratarMovimentoParaColuna(taskId, novaColunaId);
     carregarTarefas();
   }
 
@@ -2241,7 +2275,7 @@
     const titulo = inputEl.value.trim();
     if (!titulo) return;
     const projetoFiltro = (tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos' && tarefaFiltroAtivo !== 'hoje') ? tarefaFiltroAtivo : null;
-    const { error } = await sb.from('tasks').insert({ titulo, coluna_id: colunaId, project_id: projetoFiltro, prioridade: 'media' });
+    const { error } = await sb.from('tasks').insert({ titulo, coluna_id: colunaId, project_id: projetoFiltro, prioridade: 'media', ordem: proximaOrdemNaColuna(colunaId) });
     if (error) { alert('Erro ao criar tarefa: ' + error.message); return; }
     inputEl.value = '';
     carregarTarefas();
@@ -2308,7 +2342,9 @@
   async function salvarCampoTarefaModal(campo, valor) {
     if (!tarefaModalId) return;
     const idAlvo = tarefaModalId;
-    const { error } = await sb.from('tasks').update({ [campo]: valor }).eq('id', idAlvo);
+    const payload = { [campo]: valor };
+    if (campo === 'coluna_id') payload.ordem = proximaOrdemNaColuna(valor);
+    const { error } = await sb.from('tasks').update(payload).eq('id', idAlvo);
     if (error) { alert('Erro ao salvar: ' + error.message); return; }
     if (campo === 'coluna_id') await tratarMovimentoParaColuna(idAlvo, valor);
     await carregarTarefas();
