@@ -2326,9 +2326,12 @@
     return maxOrdem + 10;
   }
 
+  // Retorna true quando de fato cria a cópia recorrente — quem chama usa
+  // isso pra saber se precisa recarregar o quadro (a cópia nova é um
+  // cartão que não existia, não dá pra só atualizar o DOM local).
   async function tratarRecorrenciaTarefa(taskId) {
     const t = tasksCache.find(x => x.id === taskId);
-    if (!t || !t.repeticao) return;
+    if (!t || !t.repeticao) return false;
     const novaData = proximaDataRecorrencia(t.data_vencimento, t.repeticao);
     const primeiraColuna = kanbanColumnsCache[0];
     const colunaDestinoId = primeiraColuna ? primeiraColuna.id : null;
@@ -2338,12 +2341,14 @@
       data_vencimento: novaData, repeticao: t.repeticao,
       ordem: colunaDestinoId ? proximaOrdemNaColuna(colunaDestinoId) : null
     });
+    return true;
   }
 
   async function tratarMovimentoParaColuna(taskId, novaColunaId) {
     if (novaColunaId && novaColunaId === ultimaColunaId()) {
-      await tratarRecorrenciaTarefa(taskId);
+      return await tratarRecorrenciaTarefa(taskId);
     }
+    return false;
   }
 
   async function verificarAutoConclusaoChecklist(taskId) {
@@ -2438,6 +2443,15 @@
     return 10;
   }
 
+  // Depois de soltar o cartão, o Sortable JÁ deixou o elemento na posição
+  // visual certa — chamar carregarTarefas() (recarrega tudo da rede e
+  // reconstrói o innerHTML do quadro inteiro) só pra persistir um campo
+  // gerava aquele "pisca tudo" incômodo, com a tela inteira recarregando
+  // de novo por causa de UM cartão. Agora só grava no banco, atualiza o
+  // cache local e corrige na mão os 2 detalhes que dependem da coluna
+  // (contador do cabeçalho e as setinhas ◀▶ do próprio cartão) — sem
+  // tocar em mais nada do DOM. Só refaz o quadro inteiro no caso raro de
+  // ter criado uma cópia recorrente (cartão novo que não existia).
   async function moverTarefaViaSortable(taskId, novaColunaId, colunaAntigaId, cardEl) {
     if (!taskId || !novaColunaId) return;
     const tarefa = tasksCache.find(t => t.id === taskId);
@@ -2448,8 +2462,44 @@
     if (error) { alert('Erro ao mover tarefa: ' + error.message); carregarTarefas(); return; }
     tarefa.coluna_id = novaColunaId;
     tarefa.ordem = novaOrdem;
-    if (mudouColuna) await tratarMovimentoParaColuna(taskId, novaColunaId);
-    carregarTarefas();
+    if (!mudouColuna) return;
+    atualizarContadorColuna(colunaAntigaId);
+    atualizarContadorColuna(novaColunaId);
+    atualizarBotoesMoverCartao(cardEl, novaColunaId);
+    const criouRecorrencia = await tratarMovimentoParaColuna(taskId, novaColunaId);
+    if (criouRecorrencia) carregarTarefas();
+  }
+
+  // Corrige só o número no cabeçalho da coluna (conta os .task-card reais
+  // que estão dentro dela agora) e troca o placeholder "Nenhuma tarefa"
+  // por nada (ou vice-versa) sem reconstruir o resto da coluna.
+  function atualizarContadorColuna(colunaId) {
+    const corpo = document.querySelector(`.kanban-col-body[data-coluna-id="${colunaId}"]`);
+    if (!corpo) return;
+    const col = corpo.closest('.kanban-col');
+    const countEl = col ? col.querySelector('h4 .count') : null;
+    const cartoes = corpo.querySelectorAll('.task-card');
+    if (countEl) countEl.textContent = cartoes.length;
+    const placeholderVazio = corpo.querySelector('.empty-col');
+    if (cartoes.length && placeholderVazio) placeholderVazio.remove();
+    if (!cartoes.length && !placeholderVazio) corpo.innerHTML = '<div class="empty-col">Nenhuma tarefa</div>';
+  }
+
+  // As setinhas ◀▶ de cada cartão levam o índice da coluna cravado no
+  // próprio onclick (pra saber se é a primeira/última e pra onde mover
+  // com um clique) — depois de arrastar pra outra coluna, esse índice
+  // fica desatualizado até reescrever os dois botões desse cartão.
+  function atualizarBotoesMoverCartao(cardEl, novaColunaId) {
+    if (!cardEl) return;
+    const idx = kanbanColumnsCache.findIndex(c => c.id === novaColunaId);
+    if (idx < 0) return;
+    const botoes = cardEl.querySelectorAll('.actions .move .row-action');
+    if (botoes.length !== 2) return;
+    const taskId = cardEl.dataset.taskId;
+    botoes[0].disabled = idx === 0;
+    botoes[0].setAttribute('onclick', `event.stopPropagation(); moverTarefa('${taskId}', ${idx - 1})`);
+    botoes[1].disabled = idx === kanbanColumnsCache.length - 1;
+    botoes[1].setAttribute('onclick', `event.stopPropagation(); moverTarefa('${taskId}', ${idx + 1})`);
   }
 
   // ---- Adicionar cartão direto na coluna (estilo Trello) ----
