@@ -2400,6 +2400,16 @@
         filter: '.empty-col',
         ghostClass: 'task-card-ghost',
         chosenClass: 'dragging',
+        // Auto-scroll: segurar o cartão perto da borda de cima/baixo da
+        // coluna (ela rola por dentro desde a Fase 21) rola a lista
+        // sozinha, sem precisar soltar-subir-pegar várias vezes pra
+        // atravessar uma coluna longa. scrollSensitivity maior que o
+        // padrão (30px) porque a coluna é relativamente baixa — com 30 a
+        // "zona de gatilho" ficava pequena demais pra perceber.
+        scroll: true,
+        scrollSensitivity: 80,
+        scrollSpeed: 12,
+        bubbleScroll: true,
         onStart: () => { arrastandoCard = true; },
         onEnd: (ev) => {
           setTimeout(() => { arrastandoCard = false; }, 50);
