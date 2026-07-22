@@ -694,6 +694,15 @@
           </table>
         </div>
         <div class="card">
+          <h3 style="margin-top:0;">Acesso por projeto <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('acessoprojeto', event)"></i></h3>
+          <p class="placeholder" style="margin-bottom:12px;">Além de liberar o módulo "Tarefas"/"Financeiro" acima, escolha AQUI quais projetos cada pessoa não-admin enxerga. Sem marcar aqui, o projeto fica invisível pra ela mesmo com o módulo liberado.</p>
+          <table>
+            <thead><tr id="acesso-projetos-cabecalho"><th>Usuário</th></tr></thead>
+            <tbody id="acesso-projetos-tbody"></tbody>
+          </table>
+          <p class="empty-note" id="acesso-projetos-empty" style="display:none;">Nenhum usuário não-admin cadastrado ainda.</p>
+        </div>
+        <div class="card">
           <h3 style="margin-top:0;">Categorias de custo</h3>
           <p class="placeholder" style="margin-bottom:12px;">Opções que aparecem no Financeiro ao lançar um custo.</p>
           <div class="form-row">
@@ -784,7 +793,8 @@
     hoje: 'Junta as atividades pendentes (ligação, reunião, lembrete) E as tarefas com data de vencimento de todos os seus projetos numa lista só, ordenada por data — pra ver o que precisa fazer sem entrar projeto por projeto.',
     fundoquadro: 'Escolha uma cor ou uma imagem (cole uma URL) de fundo por projeto. Ela aparece atrás do quadro quando você filtra as Tarefas por esse projeto.',
     responsaveis: 'Uma tarefa pode ter mais de uma pessoa atribuída. Todas aparecem como avatares empilhados no cartão do Kanban.',
-    notasfinanceiro: 'Anotações livres sobre o financeiro desse projeto — contexto de negociação, combinados com o cliente, lembretes etc. Salva sozinho quando você clica fora do campo.'
+    notasfinanceiro: 'Anotações livres sobre o financeiro desse projeto — contexto de negociação, combinados com o cliente, lembretes etc. Salva sozinho quando você clica fora do campo.',
+    acessoprojeto: 'Isso é diferente do módulo "Tarefas"/"Financeiro" da tabela de cima. Aqui você escolhe QUAIS projetos cada pessoa não-admin enxerga — sem marcar aqui, o projeto (e as tarefas/custos/receitas dele) fica invisível pra ela, mesmo com o módulo liberado.'
   };
 
   function mostrarAjuda(chave, ev) {
@@ -1529,6 +1539,7 @@
       tr.innerHTML = cells;
       tbody.appendChild(tr);
     });
+    carregarAcessoProjetos();
   }
 
   async function togglePermissao(userId, modulo, ligado) {
@@ -1536,6 +1547,47 @@
       await sb.from('user_permissions').insert({ user_id: userId, modulo });
     } else {
       await sb.from('user_permissions').delete().eq('user_id', userId).eq('modulo', modulo);
+    }
+  }
+
+  // ---- Acesso por projeto (além do módulo "Tarefas"/"Financeiro" acima) —
+  // matriz usuário não-admin x projeto. Sem essa marcação, o projeto some
+  // pra quem não é admin nem responsável por ele (RLS `has_project_access`,
+  // tabela `project_access`). ----
+  async function carregarAcessoProjetos() {
+    const cabecalho = document.getElementById('acesso-projetos-cabecalho');
+    const tbody = document.getElementById('acesso-projetos-tbody');
+    const empty = document.getElementById('acesso-projetos-empty');
+    if (!cabecalho || !tbody) return;
+    if (!projectsCache.length) await carregarProjetosSelects();
+    const naoAdmins = usuariosCache.filter(u => !u.is_admin);
+    if (!naoAdmins.length) {
+      cabecalho.innerHTML = '<th>Usuário</th>';
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    cabecalho.innerHTML = '<th>Usuário</th>' + projectsCache.map(p => `<th>${escapeHtml(p.nome)}</th>`).join('');
+    const { data: acessos } = await sb.from('project_access').select('*');
+    tbody.innerHTML = naoAdmins.map(u => {
+      const idsLiberados = new Set((acessos || []).filter(a => a.user_id === u.id).map(a => a.project_id));
+      const nomeExibido = u.nome && u.nome !== u.email ? u.nome : (u.nome || u.email);
+      const cols = projectsCache.map(p => {
+        const checked = idsLiberados.has(p.id) ? 'checked' : '';
+        return `<td><input type="checkbox" ${checked} onchange="toggleAcessoProjeto('${u.id}','${p.id}',this.checked)"></td>`;
+      }).join('');
+      return `<tr><td>${escapeHtml(nomeExibido)}</td>${cols}</tr>`;
+    }).join('');
+  }
+
+  async function toggleAcessoProjeto(userId, projectId, ligado) {
+    if (ligado) {
+      const { error } = await sb.from('project_access').insert({ user_id: userId, project_id: projectId });
+      if (error) alert('Erro ao liberar projeto: ' + error.message);
+    } else {
+      const { error } = await sb.from('project_access').delete().eq('user_id', userId).eq('project_id', projectId);
+      if (error) alert('Erro ao remover acesso: ' + error.message);
     }
   }
 
