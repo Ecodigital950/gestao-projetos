@@ -1949,7 +1949,17 @@
     await carregarTaskLabels();
     let query = sb.from('tasks').select('*').order('ordem', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
     if (tarefaFiltroAtivo === 'hoje') {
-      query = query.lte('data_vencimento', formatDateLocal(new Date()));
+      const hoje = formatDateLocal(new Date());
+      // "Hoje" precisa pegar tanto o cartão com vencimento pra hoje quanto
+      // o cartão que não tem vencimento próprio mas tem um ITEM de
+      // checklist vencendo hoje (ex: cartão de projeto longo, com uma
+      // etapa específica com prazo hoje) — sem isso, esse cartão nunca
+      // aparecia em "Hoje".
+      const { data: itensComPrazo } = await sb.from('task_checklist_items').select('task_id').lte('data_vencimento', hoje);
+      const idsComItemHoje = [...new Set((itensComPrazo || []).map(i => i.task_id))];
+      query = idsComItemHoje.length
+        ? query.or(`data_vencimento.lte.${hoje},id.in.(${idsComItemHoje.join(',')})`)
+        : query.lte('data_vencimento', hoje);
     } else if (tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos') {
       query = query.eq('project_id', tarefaFiltroAtivo);
     }
