@@ -2045,13 +2045,19 @@
       const cards = tarefasDaColuna.map(t => {
         const responsaveis = (taskAssigneeLinksCache[t.id] || []).map(pid => profilesCacheForTasks.find(p => p.id === pid)).filter(Boolean);
         const projeto = projectsCache.find(p => p.id === t.project_id);
-        const atrasado = t.data_vencimento && t.data_vencimento < hoje;
-        const naoConcluida = idx !== kanbanColumnsCache.length - 1;
-        const emAlerta = atrasado && naoConcluida;
         const itensChecklist = checklistCache[t.id] || [];
         const feitos = itensChecklist.filter(i => i.concluido).length;
         const total = itensChecklist.length;
         const pctChecklist = total ? Math.round((feitos / total) * 100) : 0;
+        // A data que importa pro Bruno é a das tarefas (itens de checklist)
+        // dentro do cartão, não a data do cartão em si (ele quase nunca usa
+        // a data do cartão, define prazo item a item). Pega a mais próxima
+        // entre os itens ainda não concluídos.
+        const itensPendentesComData = itensChecklist.filter(i => !i.concluido && i.data_vencimento).sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento));
+        const proximaTarefaData = itensPendentesComData.length ? itensPendentesComData[0].data_vencimento : null;
+        const atrasado = proximaTarefaData && proximaTarefaData < hoje;
+        const naoConcluida = idx !== kanbanColumnsCache.length - 1;
+        const emAlerta = atrasado && naoConcluida;
         const labelsDaTarefa = (taskLabelLinksCache[t.id] || []).map(lid => taskLabelsCache.find(l => l.id === lid)).filter(Boolean);
         const atividades = taskActivitiesCache[t.id] || [];
         const pendentes = atividades.filter(a => !a.concluida).sort((a, b) => a.quando.localeCompare(b.quando));
@@ -2079,9 +2085,9 @@
                 ${responsaveis.map((r, ri) => `<span class="task-avatar" style="background:${corAvatar(r.id)}; ${ri > 0 ? 'margin-left:-6px;' : ''} border:2px solid #0f1526;" title="${escapeHtml(r.nome || r.email)}">${iniciaisResponsavel(r)}</span>`).join('')}
                 <span class="badge-prio ${t.prioridade}" style="margin-left:${responsaveis.length ? '6px' : '0'};"><i class="ti ti-flag-filled" style="font-size:11px; vertical-align:-1px;"></i> ${t.prioridade}</span>
               </div>
-              <span style="display:flex; align-items:center; gap:6px;">
+              <span class="card-datas-wrap" style="display:flex; align-items:center; gap:6px;">
                 ${emAlerta ? `<span class="badge-alerta" title="Tarefa atrasada e não concluída"><i class="ti ti-alert-triangle-filled" style="font-size:12px;"></i> ALERTA</span>` : ''}
-                ${t.data_vencimento ? `<span class="badge-data ${atrasado ? 'atrasado' : ''}"><i class="ti ti-calendar-event" style="font-size:12px;"></i> ${t.data_vencimento.split('-').reverse().join('/')}</span>` : ''}
+                ${proximaTarefaData ? `<span class="badge-data ${atrasado ? 'atrasado' : ''}"><i class="ti ti-calendar-event" style="font-size:12px;"></i> ${proximaTarefaData.split('-').reverse().join('/')}</span>` : ''}
               </span>
             </div>
             ${total ? `<div style="margin-top:8px;">
@@ -2480,17 +2486,22 @@
     if (criouRecorrencia) carregarTarefas();
   }
 
-  // O badge "ALERTA" piscando só deve aparecer se a tarefa está atrasada
-  // E não está na última coluna (concluída). Ao arrastar um cartão
-  // atrasado pra última coluna, ele deixa de estar "não concluído" — sem
-  // isso o alerta ficava piscando mesmo depois do cartão já resolvido.
+  // O badge "ALERTA" piscando usa a data do item de checklist (tarefa)
+  // pendente mais próxima dentro do cartão — não a data do cartão em si
+  // — E só aparece se o cartão não está na última coluna (concluída).
+  // Ao arrastar um cartão atrasado pra última coluna, ele deixa de estar
+  // "não concluído" — sem isso o alerta ficava piscando mesmo depois do
+  // cartão já resolvido.
   function atualizarAlertaCartao(cardEl, tarefa, novaColunaId) {
     if (!cardEl) return;
     const hoje = formatDateLocal(new Date());
-    const atrasado = tarefa.data_vencimento && tarefa.data_vencimento < hoje;
+    const itensChecklist = checklistCache[tarefa.id] || [];
+    const itensPendentesComData = itensChecklist.filter(i => !i.concluido && i.data_vencimento).sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento));
+    const proximaTarefaData = itensPendentesComData.length ? itensPendentesComData[0].data_vencimento : null;
+    const atrasado = proximaTarefaData && proximaTarefaData < hoje;
     const naoConcluida = novaColunaId !== ultimaColunaId();
     const deveAlertar = atrasado && naoConcluida;
-    const wrap = cardEl.querySelector('.badge-data')?.parentElement;
+    const wrap = cardEl.querySelector('.card-datas-wrap');
     if (!wrap) return;
     let alerta = wrap.querySelector('.badge-alerta');
     if (deveAlertar && !alerta) {
