@@ -2939,6 +2939,11 @@
       const item = lista.find(i => i.id === id);
       if (item) item.data_vencimento = dataStr;
     });
+    // Sem isso o badge de data e o alerta piscando do cartão (que usam a
+    // data dos itens de checklist, não a do cartão) ficavam com a
+    // situação antiga até um refresh manual da página — essa função só
+    // atualizava o cache, nunca redesenhava o quadro.
+    renderKanban();
   }
 
   async function excluirChecklistItemModal(id) {
