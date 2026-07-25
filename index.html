@@ -171,8 +171,12 @@
   .filtro-chip.active { border-color: var(--info); background: rgba(56,189,248,0.15); color: var(--info); }
   .filtro-chip-add { padding: 8px 14px; border-style: dashed; color: var(--muted); font-weight: 700; }
   .filtro-chip-add:hover { color: var(--info); border-color: var(--info); }
-  .cal-nav { display: none; align-items: center; gap: 10px; margin-left: auto; }
+  .tarefas-topo-direita { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+  .cal-nav { display: none; align-items: center; gap: 10px; }
   .cal-nav span { font-size: 13.5px; font-weight: 600; min-width: 130px; text-align: center; }
+  .etiqueta-filtro-wrap { display: flex; align-items: center; gap: 6px; }
+  .etiqueta-filtro-wrap select { font-size: 12.5px; padding: 6px 10px; border-radius: 8px; background: var(--card); border: 1px solid var(--card-border); color: var(--text); max-width: 170px; }
+  .etiqueta-filtro-wrap select:focus { outline: none; box-shadow: 0 0 0 2px rgba(56,189,248,0.35); }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
   .cal-weekday { font-size: 11px; color: var(--muted); text-align: center; padding-bottom: 4px; }
   .cal-day { background: #0f1526; border: 1px solid var(--card-border); border-radius: 8px; padding: 6px; min-height: 72px; }
@@ -534,10 +538,16 @@
             <button type="button" id="tab-tarefas-atividades" class="tab-toggle" onclick="mostrarVisaoTarefas('atividades')">Hoje</button>
           </div>
           <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('hoje', event)"></i>
-          <div class="cal-nav" id="cal-nav">
-            <button type="button" class="row-action" onclick="calMudarMes(-1)">◀</button>
-            <span id="cal-mes-label"></span>
-            <button type="button" class="row-action" onclick="calMudarMes(1)">▶</button>
+          <div class="tarefas-topo-direita">
+            <div class="cal-nav" id="cal-nav">
+              <button type="button" class="row-action" onclick="calMudarMes(-1)">◀</button>
+              <span id="cal-mes-label"></span>
+              <button type="button" class="row-action" onclick="calMudarMes(1)">▶</button>
+            </div>
+            <div class="etiqueta-filtro-wrap">
+              <i class="ti ti-filter" style="font-size:14px; color:var(--muted);"></i>
+              <select id="etiqueta-filtro-select" onchange="aplicarFiltroEtiqueta(this.value)"></select>
+            </div>
           </div>
         </div>
         <div class="kanban-board-wrap" id="kanban-board-wrap">
@@ -1841,6 +1851,29 @@
   async function carregarTaskLabels() {
     const { data } = await sb.from('task_labels').select('*').order('ordem').order('nome');
     taskLabelsCache = data || [];
+    renderEtiquetaFiltroSelect();
+  }
+
+  // ---- Filtro de cartões por etiqueta no Kanban (canto direito da barra
+  // Kanban/Calendário/Hoje). "" = sem filtro, mostra tudo. ----
+  let etiquetaFiltroAtiva = '';
+
+  function renderEtiquetaFiltroSelect() {
+    const sel = document.getElementById('etiqueta-filtro-select');
+    if (!sel) return;
+    // Se a etiqueta selecionada foi excluída nesse meio-tempo, volta pro
+    // "sem filtro" em vez de deixar o select preso numa opção fantasma.
+    if (etiquetaFiltroAtiva && !taskLabelsCache.some(l => l.id === etiquetaFiltroAtiva)) {
+      etiquetaFiltroAtiva = '';
+    }
+    sel.innerHTML = '<option value="">Todas as etiquetas</option>' +
+      taskLabelsCache.map(l => `<option value="${l.id}" style="color:${l.cor};">${escapeHtml(l.nome)}</option>`).join('');
+    sel.value = etiquetaFiltroAtiva;
+  }
+
+  function aplicarFiltroEtiqueta(valor) {
+    etiquetaFiltroAtiva = valor || '';
+    renderKanban();
   }
 
   async function carregarTaskLabelLinks(taskIds) {
@@ -2038,8 +2071,11 @@
       return;
     }
     const hoje = formatDateLocal(new Date());
+    // Filtro por etiqueta (canto direito da barra Kanban/Calendário/Hoje):
+    // "" = sem filtro, mostra tudo; senão só cartões com aquela etiqueta.
+    const passaFiltroEtiqueta = t => !etiquetaFiltroAtiva || (taskLabelLinksCache[t.id] || []).includes(etiquetaFiltroAtiva);
     board.innerHTML = kanbanColumnsCache.map((col, idx) => {
-      const todasDaColuna = tasksCache.filter(t => t.coluna_id === col.id);
+      const todasDaColuna = tasksCache.filter(t => t.coluna_id === col.id).filter(passaFiltroEtiqueta);
       const tarefasDaColuna = todasDaColuna.filter(t => !t.soneca_ate || t.soneca_ate <= hoje);
       const emSoneca = todasDaColuna.filter(t => t.soneca_ate && t.soneca_ate > hoje);
       const cards = tarefasDaColuna.map(t => {
@@ -2674,6 +2710,7 @@
     const { data, error } = await sb.from('task_labels').insert({ nome, cor, project_id: null }).select().single();
     if (error) { alert('Erro ao criar etiqueta: ' + error.message); return; }
     taskLabelsCache.push(data);
+    renderEtiquetaFiltroSelect();
     nomeInput.value = '';
     cancelarEtiquetaModalInline();
     await adicionarEtiquetaModal(data.id);
