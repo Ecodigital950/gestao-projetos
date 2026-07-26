@@ -475,38 +475,8 @@
           <div class="fin-section-title">ECO</div>
           <div class="fin-cards-grid" id="fin-cards-eco"></div>
 
-          <div class="card" style="margin-top:16px;">
-            <h3 style="margin-top:0;">Assinaturas (Eco)</h3>
-            <p class="placeholder" style="margin-bottom:12px;">Cadastre uma vez; o valor padrão se repete todo mês sozinho. O lançamento do mês aparece dentro de Despesas Eco, marcado com 🔁.</p>
-            <div class="form-row">
-              <div><label>Nome</label><input type="text" id="fin-sub-eco-nome" placeholder="Ex: Canva"></div>
-              <div><label>Valor padrão (R$)</label><input type="text" inputmode="decimal" id="fin-sub-eco-valor" placeholder="0,00"></div>
-              <div><label>Categoria</label><select id="fin-sub-eco-categoria"><option value="">Sem categoria</option></select></div>
-            </div>
-            <button onclick="criarFinSubscription('eco')">Adicionar assinatura</button>
-            <table style="margin-top:16px;">
-              <thead><tr><th>Nome</th><th>Categoria</th><th>Valor padrão</th><th>Status</th><th></th></tr></thead>
-              <tbody id="fin-sub-eco-tbody"></tbody>
-            </table>
-          </div>
-
           <div class="fin-section-title">PESSOAL</div>
           <div class="fin-cards-grid" id="fin-cards-pessoal"></div>
-
-          <div class="card" style="margin-top:16px;">
-            <h3 style="margin-top:0;">Assinaturas (Pessoal)</h3>
-            <p class="placeholder" style="margin-bottom:12px;">Cadastre uma vez; o valor padrão se repete todo mês sozinho. O lançamento do mês aparece dentro de Despesas Pessoal, marcado com 🔁.</p>
-            <div class="form-row">
-              <div><label>Nome</label><input type="text" id="fin-sub-pessoal-nome" placeholder="Ex: Netflix"></div>
-              <div><label>Valor padrão (R$)</label><input type="text" inputmode="decimal" id="fin-sub-pessoal-valor" placeholder="0,00"></div>
-              <div><label>Categoria</label><select id="fin-sub-pessoal-categoria"><option value="">Sem categoria</option></select></div>
-            </div>
-            <button onclick="criarFinSubscription('pessoal')">Adicionar assinatura</button>
-            <table style="margin-top:16px;">
-              <thead><tr><th>Nome</th><th>Categoria</th><th>Valor padrão</th><th>Status</th><th></th></tr></thead>
-              <tbody id="fin-sub-pessoal-tbody"></tbody>
-            </table>
-          </div>
 
           <div class="card" id="fin-prolabore-card">
             <h3 style="margin-top:0;">Pró-labore do mês</h3>
@@ -3006,8 +2976,6 @@
     const mes = finMesStr();
 
     await carregarFinCategorias();
-    await preencherAssinaturasDoMes(mes);
-    await carregarFinSubscriptions();
 
     const { data: entries } = await sb.from('fin_entries').select('*').eq('mes', mes).order('ordem').order('created_at');
     finEntriesCache = entries || [];
