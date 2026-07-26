@@ -203,6 +203,20 @@
 
   #tarefa-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
   #tarefa-modal-overlay.aberto { display: flex; }
+  #fin-cat-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  #fin-cat-modal-overlay.aberto { display: flex; }
+  .fin-cat-modal-card { width: 360px; max-width: 100%; margin: 0; }
+  .fin-cat-modal-card label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 700; margin: 12px 0 6px; }
+  .fin-cat-modal-card label:first-of-type { margin-top: 0; }
+  .fin-tag-opcoes { display: flex; gap: 6px; }
+  .fin-tag-opcao { flex: 1; text-align: center; padding: 8px 4px; border-radius: 8px; border: 1px solid var(--card-border); cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+  .fin-tag-opcao.custo.selecionada { background: rgba(56,189,248,0.15); color: var(--info); border-color: var(--info); }
+  .fin-tag-opcao.despesa.selecionada { background: rgba(248,113,113,0.15); color: var(--neg); border-color: var(--neg); }
+  .fin-tag-opcao.poupanca.selecionada { background: rgba(52,211,153,0.15); color: var(--pos); border-color: var(--pos); }
+  .fin-card-add { border: 1px dashed var(--card-border); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 600; min-height: 64px; }
+  .fin-card-add:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .fin-card-editar { cursor: pointer; color: var(--muted); }
+  .fin-card-editar:hover { color: var(--text); }
   .tarefa-modal-card { width: 480px; max-width: 100%; margin: 0; }
   .tm-editable { outline: none; border-radius: 6px; padding: 4px 6px; margin: -4px -6px; }
   .tm-editable:focus { box-shadow: 0 0 0 2px rgba(56,189,248,0.35); }
@@ -277,6 +291,8 @@
   .fin-section-title + .card { border-radius: 0 0 14px 14px; }
   .fin-section-title + .fin-cards-grid { border: 1px solid var(--card-border); border-top: none; border-radius: 0 0 14px 14px; padding: 14px; background: rgba(255,255,255,0.015); }
   .fin-cards-grid { display: grid; gap: 10px; }
+  .fin-mes-nav-btn { background: var(--card); border: 1px solid var(--card-border); color: var(--text); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .fin-mes-nav-btn:hover { background: rgba(255,255,255,0.08); }
   .fin-colunas-stepper { display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 12px; color: var(--muted); }
   .fin-colunas-stepper .fin-colunas-btn { cursor: pointer; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--card-border); border-radius: 6px; }
   .fin-colunas-stepper .fin-colunas-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
@@ -461,7 +477,14 @@
         <div id="fin-mensal-view" style="display:none;">
           <div class="card">
             <div class="form-row">
-              <div><label>Mês</label><input type="month" id="fin-mes" onchange="carregarFinanceiroMensal()"></div>
+              <div>
+                <label>Mês</label>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <button type="button" class="fin-mes-nav-btn" onclick="mudarFinMes(-1)" title="Mês anterior"><i class="ti ti-chevron-left"></i></button>
+                  <input type="month" id="fin-mes" onchange="carregarFinanceiroMensal()">
+                  <button type="button" class="fin-mes-nav-btn" onclick="mudarFinMes(1)" title="Próximo mês"><i class="ti ti-chevron-right"></i></button>
+                </div>
+              </div>
             </div>
           </div>
           <div class="grid-kpi" id="fin-resumo-kpis-v2"></div>
@@ -763,6 +786,32 @@
             <tbody id="fincat-config-tbody"></tbody>
           </table>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="fin-cat-modal-overlay" onclick="if(event.target===this) fecharFinCategoriaModal()">
+  <div class="card fin-cat-modal-card">
+    <h3 style="margin-top:0;" id="fin-cat-modal-titulo">Nova categoria</h3>
+    <input type="hidden" id="fincat-modal-id">
+    <input type="hidden" id="fincat-modal-contexto">
+    <label>Nome</label>
+    <input type="text" id="fincat-modal-nome" placeholder="Ex: Farmácia">
+    <label>Tag</label>
+    <div class="fin-tag-opcoes" id="fincat-modal-tag-opcoes">
+      <div class="fin-tag-opcao despesa" data-tag="despesa" onclick="selecionarFinTagModal('despesa')">Despesa</div>
+      <div class="fin-tag-opcao custo" data-tag="custo" onclick="selecionarFinTagModal('custo')">Custo</div>
+      <div class="fin-tag-opcao poupanca" data-tag="poupanca" onclick="selecionarFinTagModal('poupanca')">Poupança</div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:14px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
+      <input type="checkbox" id="fincat-modal-expansivel" style="width:auto;"> Permite vários lançamentos (abre lista de dia/descrição/valor)
+    </label>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;">
+      <span id="fincat-modal-excluir" class="row-action danger" style="display:none;cursor:pointer;" onclick="excluirFinCategoriaModal()">Excluir categoria</span>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button type="button" class="secondary" onclick="fecharFinCategoriaModal()">Cancelar</button>
+        <button type="button" onclick="salvarFinCategoriaModal()">Salvar</button>
       </div>
     </div>
   </div>
@@ -3029,6 +3078,15 @@
     return (v || new Date().toISOString().slice(0, 7)) + '-01';
   }
 
+  function mudarFinMes(delta) {
+    const input = document.getElementById('fin-mes');
+    const atual = input.value || new Date().toISOString().slice(0, 7);
+    const [ano, mes] = atual.split('-').map(Number);
+    const d = new Date(ano, mes - 1 + delta, 1);
+    input.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    carregarFinanceiroMensal();
+  }
+
   async function carregarFinanceiroMensal() {
     const mes = finMesStr();
 
@@ -3146,10 +3204,15 @@
       finKpiCard('Total', brl(total), null, total >= 0 ? 'saldo_pos' : 'saldo_neg'),
     ].join('');
 
-    ecoEl.innerHTML = renderFinCategoriaCard(receitaCat) +
-      finCategoriasCache.filter(c => c.contexto === 'eco' && c.tipo === 'despesa').sort((a, b) => (a.ordem || 0) - (b.ordem || 0)).map(renderFinCategoriaCard).join('');
+    const cardAddEco = `<div class="fin-card fin-card-add" onclick="abrirFinCategoriaModal('eco')"><i class="ti ti-plus"></i> Nova categoria</div>`;
+    const cardAddPessoal = `<div class="fin-card fin-card-add" onclick="abrirFinCategoriaModal('pessoal')"><i class="ti ti-plus"></i> Nova categoria</div>`;
 
-    pessoalEl.innerHTML = finCategoriasCache.filter(c => c.contexto === 'pessoal' && c.tipo === 'despesa').sort((a, b) => (a.ordem || 0) - (b.ordem || 0)).map(renderFinCategoriaCard).join('');
+    ecoEl.innerHTML = renderFinCategoriaCard(receitaCat) +
+      finCategoriasCache.filter(c => c.contexto === 'eco' && c.tipo === 'despesa').sort((a, b) => (a.ordem || 0) - (b.ordem || 0)).map(renderFinCategoriaCard).join('') +
+      cardAddEco;
+
+    pessoalEl.innerHTML = finCategoriasCache.filter(c => c.contexto === 'pessoal' && c.tipo === 'despesa').sort((a, b) => (a.ordem || 0) - (b.ordem || 0)).map(renderFinCategoriaCard).join('') +
+      cardAddPessoal;
   }
 
   function renderFinCategoriaCard(cat) {
@@ -3161,6 +3224,10 @@
     const usaLista = cat.expansivel || itens.length > 1;
     const expandido = finCardsExpandidos.has(cat.id);
 
+    const editIcone = cat.tipo !== 'entrada'
+      ? `<i class="ti ti-pencil fin-card-editar" title="Editar categoria" onclick="event.stopPropagation(); abrirFinCategoriaModal('${cat.contexto}', '${cat.id}')"></i>`
+      : '';
+
     if (!usaLista) {
       const item = itens[0] || null;
       const fixo = cat.tipo === 'entrada' ? ' fin-card-fixo' : '';
@@ -3168,7 +3235,7 @@
         <div class="fin-card${fixo}" data-categoria-id="${cat.id}">
           <div class="fin-card-header">
             <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
-            <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>
+            <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>${editIcone}
           </div>
           <input type="text" inputmode="decimal" placeholder="0,00" value="${item ? formatValorBR(item.valor) : ''}"
             onblur="salvarFinCardSimples('${cat.id}', '${item ? item.id : ''}', this.value)">
@@ -3180,7 +3247,7 @@
         <div class="fin-card fin-card-clicavel" data-categoria-id="${cat.id}" onclick="toggleFinCardSeNaoArrastou('${cat.id}')">
           <div class="fin-card-header">
             <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
-            <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>
+            <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>${editIcone}
           </div>
           <div class="fin-card-total-row">
             <span class="fin-card-total">${brl(total)}</span>
@@ -3193,7 +3260,7 @@
       <div class="fin-card fin-card-aberto" data-categoria-id="${cat.id}">
         <div class="fin-card-header" onclick="toggleFinCardSeNaoArrastou('${cat.id}')" style="cursor:pointer;">
           <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
-          <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>
+          <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>${editIcone}
         </div>
         <div class="fin-card-total" style="margin-bottom:8px;">${brl(total)}</div>
         <div class="fin-lanc-lista">
@@ -3239,7 +3306,7 @@
     if (ecoEl) {
       sortableFinEco = Sortable.create(ecoEl, {
         animation: 150,
-        filter: '.fin-lanc-lista, .fin-lanc-add, input, .fin-card-fixo',
+        filter: '.fin-lanc-lista, .fin-lanc-add, input, .fin-card-fixo, .fin-card-add',
         preventOnFilter: false,
         onStart: () => { finArrastandoCard = true; },
         onEnd: () => {
@@ -3251,7 +3318,7 @@
     if (pessoalEl) {
       sortableFinPessoal = Sortable.create(pessoalEl, {
         animation: 150,
-        filter: '.fin-lanc-lista, .fin-lanc-add, input',
+        filter: '.fin-lanc-lista, .fin-lanc-add, input, .fin-card-add',
         preventOnFilter: false,
         onStart: () => { finArrastandoCard = true; },
         onEnd: () => {
@@ -3271,6 +3338,83 @@
       const c = finCategoriasCache.find(x => x.id === id);
       if (c) c.ordem = idx * 10;
     });
+  }
+
+  // ---- Modal criar/editar categoria — direto na tela do Financeiro,
+  // sem precisar ir em Configurações. Serve tanto pra criar categoria
+  // nova (botão "+ Nova categoria" no fim de cada grid) quanto pra
+  // editar nome/tag/expansível de uma já existente (ícone de lápis). ----
+  let finTagModalSelecionada = 'despesa';
+
+  function abrirFinCategoriaModal(contexto, catId) {
+    document.getElementById('fincat-modal-contexto').value = contexto;
+    document.getElementById('fincat-modal-id').value = catId || '';
+    const excluirEl = document.getElementById('fincat-modal-excluir');
+    if (catId) {
+      const cat = finCategoriasCache.find(c => c.id === catId);
+      if (!cat) return;
+      document.getElementById('fin-cat-modal-titulo').textContent = 'Editar categoria';
+      document.getElementById('fincat-modal-nome').value = cat.nome;
+      document.getElementById('fincat-modal-expansivel').checked = !!cat.expansivel;
+      selecionarFinTagModal(cat.tag || 'despesa');
+      excluirEl.style.display = 'inline';
+    } else {
+      document.getElementById('fin-cat-modal-titulo').textContent = `Nova categoria (${contexto === 'eco' ? 'Eco' : 'Pessoal'})`;
+      document.getElementById('fincat-modal-nome').value = '';
+      document.getElementById('fincat-modal-expansivel').checked = false;
+      selecionarFinTagModal('despesa');
+      excluirEl.style.display = 'none';
+    }
+    document.getElementById('fin-cat-modal-overlay').classList.add('aberto');
+    document.getElementById('fincat-modal-nome').focus();
+  }
+
+  function fecharFinCategoriaModal() {
+    document.getElementById('fin-cat-modal-overlay').classList.remove('aberto');
+  }
+
+  function selecionarFinTagModal(tag) {
+    finTagModalSelecionada = tag;
+    document.querySelectorAll('#fincat-modal-tag-opcoes .fin-tag-opcao').forEach(el => {
+      el.classList.toggle('selecionada', el.dataset.tag === tag);
+    });
+  }
+
+  async function salvarFinCategoriaModal() {
+    const id = document.getElementById('fincat-modal-id').value;
+    const contexto = document.getElementById('fincat-modal-contexto').value;
+    const nome = document.getElementById('fincat-modal-nome').value.trim();
+    if (!nome) { alert('Digite o nome da categoria.'); return; }
+    const expansivel = document.getElementById('fincat-modal-expansivel').checked;
+    const tag = finTagModalSelecionada;
+
+    if (id) {
+      const { error } = await sb.from('fin_categories').update({ nome, tag, expansivel }).eq('id', id);
+      if (error) { alert('Erro ao salvar categoria: ' + error.message); return; }
+    } else {
+      const doContexto = finCategoriasCache.filter(c => c.contexto === contexto && c.tipo === 'despesa');
+      const ordem = doContexto.length ? Math.max(...doContexto.map(c => c.ordem || 0)) + 10 : 0;
+      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag, expansivel, ordem });
+      if (error) { alert('Erro ao criar categoria: ' + error.message); return; }
+    }
+    fecharFinCategoriaModal();
+    await carregarFinCategorias();
+    renderFinCardsV2();
+    initSortableFinCards();
+    aplicarFinColunas();
+  }
+
+  async function excluirFinCategoriaModal() {
+    const id = document.getElementById('fincat-modal-id').value;
+    if (!id) return;
+    if (!confirm('Excluir essa categoria? Só é possível se nenhum lançamento já estiver usando ela.')) return;
+    const { error } = await sb.from('fin_categories').delete().eq('id', id);
+    if (error) { alert('Não foi possível excluir: essa categoria já tem lançamentos vinculados a ela.'); return; }
+    fecharFinCategoriaModal();
+    await carregarFinCategorias();
+    renderFinCardsV2();
+    initSortableFinCards();
+    aplicarFinColunas();
   }
 
   async function salvarFinCardSimples(catId, itemId, valorStr) {
