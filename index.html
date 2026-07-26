@@ -275,6 +275,29 @@
 
   .fin-section-title { background: #0c1120; border: 1px solid var(--card-border); border-radius: 10px 10px 0 0; padding: 10px 16px; font-weight: 700; font-size: 13.5px; margin: 20px 0 -1px 0; }
   .fin-section-title + .card { border-radius: 0 0 14px 14px; }
+  .fin-section-title + .fin-cards-grid { border: 1px solid var(--card-border); border-top: none; border-radius: 0 0 14px 14px; padding: 14px; background: rgba(255,255,255,0.015); }
+  .fin-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  .fin-card { background: rgba(255,255,255,0.045); border-radius: 12px; padding: 12px; }
+  .fin-card-clicavel { cursor: pointer; }
+  .fin-card-clicavel:hover { background: rgba(255,255,255,0.07); }
+  .fin-card-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 10px; }
+  .fin-card-nome { font-size: 12.5px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .fin-card-nome i { font-size: 14px; color: var(--muted); }
+  .fin-tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; flex-shrink: 0; }
+  .fin-tag.custo { background: rgba(56,189,248,0.15); color: var(--info); }
+  .fin-tag.despesa { background: rgba(248,113,113,0.15); color: var(--neg); }
+  .fin-tag.poupanca { background: rgba(52,211,153,0.15); color: var(--pos); }
+  .fin-card input[type=text] { width: 100%; font-size: 13.5px; }
+  .fin-card-total-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .fin-card-total { font-size: 16px; font-weight: 700; }
+  .fin-card-sub { font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+  .fin-lanc-lista { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .fin-lanc-row { display: grid; grid-template-columns: 44px 1fr 76px 20px; gap: 5px; align-items: center; }
+  .fin-lanc-row input { font-size: 11.5px; padding: 5px 6px; }
+  .fin-lanc-row input:last-of-type { text-align: right; }
+  .fin-lanc-excluir { font-size: 14px; color: var(--muted); cursor: pointer; }
+  .fin-lanc-excluir:hover { color: var(--neg); }
+  .fin-lanc-add { width: 100%; font-size: 12px; padding: 6px; }
   .fin-grid tr.fin-resumo-custo td { font-weight: 700; background: #1c2440; }
   .fin-grid tr.fin-resumo-receita td { font-weight: 700; background: #14304a; color: var(--info); }
   .fin-grid tr.fin-resumo-diferenca td { font-weight: 700; }
@@ -436,7 +459,7 @@
               <div><label>Mês</label><input type="month" id="fin-mes" onchange="carregarFinanceiroMensal()"></div>
             </div>
           </div>
-          <div class="grid-kpi" id="fin-mensal-kpis"></div>
+          <div class="grid-kpi" id="fin-resumo-kpis-v2"></div>
 
           <div class="charts-row" style="margin-bottom:16px;">
             <div class="card">
@@ -449,26 +472,10 @@
             </div>
           </div>
 
-          <div class="fin-section-title">Entrada mês</div>
-          <div class="card">
-            <p class="placeholder" style="margin-bottom:12px;">Clique no nome ou no valor pra editar direto. Arraste pelo ⠿ pra reordenar. Use ⋯ pra categoria/dia/observação.</p>
-            <table class="fin-grid">
-              <tbody id="fin-entrada-grid"></tbody>
-            </table>
-          </div>
+          <div class="fin-section-title">ECO</div>
+          <div class="fin-cards-grid" id="fin-cards-eco"></div>
 
-          <div class="fin-section-title">Despesas Eco</div>
-          <div class="card">
-            <p class="placeholder" style="margin-bottom:12px;">Visão macro. O detalhamento de cada categoria (Assinaturas, Custos Extras...) fica nos cards abaixo.</p>
-            <table class="fin-grid">
-              <tbody id="fin-despesa-eco-grid"></tbody>
-            </table>
-          </div>
-          <details class="card" id="fin-detalhamento-eco" open>
-            <summary><span class="fin-chevron">›</span>Detalhamento (Eco)</summary>
-            <div id="fin-detalhamento-eco-body" style="margin-top:14px;"></div>
-          </details>
-          <div class="card">
+          <div class="card" style="margin-top:16px;">
             <h3 style="margin-top:0;">Assinaturas (Eco)</h3>
             <p class="placeholder" style="margin-bottom:12px;">Cadastre uma vez; o valor padrão se repete todo mês sozinho. O lançamento do mês aparece dentro de Despesas Eco, marcado com 🔁.</p>
             <div class="form-row">
@@ -483,18 +490,10 @@
             </table>
           </div>
 
-          <div class="fin-section-title">Despesas Pessoal</div>
-          <div class="card">
-            <p class="placeholder" style="margin-bottom:12px;">Visão macro. O detalhamento de cada categoria (Alimentação, Transporte/Uber, lazer...) fica nos cards abaixo.</p>
-            <table class="fin-grid">
-              <tbody id="fin-despesa-pessoal-grid"></tbody>
-            </table>
-          </div>
-          <details class="card" id="fin-detalhamento-pessoal" open>
-            <summary><span class="fin-chevron">›</span>Detalhamento (Pessoal)</summary>
-            <div id="fin-detalhamento-pessoal-body" style="margin-top:14px;"></div>
-          </details>
-          <div class="card">
+          <div class="fin-section-title">PESSOAL</div>
+          <div class="fin-cards-grid" id="fin-cards-pessoal"></div>
+
+          <div class="card" style="margin-top:16px;">
             <h3 style="margin-top:0;">Assinaturas (Pessoal)</h3>
             <p class="placeholder" style="margin-bottom:12px;">Cadastre uma vez; o valor padrão se repete todo mês sozinho. O lançamento do mês aparece dentro de Despesas Pessoal, marcado com 🔁.</p>
             <div class="form-row">
@@ -516,10 +515,6 @@
               <div style="display:flex;align-items:flex-end;"><button onclick="salvarProlabore()">Salvar</button></div>
             </div>
           </div>
-
-          <table class="fin-grid">
-            <tbody id="fin-resumo-grid"></tbody>
-          </table>
         </div>
       </div>
       <div id="view-tarefas" class="view">
@@ -1040,6 +1035,7 @@
       despesa: { bg: 'rgba(248,113,113,0.12)', texto: 'var(--neg)' },
       saldo_pos: { bg: 'rgba(52,211,153,0.12)', texto: 'var(--pos)' },
       saldo_neg: { bg: 'rgba(248,113,113,0.12)', texto: 'var(--neg)' },
+      custo: { bg: 'rgba(56,189,248,0.12)', texto: 'var(--info)' },
       neutro: { bg: 'var(--card)', texto: 'var(--text, #e8ebf5)' }
     };
     const c = cores[tipo] || cores.neutro;
@@ -1077,7 +1073,11 @@
       [/parcel/, 'ti-calendar-time'],
       [/custo/, 'ti-alert-circle'],
       [/cuidado|sa[uú]de|m[eé]dico/, 'ti-heart'],
-      [/financiamento/, 'ti-building-bank']
+      [/financiamento/, 'ti-building-bank'],
+      [/farm[aá]cia/, 'ti-pill'],
+      [/extras/, 'ti-dots'],
+      [/sa[íi]das/, 'ti-building-store'],
+      [/receita/, 'ti-cash']
     ];
     for (const [re, icone] of mapa) { if (re.test(n)) return icone; }
     return 'ti-tag';
@@ -3016,31 +3016,10 @@
     const prolabore = pl ? Number(pl.valor) : 0;
     document.getElementById('fin-prolabore-valor').value = prolabore ? formatValorBR(prolabore) : '';
 
+    renderFinCardsV2();
     const totalEntrada = finEntriesCache.filter(e => e.tipo === 'entrada').reduce((s, e) => s + Number(e.valor || 0), 0);
     const totalDespesaEco = finEntriesCache.filter(e => e.tipo === 'despesa' && e.contexto === 'eco').reduce((s, e) => s + Number(e.valor || 0), 0);
     const totalDespesaPessoal = finEntriesCache.filter(e => e.tipo === 'despesa' && e.contexto === 'pessoal').reduce((s, e) => s + Number(e.valor || 0), 0);
-    const custoTotal = totalDespesaEco + totalDespesaPessoal + prolabore;
-    const saldo = totalEntrada - custoTotal;
-
-    document.getElementById('fin-mensal-kpis').innerHTML = [
-      finKpiCard('Entrada (Eco)', brl(totalEntrada), null, 'entrada'),
-      finKpiCard('Despesas Eco', brl(totalDespesaEco), null, 'despesa'),
-      finKpiCard('Despesas Pessoal', brl(totalDespesaPessoal), null, 'despesa'),
-      finKpiCard('Pró-labore', brl(prolabore), null, 'neutro'),
-      finKpiCard('Saldo do mês', brl(saldo), null, saldo >= 0 ? 'saldo_pos' : 'saldo_neg'),
-    ].join('');
-
-    document.getElementById('fin-entrada-grid').innerHTML = renderFinGrid('eco', 'entrada');
-    document.getElementById('fin-despesa-eco-grid').innerHTML = renderFinGrid('eco', 'despesa');
-    document.getElementById('fin-despesa-pessoal-grid').innerHTML = renderFinGrid('pessoal', 'despesa');
-    document.getElementById('fin-detalhamento-eco-body').innerHTML = renderFinDetalhamento('eco');
-    document.getElementById('fin-detalhamento-pessoal-body').innerHTML = renderFinDetalhamento('pessoal');
-
-    const diferencaClasse = saldo >= 0 ? 'pos' : 'neg';
-    document.getElementById('fin-resumo-grid').innerHTML = `
-      <tr class="fin-resumo-custo"><td>Custo Real (Eco + Pessoal + Pró-labore)</td><td class="fin-valor">${brl(custoTotal)}</td><td></td></tr>
-      <tr class="fin-resumo-receita"><td>Receita Real</td><td class="fin-valor">${brl(totalEntrada)}</td><td></td></tr>
-      <tr class="fin-resumo-diferenca ${diferencaClasse}"><td>Diferença</td><td class="fin-valor">${brl(saldo)}</td><td></td></tr>`;
 
     // Rosca: despesas por categoria (Eco + Pessoal juntos, rótulo indica o
     // contexto pra não confundir categorias com o mesmo nome nos dois lados).
@@ -3097,6 +3076,163 @@
         }
       });
     }
+  }
+
+  // ---- Financeiro: cards estilo Kanban (Resumo + ECO + PESSOAL) ----
+  // Cada categoria (fin_categories) tem uma "tag" (custo azul / despesa
+  // vermelha / poupança verde) e um flag "expansivel". Categoria simples
+  // (Aluguel, Luz) = 1 campo direto. Categoria expansível (Alimentação,
+  // Assinaturas...) = card minimizado com o total somado + clique abre a
+  // lista de lançamentos (dia, descrição, valor), igual o mockup aprovado.
+  let finCardsExpandidos = new Set();
+
+  function finTagInfo(tag) {
+    if (tag === 'custo') return { label: 'custo', classe: 'custo' };
+    if (tag === 'poupanca') return { label: 'poupança', classe: 'poupanca' };
+    if (tag === 'entrada') return { label: 'receita', classe: 'poupanca' };
+    return { label: 'despesa', classe: 'despesa' };
+  }
+
+  function renderFinCardsV2() {
+    const kpisEl = document.getElementById('fin-resumo-kpis-v2');
+    const ecoEl = document.getElementById('fin-cards-eco');
+    const pessoalEl = document.getElementById('fin-cards-pessoal');
+    if (!kpisEl || !ecoEl || !pessoalEl) return;
+
+    const receitaCat = finCategoriasCache.find(c => c.tipo === 'entrada');
+    const receita = receitaCat ? finEntriesCache.filter(e => e.categoria_id === receitaCat.id).reduce((s, e) => s + Number(e.valor || 0), 0) : 0;
+    const custoTotal = finEntriesCache.reduce((s, e) => {
+      const cat = finCategoriasCache.find(c => c.id === e.categoria_id);
+      return cat && cat.tag === 'custo' ? s + Number(e.valor || 0) : s;
+    }, 0);
+    const despesaTotal = finEntriesCache.reduce((s, e) => {
+      const cat = finCategoriasCache.find(c => c.id === e.categoria_id);
+      return cat && cat.tag === 'despesa' ? s + Number(e.valor || 0) : s;
+    }, 0);
+    const total = receita - custoTotal - despesaTotal;
+
+    kpisEl.innerHTML = [
+      finKpiCard('Receita', brl(receita), null, 'entrada'),
+      finKpiCard('Custo total', brl(custoTotal), null, 'custo'),
+      finKpiCard('Despesa total', brl(despesaTotal), null, 'despesa'),
+      finKpiCard('Total', brl(total), null, total >= 0 ? 'saldo_pos' : 'saldo_neg'),
+    ].join('');
+
+    ecoEl.innerHTML = renderFinCategoriaCard(receitaCat) +
+      finCategoriasCache.filter(c => c.contexto === 'eco' && c.tipo === 'despesa').sort((a, b) => (a.ordem || 0) - (b.ordem || 0)).map(renderFinCategoriaCard).join('');
+
+    pessoalEl.innerHTML = finCategoriasCache.filter(c => c.contexto === 'pessoal' && c.tipo === 'despesa').sort((a, b) => (a.ordem || 0) - (b.ordem || 0)).map(renderFinCategoriaCard).join('');
+  }
+
+  function renderFinCategoriaCard(cat) {
+    if (!cat) return '';
+    const itens = finEntriesCache.filter(e => e.categoria_id === cat.id).sort((a, b) => (a.dia || 0) - (b.dia || 0));
+    const total = itens.reduce((s, i) => s + Number(i.valor || 0), 0);
+    const tagInfo = finTagInfo(cat.tag);
+    const icone = iconeCategoria(cat.nome);
+    const usaLista = cat.expansivel || itens.length > 1;
+    const expandido = finCardsExpandidos.has(cat.id);
+
+    if (!usaLista) {
+      const item = itens[0] || null;
+      return `
+        <div class="fin-card">
+          <div class="fin-card-header">
+            <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
+            <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>
+          </div>
+          <input type="text" inputmode="decimal" placeholder="0,00" value="${item ? formatValorBR(item.valor) : ''}"
+            onblur="salvarFinCardSimples('${cat.id}', '${item ? item.id : ''}', this.value)">
+        </div>`;
+    }
+
+    if (!expandido) {
+      return `
+        <div class="fin-card fin-card-clicavel" onclick="toggleFinCard('${cat.id}')">
+          <div class="fin-card-header">
+            <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
+            <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>
+          </div>
+          <div class="fin-card-total-row">
+            <span class="fin-card-total">${brl(total)}</span>
+            <span class="fin-card-sub"><i class="ti ti-list"></i> ${itens.length} lançamento${itens.length === 1 ? '' : 's'}</span>
+          </div>
+        </div>`;
+    }
+
+    return `
+      <div class="fin-card fin-card-aberto">
+        <div class="fin-card-header" onclick="toggleFinCard('${cat.id}')" style="cursor:pointer;">
+          <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
+          <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>
+        </div>
+        <div class="fin-card-total" style="margin-bottom:8px;">${brl(total)}</div>
+        <div class="fin-lanc-lista">
+          ${itens.map(i => `
+            <div class="fin-lanc-row">
+              <input type="text" value="${i.dia || ''}" placeholder="dia" onblur="salvarFinLancamentoCampo('${i.id}','dia',this.value)">
+              <input type="text" value="${escapeHtml(i.nome || '')}" placeholder="descrição" onblur="salvarFinLancamentoCampo('${i.id}','nome',this.value)">
+              <input type="text" inputmode="decimal" value="${formatValorBR(i.valor)}" placeholder="0,00" onblur="salvarFinLancamentoCampo('${i.id}','valor',this.value)">
+              <i class="ti ti-trash fin-lanc-excluir" onclick="excluirFinLancamento('${i.id}')"></i>
+            </div>`).join('')}
+        </div>
+        <button class="fin-lanc-add" onclick="adicionarFinLancamento('${cat.id}')"><i class="ti ti-plus"></i> Adicionar lançamento</button>
+      </div>`;
+  }
+
+  function toggleFinCard(catId) {
+    if (finCardsExpandidos.has(catId)) finCardsExpandidos.delete(catId);
+    else finCardsExpandidos.add(catId);
+    renderFinCardsV2();
+  }
+
+  async function salvarFinCardSimples(catId, itemId, valorStr) {
+    const valor = parseValorBR(valorStr);
+    const cat = finCategoriasCache.find(c => c.id === catId);
+    if (!cat) return;
+    if (itemId) {
+      const { error } = await sb.from('fin_entries').update({ valor }).eq('id', itemId);
+      if (error) { alert('Erro ao salvar: ' + error.message); return; }
+      const item = finEntriesCache.find(e => e.id === itemId);
+      if (item) item.valor = valor;
+    } else {
+      const mes = finMesStr();
+      const { data, error } = await sb.from('fin_entries').insert({ contexto: cat.contexto, tipo: cat.tipo, nome: cat.nome, valor, mes, categoria_id: cat.id }).select().single();
+      if (error) { alert('Erro ao salvar: ' + error.message); return; }
+      finEntriesCache.push(data);
+    }
+    renderFinCardsV2();
+  }
+
+  async function salvarFinLancamentoCampo(id, campo, valorStr) {
+    const item = finEntriesCache.find(e => e.id === id);
+    if (!item) return;
+    let valor = valorStr;
+    if (campo === 'valor') valor = parseValorBR(valorStr);
+    else if (campo === 'dia') valor = valorStr ? (parseInt(valorStr, 10) || null) : null;
+    const { error } = await sb.from('fin_entries').update({ [campo]: valor }).eq('id', id);
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    item[campo] = valor;
+    renderFinCardsV2();
+  }
+
+  async function adicionarFinLancamento(catId) {
+    const cat = finCategoriasCache.find(c => c.id === catId);
+    if (!cat) return;
+    const mes = finMesStr();
+    const { data, error } = await sb.from('fin_entries').insert({ contexto: cat.contexto, tipo: cat.tipo, nome: '', valor: 0, mes, categoria_id: cat.id }).select().single();
+    if (error) { alert('Erro ao adicionar: ' + error.message); return; }
+    finEntriesCache.push(data);
+    finCardsExpandidos.add(catId);
+    renderFinCardsV2();
+  }
+
+  async function excluirFinLancamento(id) {
+    if (!confirm('Excluir esse lançamento?')) return;
+    const { error } = await sb.from('fin_entries').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    finEntriesCache = finEntriesCache.filter(e => e.id !== id);
+    renderFinCardsV2();
   }
 
   function linhaFinItem(item, maxValor) {
