@@ -273,13 +273,18 @@
   .fin-barra-fill { height: 6px; border-radius: 3px; }
   .fin-barra-fill.fin-barra-muted { background: var(--muted); }
 
-  .fin-section-title { background: #0c1120; border: 1px solid var(--card-border); border-radius: 10px 10px 0 0; padding: 10px 16px; font-weight: 700; font-size: 13.5px; margin: 20px 0 -1px 0; }
+  .fin-section-title { background: #0c1120; border: 1px solid var(--card-border); border-radius: 10px 10px 0 0; padding: 10px 16px; font-weight: 700; font-size: 13.5px; margin: 20px 0 -1px 0; display: flex; justify-content: space-between; align-items: center; }
   .fin-section-title + .card { border-radius: 0 0 14px 14px; }
   .fin-section-title + .fin-cards-grid { border: 1px solid var(--card-border); border-top: none; border-radius: 0 0 14px 14px; padding: 14px; background: rgba(255,255,255,0.015); }
-  .fin-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  .fin-cards-grid { display: grid; gap: 10px; }
+  .fin-colunas-stepper { display: flex; align-items: center; gap: 8px; font-weight: 400; font-size: 12px; color: var(--muted); }
+  .fin-colunas-stepper .fin-colunas-btn { cursor: pointer; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--card-border); border-radius: 6px; }
+  .fin-colunas-stepper .fin-colunas-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+  .fin-colunas-stepper .fin-colunas-valor { min-width: 14px; text-align: center; color: var(--text); }
   .fin-card { background: rgba(255,255,255,0.045); border-radius: 12px; padding: 12px; }
   .fin-card-clicavel { cursor: pointer; }
   .fin-card-clicavel:hover { background: rgba(255,255,255,0.07); }
+  .fin-card-arrastando { opacity: 0.4; }
   .fin-card-header { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 10px; }
   .fin-card-nome { font-size: 12.5px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
   .fin-card-nome i { font-size: 14px; color: var(--muted); }
@@ -472,10 +477,24 @@
             </div>
           </div>
 
-          <div class="fin-section-title">ECO</div>
+          <div class="fin-section-title">
+            <span>ECO</span>
+            <span class="fin-colunas-stepper">
+              <span class="fin-colunas-btn" onclick="ajustarFinColunas('eco', -1)"><i class="ti ti-minus"></i></span>
+              colunas: <span class="fin-colunas-valor" id="fin-colunas-eco-valor">4</span>
+              <span class="fin-colunas-btn" onclick="ajustarFinColunas('eco', 1)"><i class="ti ti-plus"></i></span>
+            </span>
+          </div>
           <div class="fin-cards-grid" id="fin-cards-eco"></div>
 
-          <div class="fin-section-title">PESSOAL</div>
+          <div class="fin-section-title">
+            <span>PESSOAL</span>
+            <span class="fin-colunas-stepper">
+              <span class="fin-colunas-btn" onclick="ajustarFinColunas('pessoal', -1)"><i class="ti ti-minus"></i></span>
+              colunas: <span class="fin-colunas-valor" id="fin-colunas-pessoal-valor">4</span>
+              <span class="fin-colunas-btn" onclick="ajustarFinColunas('pessoal', 1)"><i class="ti ti-plus"></i></span>
+            </span>
+          </div>
           <div class="fin-cards-grid" id="fin-cards-pessoal"></div>
 
           <div class="card" id="fin-prolabore-card">
@@ -2967,6 +2986,44 @@
   let finCategoriasCache = [];
   let finDonutChart, finBarChart;
 
+  // ---- Nº de colunas dos grids ECO/PESSOAL — configurável direto na tela
+  // do Financeiro (sem precisar ir em Configurações), persistido em
+  // fin_settings pra não precisar de migração nova. ----
+  let finColunas = { eco: 4, pessoal: 4 };
+  let finColunasCarregadas = false;
+
+  async function carregarFinConfigColunas() {
+    if (finColunasCarregadas) { aplicarFinColunas(); return; }
+    const { data } = await sb.from('fin_settings').select('*').in('chave', ['fin_colunas_eco', 'fin_colunas_pessoal']);
+    (data || []).forEach(r => {
+      if (r.chave === 'fin_colunas_eco') finColunas.eco = Number(r.valor) || 4;
+      if (r.chave === 'fin_colunas_pessoal') finColunas.pessoal = Number(r.valor) || 4;
+    });
+    finColunasCarregadas = true;
+    aplicarFinColunas();
+  }
+
+  function aplicarFinColunas() {
+    const ecoEl = document.getElementById('fin-cards-eco');
+    const pessoalEl = document.getElementById('fin-cards-pessoal');
+    if (ecoEl) ecoEl.style.gridTemplateColumns = `repeat(${finColunas.eco}, 1fr)`;
+    if (pessoalEl) pessoalEl.style.gridTemplateColumns = `repeat(${finColunas.pessoal}, 1fr)`;
+    const ecoValorEl = document.getElementById('fin-colunas-eco-valor');
+    const pessoalValorEl = document.getElementById('fin-colunas-pessoal-valor');
+    if (ecoValorEl) ecoValorEl.textContent = finColunas.eco;
+    if (pessoalValorEl) pessoalValorEl.textContent = finColunas.pessoal;
+  }
+
+  async function ajustarFinColunas(secao, delta) {
+    const novo = Math.min(8, Math.max(2, finColunas[secao] + delta));
+    if (novo === finColunas[secao]) return;
+    finColunas[secao] = novo;
+    aplicarFinColunas();
+    const chave = secao === 'eco' ? 'fin_colunas_eco' : 'fin_colunas_pessoal';
+    const { error } = await sb.from('fin_settings').upsert({ chave, valor: novo }, { onConflict: 'chave' });
+    if (error) alert('Erro ao salvar nº de colunas: ' + error.message);
+  }
+
   function finMesStr() {
     const v = document.getElementById('fin-mes').value; // 'YYYY-MM'
     return (v || new Date().toISOString().slice(0, 7)) + '-01';
@@ -2976,6 +3033,7 @@
     const mes = finMesStr();
 
     await carregarFinCategorias();
+    await carregarFinConfigColunas();
 
     const { data: entries } = await sb.from('fin_entries').select('*').eq('mes', mes).order('ordem').order('created_at');
     finEntriesCache = entries || [];
@@ -2985,6 +3043,8 @@
     document.getElementById('fin-prolabore-valor').value = prolabore ? formatValorBR(prolabore) : '';
 
     renderFinCardsV2();
+    initSortableFinCards();
+    aplicarFinColunas();
     const totalEntrada = finEntriesCache.filter(e => e.tipo === 'entrada').reduce((s, e) => s + Number(e.valor || 0), 0);
     const totalDespesaEco = finEntriesCache.filter(e => e.tipo === 'despesa' && e.contexto === 'eco').reduce((s, e) => s + Number(e.valor || 0), 0);
     const totalDespesaPessoal = finEntriesCache.filter(e => e.tipo === 'despesa' && e.contexto === 'pessoal').reduce((s, e) => s + Number(e.valor || 0), 0);
@@ -3103,8 +3163,9 @@
 
     if (!usaLista) {
       const item = itens[0] || null;
+      const fixo = cat.tipo === 'entrada' ? ' fin-card-fixo' : '';
       return `
-        <div class="fin-card">
+        <div class="fin-card${fixo}" data-categoria-id="${cat.id}">
           <div class="fin-card-header">
             <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
             <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>
@@ -3116,7 +3177,7 @@
 
     if (!expandido) {
       return `
-        <div class="fin-card fin-card-clicavel" onclick="toggleFinCard('${cat.id}')">
+        <div class="fin-card fin-card-clicavel" data-categoria-id="${cat.id}" onclick="toggleFinCardSeNaoArrastou('${cat.id}')">
           <div class="fin-card-header">
             <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
             <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>
@@ -3129,8 +3190,8 @@
     }
 
     return `
-      <div class="fin-card fin-card-aberto">
-        <div class="fin-card-header" onclick="toggleFinCard('${cat.id}')" style="cursor:pointer;">
+      <div class="fin-card fin-card-aberto" data-categoria-id="${cat.id}">
+        <div class="fin-card-header" onclick="toggleFinCardSeNaoArrastou('${cat.id}')" style="cursor:pointer;">
           <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
           <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>
         </div>
@@ -3152,6 +3213,64 @@
     if (finCardsExpandidos.has(catId)) finCardsExpandidos.delete(catId);
     else finCardsExpandidos.add(catId);
     renderFinCardsV2();
+  }
+
+  // impede o clique (que expande/recolhe o card) de "roubar" o drag,
+  // mesmo padrão já usado nos cartões do Kanban e nos chips de projeto
+  let finArrastandoCard = false;
+  function toggleFinCardSeNaoArrastou(catId) {
+    if (!finArrastandoCard) toggleFinCard(catId);
+  }
+
+  // ---- Arrastar os cards de categoria pra reordenar (ECO e PESSOAL cada
+  // um com sua própria instância) — persiste em fin_categories.ordem
+  // renumerando de 10 em 10, mesmo padrão usado pra reordenar projetos. ----
+  let sortableFinEco = null;
+  let sortableFinPessoal = null;
+
+  function initSortableFinCards() {
+    if (typeof Sortable !== 'function') return;
+    const ecoEl = document.getElementById('fin-cards-eco');
+    const pessoalEl = document.getElementById('fin-cards-pessoal');
+
+    if (sortableFinEco) sortableFinEco.destroy();
+    if (sortableFinPessoal) sortableFinPessoal.destroy();
+
+    if (ecoEl) {
+      sortableFinEco = Sortable.create(ecoEl, {
+        animation: 150,
+        filter: '.fin-lanc-lista, .fin-lanc-add, input, .fin-card-fixo',
+        preventOnFilter: false,
+        onStart: () => { finArrastandoCard = true; },
+        onEnd: () => {
+          setTimeout(() => { finArrastandoCard = false; }, 50);
+          salvarOrdemFinCards(ecoEl);
+        }
+      });
+    }
+    if (pessoalEl) {
+      sortableFinPessoal = Sortable.create(pessoalEl, {
+        animation: 150,
+        filter: '.fin-lanc-lista, .fin-lanc-add, input',
+        preventOnFilter: false,
+        onStart: () => { finArrastandoCard = true; },
+        onEnd: () => {
+          setTimeout(() => { finArrastandoCard = false; }, 50);
+          salvarOrdemFinCards(pessoalEl);
+        }
+      });
+    }
+  }
+
+  async function salvarOrdemFinCards(gridEl) {
+    const ids = Array.from(gridEl.children).map(el => el.dataset.categoriaId).filter(Boolean);
+    const resultados = await Promise.all(ids.map((id, idx) => sb.from('fin_categories').update({ ordem: idx * 10 }).eq('id', id)));
+    const erro = resultados.find(r => r.error);
+    if (erro) { alert('Erro ao salvar ordem das categorias: ' + erro.error.message); return; }
+    ids.forEach((id, idx) => {
+      const c = finCategoriasCache.find(x => x.id === id);
+      if (c) c.ordem = idx * 10;
+    });
   }
 
   async function salvarFinCardSimples(catId, itemId, valorStr) {
