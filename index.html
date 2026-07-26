@@ -205,14 +205,18 @@
   #tarefa-modal-overlay.aberto { display: flex; }
   #fin-cat-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
   #fin-cat-modal-overlay.aberto { display: flex; }
+  #fin-tags-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1001; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  #fin-tags-modal-overlay.aberto { display: flex; }
+  .fin-tags-modal-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--card-border); }
+  .fin-tags-modal-row:last-child { border-bottom: none; }
+  .fin-tags-modal-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .fin-tags-modal-nome { flex: 1; font-size: 13.5px; }
+  .fin-tags-modal-natureza { font-size: 11px; color: var(--muted); }
   .fin-cat-modal-card { width: 360px; max-width: 100%; margin: 0; }
   .fin-cat-modal-card label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 700; margin: 12px 0 6px; }
   .fin-cat-modal-card label:first-of-type { margin-top: 0; }
-  .fin-tag-opcoes { display: flex; gap: 6px; }
-  .fin-tag-opcao { flex: 1; text-align: center; padding: 8px 4px; border-radius: 8px; border: 1px solid var(--card-border); cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); }
-  .fin-tag-opcao.custo.selecionada { background: rgba(56,189,248,0.15); color: var(--info); border-color: var(--info); }
-  .fin-tag-opcao.despesa.selecionada { background: rgba(248,113,113,0.15); color: var(--neg); border-color: var(--neg); }
-  .fin-tag-opcao.poupanca.selecionada { background: rgba(52,211,153,0.15); color: var(--pos); border-color: var(--pos); }
+  .fin-tag-opcoes { display: flex; gap: 6px; flex-wrap: wrap; }
+  .fin-tag-opcao { flex: 1; min-width: 70px; text-align: center; padding: 8px 4px; border-radius: 8px; border: 1px solid var(--card-border); cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--muted); }
   .fin-card-add { border: 1px dashed var(--card-border); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 600; min-height: 64px; }
   .fin-card-add:hover { background: rgba(255,255,255,0.04); color: var(--text); }
   .fin-card-editar { cursor: pointer; color: var(--muted); }
@@ -798,12 +802,11 @@
     <input type="hidden" id="fincat-modal-contexto">
     <label>Nome</label>
     <input type="text" id="fincat-modal-nome" placeholder="Ex: Farmácia">
-    <label>Tag</label>
-    <div class="fin-tag-opcoes" id="fincat-modal-tag-opcoes">
-      <div class="fin-tag-opcao despesa" data-tag="despesa" onclick="selecionarFinTagModal('despesa')">Despesa</div>
-      <div class="fin-tag-opcao custo" data-tag="custo" onclick="selecionarFinTagModal('custo')">Custo</div>
-      <div class="fin-tag-opcao poupanca" data-tag="poupanca" onclick="selecionarFinTagModal('poupanca')">Poupança</div>
-    </div>
+    <label style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Tag</span>
+      <span class="row-action" style="cursor:pointer;font-weight:600;" onclick="abrirFinTagsModal()"><i class="ti ti-tags"></i> gerenciar tags</span>
+    </label>
+    <div class="fin-tag-opcoes" id="fincat-modal-tag-opcoes"></div>
     <label style="display:flex;align-items:center;gap:8px;margin-top:14px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
       <input type="checkbox" id="fincat-modal-expansivel" style="width:auto;"> Permite vários lançamentos (abre lista de dia/descrição/valor)
     </label>
@@ -813,6 +816,30 @@
         <button type="button" class="secondary" onclick="fecharFinCategoriaModal()">Cancelar</button>
         <button type="button" onclick="salvarFinCategoriaModal()">Salvar</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="fin-tags-modal-overlay" onclick="if(event.target===this) fecharFinTagsModal()">
+  <div class="card fin-cat-modal-card">
+    <h3 style="margin-top:0;">Gerenciar tags</h3>
+    <p class="placeholder" style="margin-bottom:12px;">As tags classificam a categoria pra somar certo nos KPIs: custo e despesa entram no gasto total, poupança não.</p>
+    <div id="fin-tags-modal-lista"></div>
+    <label style="margin-top:16px;">Nova tag</label>
+    <div style="display:flex; gap:8px; align-items:flex-end;">
+      <div style="flex:1;"><input type="text" id="fintag-novo-nome" placeholder="Ex: Imposto"></div>
+      <div><input type="color" id="fintag-novo-cor" value="#a78bfa" style="height:38px; width:44px; padding:2px;"></div>
+      <div>
+        <select id="fintag-novo-natureza">
+          <option value="despesa">Despesa</option>
+          <option value="custo">Custo</option>
+          <option value="poupanca">Poupança</option>
+        </select>
+      </div>
+    </div>
+    <button style="margin-top:10px;" onclick="criarFinTag()">Adicionar tag</button>
+    <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+      <button type="button" class="secondary" onclick="fecharFinTagsModal()">Fechar</button>
     </div>
   </div>
 </div>
@@ -3171,12 +3198,18 @@
   // Assinaturas...) = card minimizado com o total somado + clique abre a
   // lista de lançamentos (dia, descrição, valor), igual o mockup aprovado.
   let finCardsExpandidos = new Set();
+  let finTagsCache = [];
 
-  function finTagInfo(tag) {
-    if (tag === 'custo') return { label: 'custo', classe: 'custo' };
-    if (tag === 'poupanca') return { label: 'poupança', classe: 'poupanca' };
-    if (tag === 'entrada') return { label: 'receita', classe: 'poupanca' };
-    return { label: 'despesa', classe: 'despesa' };
+  // "natureza" da tag define como ela entra na conta dos KPIs (custo e
+  // despesa somam no gasto total, poupança não) — mesmo se o Bruno mudar
+  // o nome/cor da tag ou criar uma nova, o cálculo continua correto
+  // porque olha pra natureza, não pro nome.
+  function finTagInfo(catOuTagId) {
+    if (catOuTagId && catOuTagId.tipo === 'entrada') return { label: 'receita', cor: '#34d399', natureza: 'poupanca' };
+    const tagId = catOuTagId && typeof catOuTagId === 'object' ? catOuTagId.tag_id : catOuTagId;
+    const tag = finTagsCache.find(t => t.id === tagId);
+    if (tag) return { label: tag.nome, cor: tag.cor, natureza: tag.natureza };
+    return { label: 'sem tag', cor: 'var(--muted)', natureza: 'despesa' };
   }
 
   function renderFinCardsV2() {
@@ -3189,11 +3222,11 @@
     const receita = receitaCat ? finEntriesCache.filter(e => e.categoria_id === receitaCat.id).reduce((s, e) => s + Number(e.valor || 0), 0) : 0;
     const custoTotal = finEntriesCache.reduce((s, e) => {
       const cat = finCategoriasCache.find(c => c.id === e.categoria_id);
-      return cat && cat.tag === 'custo' ? s + Number(e.valor || 0) : s;
+      return cat && finTagInfo(cat).natureza === 'custo' ? s + Number(e.valor || 0) : s;
     }, 0);
     const despesaTotal = finEntriesCache.reduce((s, e) => {
       const cat = finCategoriasCache.find(c => c.id === e.categoria_id);
-      return cat && cat.tag === 'despesa' ? s + Number(e.valor || 0) : s;
+      return cat && finTagInfo(cat).natureza === 'despesa' ? s + Number(e.valor || 0) : s;
     }, 0);
     const total = receita - custoTotal - despesaTotal;
 
@@ -3219,7 +3252,7 @@
     if (!cat) return '';
     const itens = finEntriesCache.filter(e => e.categoria_id === cat.id).sort((a, b) => (a.dia || 0) - (b.dia || 0));
     const total = itens.reduce((s, i) => s + Number(i.valor || 0), 0);
-    const tagInfo = finTagInfo(cat.tag);
+    const tagInfo = finTagInfo(cat);
     const icone = iconeCategoria(cat.nome);
     const usaLista = cat.expansivel || itens.length > 1;
     const expandido = finCardsExpandidos.has(cat.id);
@@ -3235,7 +3268,7 @@
         <div class="fin-card${fixo}" data-categoria-id="${cat.id}">
           <div class="fin-card-header">
             <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
-            <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>${editIcone}
+            <span class="fin-tag" style="background:${tagInfo.cor.startsWith('#') ? hexToRgba(tagInfo.cor, 0.15) : 'rgba(137,146,171,0.15)'}; color:${tagInfo.cor};">${escapeHtml(tagInfo.label)}</span>${editIcone}
           </div>
           <input type="text" inputmode="decimal" placeholder="0,00" value="${item ? formatValorBR(item.valor) : ''}"
             onblur="salvarFinCardSimples('${cat.id}', '${item ? item.id : ''}', this.value)">
@@ -3247,7 +3280,7 @@
         <div class="fin-card fin-card-clicavel" data-categoria-id="${cat.id}" onclick="toggleFinCardSeNaoArrastou('${cat.id}')">
           <div class="fin-card-header">
             <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
-            <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>${editIcone}
+            <span class="fin-tag" style="background:${tagInfo.cor.startsWith('#') ? hexToRgba(tagInfo.cor, 0.15) : 'rgba(137,146,171,0.15)'}; color:${tagInfo.cor};">${escapeHtml(tagInfo.label)}</span>${editIcone}
           </div>
           <div class="fin-card-total-row">
             <span class="fin-card-total">${brl(total)}</span>
@@ -3260,7 +3293,7 @@
       <div class="fin-card fin-card-aberto" data-categoria-id="${cat.id}">
         <div class="fin-card-header" onclick="toggleFinCardSeNaoArrastou('${cat.id}')" style="cursor:pointer;">
           <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
-          <span class="fin-tag ${tagInfo.classe}">${tagInfo.label}</span>${editIcone}
+          <span class="fin-tag" style="background:${tagInfo.cor.startsWith('#') ? hexToRgba(tagInfo.cor, 0.15) : 'rgba(137,146,171,0.15)'}; color:${tagInfo.cor};">${escapeHtml(tagInfo.label)}</span>${editIcone}
         </div>
         <div class="fin-card-total" style="margin-bottom:8px;">${brl(total)}</div>
         <div class="fin-lanc-lista">
@@ -3344,7 +3377,7 @@
   // sem precisar ir em Configurações. Serve tanto pra criar categoria
   // nova (botão "+ Nova categoria" no fim de cada grid) quanto pra
   // editar nome/tag/expansível de uma já existente (ícone de lápis). ----
-  let finTagModalSelecionada = 'despesa';
+  let finTagModalSelecionada = null;
 
   function abrirFinCategoriaModal(contexto, catId) {
     document.getElementById('fincat-modal-contexto').value = contexto;
@@ -3356,13 +3389,13 @@
       document.getElementById('fin-cat-modal-titulo').textContent = 'Editar categoria';
       document.getElementById('fincat-modal-nome').value = cat.nome;
       document.getElementById('fincat-modal-expansivel').checked = !!cat.expansivel;
-      selecionarFinTagModal(cat.tag || 'despesa');
+      selecionarFinTagModal(cat.tag_id || (finTagsCache[0] && finTagsCache[0].id) || null);
       excluirEl.style.display = 'inline';
     } else {
       document.getElementById('fin-cat-modal-titulo').textContent = `Nova categoria (${contexto === 'eco' ? 'Eco' : 'Pessoal'})`;
       document.getElementById('fincat-modal-nome').value = '';
       document.getElementById('fincat-modal-expansivel').checked = false;
-      selecionarFinTagModal('despesa');
+      selecionarFinTagModal((finTagsCache[0] && finTagsCache[0].id) || null);
       excluirEl.style.display = 'none';
     }
     document.getElementById('fin-cat-modal-overlay').classList.add('aberto');
@@ -3373,11 +3406,19 @@
     document.getElementById('fin-cat-modal-overlay').classList.remove('aberto');
   }
 
-  function selecionarFinTagModal(tag) {
-    finTagModalSelecionada = tag;
-    document.querySelectorAll('#fincat-modal-tag-opcoes .fin-tag-opcao').forEach(el => {
-      el.classList.toggle('selecionada', el.dataset.tag === tag);
-    });
+  function renderFinTagOpcoesModal() {
+    const wrap = document.getElementById('fincat-modal-tag-opcoes');
+    if (!wrap) return;
+    wrap.innerHTML = finTagsCache.map(t => {
+      const sel = t.id === finTagModalSelecionada;
+      const estilo = sel ? `background:${hexToRgba(t.cor, 0.15)}; color:${t.cor}; border-color:${t.cor};` : '';
+      return `<div class="fin-tag-opcao" data-tag-id="${t.id}" style="${estilo}" onclick="selecionarFinTagModal('${t.id}')">${escapeHtml(t.nome)}</div>`;
+    }).join('') || '<p class="empty-note">Nenhuma tag cadastrada ainda.</p>';
+  }
+
+  function selecionarFinTagModal(tagId) {
+    finTagModalSelecionada = tagId;
+    renderFinTagOpcoesModal();
   }
 
   async function salvarFinCategoriaModal() {
@@ -3386,15 +3427,15 @@
     const nome = document.getElementById('fincat-modal-nome').value.trim();
     if (!nome) { alert('Digite o nome da categoria.'); return; }
     const expansivel = document.getElementById('fincat-modal-expansivel').checked;
-    const tag = finTagModalSelecionada;
+    const tag_id = finTagModalSelecionada;
 
     if (id) {
-      const { error } = await sb.from('fin_categories').update({ nome, tag, expansivel }).eq('id', id);
+      const { error } = await sb.from('fin_categories').update({ nome, tag_id, expansivel }).eq('id', id);
       if (error) { alert('Erro ao salvar categoria: ' + error.message); return; }
     } else {
       const doContexto = finCategoriasCache.filter(c => c.contexto === contexto && c.tipo === 'despesa');
       const ordem = doContexto.length ? Math.max(...doContexto.map(c => c.ordem || 0)) + 10 : 0;
-      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag, expansivel, ordem });
+      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag_id, expansivel, ordem });
       if (error) { alert('Erro ao criar categoria: ' + error.message); return; }
     }
     fecharFinCategoriaModal();
@@ -3402,6 +3443,90 @@
     renderFinCardsV2();
     initSortableFinCards();
     aplicarFinColunas();
+  }
+
+  // ---- Modal "Gerenciar tags" — CRUD completo (criar, editar nome/cor/
+  // natureza, excluir), aberto direto de dentro do modal de categoria,
+  // sem precisar ir em Configurações. ----
+  let finTagEditandoId = null;
+
+  function abrirFinTagsModal() {
+    finTagEditandoId = null;
+    renderFinTagsModalLista();
+    document.getElementById('fin-tags-modal-overlay').classList.add('aberto');
+  }
+
+  function fecharFinTagsModal() {
+    document.getElementById('fin-tags-modal-overlay').classList.remove('aberto');
+    // ao fechar, garante que o seletor de tag do modal de categoria (que
+    // pode estar aberto atrás) reflete qualquer criação/edição/exclusão
+    renderFinTagOpcoesModal();
+  }
+
+  function renderFinTagsModalLista() {
+    const wrap = document.getElementById('fin-tags-modal-lista');
+    if (!wrap) return;
+    const naturezaLabel = { custo: 'custo', despesa: 'despesa', poupanca: 'poupança' };
+    wrap.innerHTML = finTagsCache.map(t => {
+      if (t.id === finTagEditandoId) {
+        return `
+          <div class="fin-tags-modal-row">
+            <input type="color" id="fintag-edit-cor-${t.id}" value="${t.cor}" style="height:32px; width:38px; padding:2px; flex-shrink:0;">
+            <input type="text" id="fintag-edit-nome-${t.id}" value="${escapeHtml(t.nome)}" style="flex:1;">
+            <select id="fintag-edit-natureza-${t.id}" style="flex-shrink:0;">
+              <option value="despesa" ${t.natureza === 'despesa' ? 'selected' : ''}>Despesa</option>
+              <option value="custo" ${t.natureza === 'custo' ? 'selected' : ''}>Custo</option>
+              <option value="poupanca" ${t.natureza === 'poupanca' ? 'selected' : ''}>Poupança</option>
+            </select>
+            <i class="ti ti-check fin-card-editar" title="Salvar" onclick="salvarFinTagEditado('${t.id}')"></i>
+            <i class="ti ti-x fin-card-editar" title="Cancelar" onclick="finTagEditandoId=null; renderFinTagsModalLista();"></i>
+          </div>`;
+      }
+      return `
+        <div class="fin-tags-modal-row">
+          <span class="fin-tags-modal-dot" style="background:${t.cor};"></span>
+          <span class="fin-tags-modal-nome">${escapeHtml(t.nome)}</span>
+          <span class="fin-tags-modal-natureza">${naturezaLabel[t.natureza] || t.natureza}</span>
+          <i class="ti ti-pencil fin-card-editar" title="Editar" onclick="finTagEditandoId='${t.id}'; renderFinTagsModalLista();"></i>
+          <i class="ti ti-trash fin-card-editar" title="Excluir" onclick="excluirFinTag('${t.id}')"></i>
+        </div>`;
+    }).join('') || '<p class="empty-note">Nenhuma tag cadastrada ainda.</p>';
+  }
+
+  async function criarFinTag() {
+    const nome = document.getElementById('fintag-novo-nome').value.trim();
+    if (!nome) { alert('Digite o nome da tag.'); return; }
+    const cor = document.getElementById('fintag-novo-cor').value || '#a78bfa';
+    const natureza = document.getElementById('fintag-novo-natureza').value;
+    const ordem = finTagsCache.length ? Math.max(...finTagsCache.map(t => t.ordem || 0)) + 10 : 0;
+    const { error } = await sb.from('fin_tags').insert({ nome, cor, natureza, ordem });
+    if (error) { alert('Erro ao criar tag: ' + error.message); return; }
+    document.getElementById('fintag-novo-nome').value = '';
+    await carregarFinTags();
+    renderFinTagsModalLista();
+    renderFinCardsV2();
+  }
+
+  async function salvarFinTagEditado(id) {
+    const nome = document.getElementById(`fintag-edit-nome-${id}`).value.trim();
+    if (!nome) { alert('Digite o nome da tag.'); return; }
+    const cor = document.getElementById(`fintag-edit-cor-${id}`).value;
+    const natureza = document.getElementById(`fintag-edit-natureza-${id}`).value;
+    const { error } = await sb.from('fin_tags').update({ nome, cor, natureza }).eq('id', id);
+    if (error) { alert('Erro ao salvar tag: ' + error.message); return; }
+    finTagEditandoId = null;
+    await carregarFinTags();
+    renderFinTagsModalLista();
+    renderFinCardsV2();
+  }
+
+  async function excluirFinTag(id) {
+    if (!confirm('Excluir essa tag? As categorias que usam ela ficam sem tag (você pode reatribuir depois).')) return;
+    const { error } = await sb.from('fin_tags').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir tag: ' + error.message); return; }
+    await carregarFinTags();
+    renderFinTagsModalLista();
+    renderFinCardsV2();
   }
 
   async function excluirFinCategoriaModal() {
@@ -3733,6 +3858,7 @@
   }
 
   async function carregarFinCategorias() {
+    await carregarFinTags();
     const { data } = await sb.from('fin_categories').select('*').order('ordem');
     finCategoriasCache = data || [];
     ['eco', 'pessoal'].forEach(ctx => {
@@ -3743,6 +3869,11 @@
         finCategoriasCache.filter(c => c.contexto === ctx && c.tipo === 'despesa').map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
       subSel.value = anterior;
     });
+  }
+
+  async function carregarFinTags() {
+    const { data } = await sb.from('fin_tags').select('*').order('ordem');
+    finTagsCache = data || [];
   }
 
   async function preencherAssinaturasDoMes(mes) {
