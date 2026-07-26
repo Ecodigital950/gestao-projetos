@@ -10,6 +10,8 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/style.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/monthSelect/index.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
   :root {
@@ -480,14 +482,34 @@
 
         <div id="fin-mensal-view" style="display:none;">
           <div class="card">
-            <div class="form-row">
-              <div>
-                <label>Mês</label>
-                <div style="display:flex;align-items:center;gap:8px;">
-                  <button type="button" class="fin-mes-nav-btn" onclick="mudarFinMes(-1)" title="Mês anterior"><i class="ti ti-chevron-left"></i></button>
-                  <input type="month" id="fin-mes" onchange="carregarFinanceiroMensal()">
-                  <button type="button" class="fin-mes-nav-btn" onclick="mudarFinMes(1)" title="Próximo mês"><i class="ti ti-chevron-right"></i></button>
+            <div class="tab-toggle-row">
+              <div class="tab-toggle-group">
+                <button type="button" id="fin-modo-mes-btn" class="tab-toggle active" onclick="definirFinModo('mes')">Mês</button>
+                <button type="button" id="fin-modo-periodo-btn" class="tab-toggle" onclick="definirFinModo('periodo')">Período</button>
+              </div>
+            </div>
+
+            <div id="fin-filtro-mes-wrap">
+              <div class="preset-row">
+                <button type="button" class="secondary" onclick="aplicarFinPresetMes('passado')">Mês passado</button>
+                <button type="button" class="secondary" onclick="aplicarFinPresetMes('atual')">Mês atual</button>
+              </div>
+              <div class="form-row">
+                <div>
+                  <label>Mês</label>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <button type="button" class="fin-mes-nav-btn" onclick="mudarFinMes(-1)" title="Mês anterior"><i class="ti ti-chevron-left"></i></button>
+                    <input type="text" id="fin-mes" placeholder="Selecione o mês">
+                    <button type="button" class="fin-mes-nav-btn" onclick="mudarFinMes(1)" title="Próximo mês"><i class="ti ti-chevron-right"></i></button>
+                  </div>
                 </div>
+              </div>
+            </div>
+
+            <div id="fin-filtro-periodo-wrap" style="display:none;">
+              <p class="placeholder" style="margin-bottom:10px;">Mostra a soma de todos os meses do período. Nesse modo os cards ficam só pra consulta — pra editar um lançamento, volte pro modo Mês.</p>
+              <div class="form-row">
+                <div><label>Período</label><input type="text" id="fin-periodo" placeholder="Selecione o período"></div>
               </div>
             </div>
           </div>
@@ -1333,8 +1355,7 @@
     if (projetoId === '__financeiro__') {
       document.getElementById('fin-projeto-view').style.display = 'none';
       document.getElementById('fin-mensal-view').style.display = 'block';
-      const mesInput = document.getElementById('fin-mes');
-      if (!mesInput.value) mesInput.value = new Date().toISOString().slice(0, 7);
+      initFinFiltroMes();
       await carregarFinanceiroMensal();
       return;
     }
@@ -3100,35 +3121,100 @@
     if (error) alert('Erro ao salvar nº de colunas: ' + error.message);
   }
 
-  function finMesStr() {
-    const v = document.getElementById('fin-mes').value; // 'YYYY-MM'
-    return (v || new Date().toISOString().slice(0, 7)) + '-01';
+  // ---- Filtro de mês/período do Financeiro mensal — usa o flatpickr já
+  // carregado no app (mesmo dos vencimentos de tarefa e do período do
+  // Dashboard) em vez do <input type="month"> nativo. Modo "Mês" edita
+  // normalmente; modo "Período" soma vários meses e vira só consulta,
+  // porque não dá pra saber em qual mês salvar um lançamento novo. ----
+  let finFiltroModo = 'mes';
+  let finMesPicker = null;
+  let finPeriodoPicker = null;
+
+  function initFinFiltroMes() {
+    if (typeof flatpickr !== 'function') return;
+    if (!finMesPicker) {
+      finMesPicker = flatpickr('#fin-mes', {
+        plugins: [new monthSelectPlugin({ shorthand: true, dateFormat: 'Y-m', altFormat: 'F \\d\\e Y' })],
+        locale: 'pt',
+        defaultDate: new Date(),
+        onChange: () => { if (finFiltroModo === 'mes') carregarFinanceiroMensal(); }
+      });
+    }
+    if (!finPeriodoPicker) {
+      finPeriodoPicker = flatpickr('#fin-periodo', {
+        mode: 'range',
+        dateFormat: 'Y-m-d',
+        altInput: true,
+        altFormat: 'M/Y',
+        locale: 'pt',
+        onClose: () => { if (finFiltroModo === 'periodo') carregarFinanceiroMensal(); }
+      });
+    }
   }
 
-  function mudarFinMes(delta) {
-    const input = document.getElementById('fin-mes');
-    const atual = input.value || new Date().toISOString().slice(0, 7);
-    const [ano, mes] = atual.split('-').map(Number);
-    const d = new Date(ano, mes - 1 + delta, 1);
-    input.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  function definirFinModo(modo) {
+    finFiltroModo = modo;
+    document.getElementById('fin-modo-mes-btn').classList.toggle('active', modo === 'mes');
+    document.getElementById('fin-modo-periodo-btn').classList.toggle('active', modo === 'periodo');
+    document.getElementById('fin-filtro-mes-wrap').style.display = modo === 'mes' ? 'block' : 'none';
+    document.getElementById('fin-filtro-periodo-wrap').style.display = modo === 'periodo' ? 'block' : 'none';
+    document.getElementById('fin-prolabore-card').style.display = modo === 'mes' ? 'block' : 'none';
+    if (modo === 'periodo' && finPeriodoPicker && !finPeriodoPicker.selectedDates.length) {
+      const hoje = new Date();
+      finPeriodoPicker.setDate([inicioDoMes(hoje), fimDoMes(hoje)], false);
+    }
     carregarFinanceiroMensal();
   }
 
-  async function carregarFinanceiroMensal() {
-    const mes = finMesStr();
+  function aplicarFinPresetMes(tipo) {
+    if (finFiltroModo !== 'mes') definirFinModo('mes');
+    const hoje = new Date();
+    const alvo = tipo === 'passado' ? new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1) : new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+    finMesPicker.setDate(alvo, true);
+  }
 
+  function finMesStr() {
+    const d = (finMesPicker && finMesPicker.selectedDates[0]) || new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  }
+
+  function mudarFinMes(delta) {
+    const atual = (finMesPicker && finMesPicker.selectedDates[0]) || new Date();
+    const d = new Date(atual.getFullYear(), atual.getMonth() + delta, 1);
+    finMesPicker.setDate(d, true);
+  }
+
+  // intervalo de meses (mes = 1º dia do mês) coberto pelo período
+  // selecionado — snap pro início/fim do mês pra bater com o formato
+  // que fin_entries.mes usa
+  function finPeriodoIntervalo() {
+    const datas = (finPeriodoPicker && finPeriodoPicker.selectedDates) || [];
+    const de = datas[0] || new Date();
+    const ate = datas[1] || de;
+    return { de: formatDateLocal(inicioDoMes(de)), ate: formatDateLocal(inicioDoMes(ate)) };
+  }
+
+  async function carregarFinanceiroMensal() {
     await carregarFinCategorias();
     await carregarFinConfigColunas();
 
-    const { data: entries } = await sb.from('fin_entries').select('*').eq('mes', mes).order('ordem').order('created_at');
+    let entries;
+    if (finFiltroModo === 'periodo') {
+      const { de, ate } = finPeriodoIntervalo();
+      const { data } = await sb.from('fin_entries').select('*').gte('mes', de).lte('mes', ate).order('mes').order('ordem').order('created_at');
+      entries = data;
+    } else {
+      const mes = finMesStr();
+      const { data } = await sb.from('fin_entries').select('*').eq('mes', mes).order('ordem').order('created_at');
+      entries = data;
+      const { data: pl } = await sb.from('fin_prolabore').select('*').eq('mes', mes).maybeSingle();
+      const prolabore = pl ? Number(pl.valor) : 0;
+      document.getElementById('fin-prolabore-valor').value = prolabore ? formatValorBR(prolabore) : '';
+    }
     finEntriesCache = entries || [];
 
-    const { data: pl } = await sb.from('fin_prolabore').select('*').eq('mes', mes).maybeSingle();
-    const prolabore = pl ? Number(pl.valor) : 0;
-    document.getElementById('fin-prolabore-valor').value = prolabore ? formatValorBR(prolabore) : '';
-
     renderFinCardsV2();
-    initSortableFinCards();
+    if (finFiltroModo === 'mes') initSortableFinCards();
     aplicarFinColunas();
     const totalEntrada = finEntriesCache.filter(e => e.tipo === 'entrada').reduce((s, e) => s + Number(e.valor || 0), 0);
     const totalDespesaEco = finEntriesCache.filter(e => e.tipo === 'despesa' && e.contexto === 'eco').reduce((s, e) => s + Number(e.valor || 0), 0);
@@ -3237,8 +3323,9 @@
       finKpiCard('Total', brl(total), null, total >= 0 ? 'saldo_pos' : 'saldo_neg'),
     ].join('');
 
-    const cardAddEco = `<div class="fin-card fin-card-add" onclick="abrirFinCategoriaModal('eco')"><i class="ti ti-plus"></i> Nova categoria</div>`;
-    const cardAddPessoal = `<div class="fin-card fin-card-add" onclick="abrirFinCategoriaModal('pessoal')"><i class="ti ti-plus"></i> Nova categoria</div>`;
+    const somenteLeitura = finFiltroModo === 'periodo';
+    const cardAddEco = somenteLeitura ? '' : `<div class="fin-card fin-card-add" onclick="abrirFinCategoriaModal('eco')"><i class="ti ti-plus"></i> Nova categoria</div>`;
+    const cardAddPessoal = somenteLeitura ? '' : `<div class="fin-card fin-card-add" onclick="abrirFinCategoriaModal('pessoal')"><i class="ti ti-plus"></i> Nova categoria</div>`;
 
     ecoEl.innerHTML = renderFinCategoriaCard(receitaCat) +
       finCategoriasCache.filter(c => c.contexto === 'eco' && c.tipo === 'despesa').sort((a, b) => (a.ordem || 0) - (b.ordem || 0)).map(renderFinCategoriaCard).join('') +
@@ -3256,22 +3343,26 @@
     const icone = iconeCategoria(cat.nome);
     const usaLista = cat.expansivel || itens.length > 1;
     const expandido = finCardsExpandidos.has(cat.id);
+    const somenteLeitura = finFiltroModo === 'periodo';
 
-    const editIcone = cat.tipo !== 'entrada'
+    const editIcone = (cat.tipo !== 'entrada' && !somenteLeitura)
       ? `<i class="ti ti-pencil fin-card-editar" title="Editar categoria" onclick="event.stopPropagation(); abrirFinCategoriaModal('${cat.contexto}', '${cat.id}')"></i>`
       : '';
 
     if (!usaLista) {
       const item = itens[0] || null;
       const fixo = cat.tipo === 'entrada' ? ' fin-card-fixo' : '';
+      const valorCampo = somenteLeitura
+        ? `<div class="fin-card-total">${item ? brl(item.valor) : brl(0)}</div>`
+        : `<input type="text" inputmode="decimal" placeholder="0,00" value="${item ? formatValorBR(item.valor) : ''}"
+            onblur="salvarFinCardSimples('${cat.id}', '${item ? item.id : ''}', this.value)">`;
       return `
         <div class="fin-card${fixo}" data-categoria-id="${cat.id}">
           <div class="fin-card-header">
             <span class="fin-card-nome"><i class="ti ${icone}"></i> ${escapeHtml(cat.nome)}</span>
             <span class="fin-tag" style="background:${tagInfo.cor.startsWith('#') ? hexToRgba(tagInfo.cor, 0.15) : 'rgba(137,146,171,0.15)'}; color:${tagInfo.cor};">${escapeHtml(tagInfo.label)}</span>${editIcone}
           </div>
-          <input type="text" inputmode="decimal" placeholder="0,00" value="${item ? formatValorBR(item.valor) : ''}"
-            onblur="salvarFinCardSimples('${cat.id}', '${item ? item.id : ''}', this.value)">
+          ${valorCampo}
         </div>`;
     }
 
@@ -3297,7 +3388,12 @@
         </div>
         <div class="fin-card-total" style="margin-bottom:8px;">${brl(total)}</div>
         <div class="fin-lanc-lista">
-          ${itens.map(i => `
+          ${itens.map(i => somenteLeitura ? `
+            <div class="fin-lanc-row" style="grid-template-columns: 60px 1fr 76px;">
+              <span class="fin-card-sub">${i.mes ? mesAbrev(i.mes) : (i.dia || '')}</span>
+              <span class="fin-card-sub">${escapeHtml(i.nome || '')}</span>
+              <span class="fin-card-sub">${brl(i.valor)}</span>
+            </div>` : `
             <div class="fin-lanc-row">
               <input type="text" value="${i.dia || ''}" placeholder="dia" onblur="salvarFinLancamentoCampo('${i.id}','dia',this.value)">
               <input type="text" value="${escapeHtml(i.nome || '')}" placeholder="descrição" onblur="salvarFinLancamentoCampo('${i.id}','nome',this.value)">
@@ -3305,8 +3401,14 @@
               <i class="ti ti-trash fin-lanc-excluir" onclick="excluirFinLancamento('${i.id}')"></i>
             </div>`).join('')}
         </div>
-        <button class="fin-lanc-add" onclick="adicionarFinLancamento('${cat.id}')"><i class="ti ti-plus"></i> Adicionar lançamento</button>
+        ${somenteLeitura ? '' : `<button class="fin-lanc-add" onclick="adicionarFinLancamento('${cat.id}')"><i class="ti ti-plus"></i> Adicionar lançamento</button>`}
       </div>`;
+  }
+
+  function mesAbrev(mesStr) {
+    const [ano, mes] = mesStr.split('-').map(Number);
+    const nomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+    return `${nomes[mes - 1]}/${String(ano).slice(2)}`;
   }
 
   function toggleFinCard(catId) {
