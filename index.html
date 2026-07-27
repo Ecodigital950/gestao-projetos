@@ -399,7 +399,10 @@
 
     .login-box { width: 92vw; padding: 24px; }
 
-    .chart-canvas-wrap, #fin-donut-wrap { height: 220px; }
+    /* no celular os gráficos (rosca/barra) saem da frente — o que
+       importa pra usar no dia a dia é lançar/ver valor, não o visual;
+       os KPIs (Receita/Custo/Despesa/Total) continuam aparecendo */
+    .charts-row { display: none !important; }
 
     .fin-colunas-stepper { display: none; }
     .fin-cards-grid { grid-template-columns: 1fr !important; }
