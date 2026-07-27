@@ -150,6 +150,10 @@
   .card-sub { color: var(--muted); font-size: 12px; margin-top: 6px; }
   .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 900px) { .charts-row { grid-template-columns: 1fr; } }
+  /* altura fixa pro wrapper do gráfico (em vez de depender de aspect
+     ratio) — com maintainAspectRatio:false no Chart.js isso deixa o
+     tamanho previsível em qualquer largura de tela, célular incluso */
+  .chart-canvas-wrap, #fin-donut-wrap { position: relative; height: 280px; }
 
   .row-action { background: none; border: none; color: var(--info); font-size: 12.5px; font-weight: 500; padding: 2px 6px; cursor: pointer; }
   .row-action.danger { color: var(--neg); }
@@ -354,6 +358,59 @@
   details.fin-detalhe-bloco:not([open]) { margin-bottom: 8px; }
   details.card > summary { font-size: 16px; font-weight: 600; }
   details.card > summary .fin-chevron { font-size: 15px; }
+
+  /* ===== Mobile (celular) =====
+     A sidebar vira uma barra fixa embaixo (padrão de app), o conteúdo
+     ganha padding-bottom pra não ficar escondido atrás dela, formulários
+     empilham em vez de espremer, tabelas e o quadro Kanban ganham scroll
+     horizontal em vez de estourar a tela, e modais ocupam a largura
+     disponível em vez de ficarem com largura fixa de desktop. */
+  @media (max-width: 760px) {
+    body { overflow-x: hidden; }
+    .layout { flex-direction: column; }
+
+    .sidebar {
+      position: fixed; left: 0; right: 0; bottom: 0; top: auto;
+      width: 100% !important; height: 62px; flex-direction: row; align-items: center;
+      padding: 0 4px; border-right: none; border-top: 1px solid var(--card-border);
+      z-index: 500; overflow-x: auto; overflow-y: hidden;
+    }
+    .sidebar h1, .sidebar .user-email, .sidebar-toggle { display: none; }
+    #nav { display: flex; flex: 1; height: 100%; }
+    .sidebar .footer { margin-top: 0; display: flex; height: 100%; }
+    .nav-item {
+      flex-direction: column; justify-content: center; gap: 2px; margin-bottom: 0;
+      padding: 6px 10px; font-size: 10px; white-space: nowrap; flex-shrink: 0;
+    }
+    .nav-item .nav-label { display: block !important; font-size: 9.5px; }
+    .nav-item i { font-size: 18px; }
+
+    .content { padding: 14px 12px 78px; }
+    .content h2 { font-size: 18px; margin-bottom: 14px; }
+
+    .card { padding: 14px; }
+
+    .form-row > div { min-width: 100%; flex-basis: 100%; }
+
+    table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+
+    .tarefa-modal-card, .fin-cat-modal-card { width: 100%; }
+    #tarefa-modal-overlay, #fin-cat-modal-overlay, #fin-tags-modal-overlay { padding: 12px 8px 90px; }
+
+    .login-box { width: 92vw; padding: 24px; }
+
+    .chart-canvas-wrap, #fin-donut-wrap { height: 220px; }
+
+    .fin-colunas-stepper { display: none; }
+    .fin-cards-grid { grid-template-columns: 1fr !important; }
+    #fin-mes, .fin-periodo-input { max-width: 100%; flex: 1; }
+    .fin-mes-picker-row { flex-wrap: wrap; }
+
+    .cal-day { min-height: 50px; padding: 4px; }
+    .cal-weekday { font-size: 9.5px; }
+
+    .kanban-board-wrap { padding: 10px; }
+  }
 </style>
 </head>
 <body>
@@ -404,8 +461,8 @@
         </div>
         <div class="grid-kpi" id="dash-kpis"></div>
         <div class="charts-row">
-          <div class="card"><h3 style="margin-top:0;">Distribuição de Custo (Projetado)</h3><canvas id="dash-pie"></canvas></div>
-          <div class="card"><h3 style="margin-top:0;">Custo Total x Receita — Projetado x Real</h3><canvas id="dash-bar"></canvas></div>
+          <div class="card"><h3 style="margin-top:0;">Distribuição de Custo (Projetado)</h3><div class="chart-canvas-wrap"><canvas id="dash-pie"></canvas></div></div>
+          <div class="card"><h3 style="margin-top:0;">Custo Total x Receita — Projetado x Real</h3><div class="chart-canvas-wrap"><canvas id="dash-bar"></canvas></div></div>
         </div>
       </div>
       <div id="view-financeiro" class="view">
@@ -528,7 +585,7 @@
             </div>
             <div class="card">
               <h3 style="margin-top:0;">Entrada x despesa — Eco x Pessoal</h3>
-              <canvas id="fin-bar-ecopessoal"></canvas>
+              <div class="chart-canvas-wrap"><canvas id="fin-bar-ecopessoal"></canvas></div>
             </div>
           </div>
 
@@ -1325,7 +1382,7 @@
     dashPieChart = new Chart(document.getElementById('dash-pie'), {
       type: 'doughnut',
       data: { labels: pieLabels, datasets: [{ data: pieData, backgroundColor: palette, borderWidth: 0 }] },
-      options: { plugins: { legend: { position: 'bottom', labels: { color: '#e8ebf5', font: { size: 11 } } } } }
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#e8ebf5', font: { size: 11 } } } } }
     });
 
     if (dashBarChart) dashBarChart.destroy();
@@ -1339,6 +1396,8 @@
         ]
       },
       options: {
+        responsive: true,
+        maintainAspectRatio: false,
         scales: {
           x: { ticks: { color: '#8992ab' }, grid: { color: '#232b45' } },
           y: { ticks: { color: '#8992ab' }, grid: { color: '#232b45' } }
@@ -3249,6 +3308,8 @@
             datasets: [{ data: catDonutData.map(d => d.valor), backgroundColor: catDonutData.map(d => d.cor), borderWidth: 0 }]
           },
           options: {
+            responsive: true,
+            maintainAspectRatio: false,
             plugins: {
               legend: { position: 'bottom', labels: { color: '#e8ebf5', font: { size: 11 }, boxWidth: 10 } },
               tooltip: { callbacks: { label: (ctx) => ctx.label + ': ' + brl(ctx.parsed) } }
@@ -3273,6 +3334,8 @@
           ]
         },
         options: {
+          responsive: true,
+          maintainAspectRatio: false,
           scales: {
             x: { ticks: { color: '#8992ab' }, grid: { color: '#232b45' } },
             y: { ticks: { color: '#8992ab' }, grid: { color: '#232b45' } }
