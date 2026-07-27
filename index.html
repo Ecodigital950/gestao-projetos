@@ -3195,25 +3195,55 @@
   let finMesPicker = null;
   let finPeriodoPicker = null;
 
+  const MESES_LONGOS = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  function mesLongo(d) { return `${MESES_LONGOS[d.getMonth()]} de ${d.getFullYear()}`; }
+
+  // controla o texto mostrado no input manualmente em vez de confiar no
+  // dateFormat/altFormat do plugin — em algum navegador/config o plugin
+  // monthSelect não pega o formato certo e mostra data completa (com
+  // dia), então forçamos "julho de 2026" sempre que o valor mudar
+  function atualizarTextoFinMes() {
+    const el = document.getElementById('fin-mes');
+    if (!el) return;
+    const d = (finMesPicker && finMesPicker.selectedDates[0]) || new Date();
+    el.value = mesLongo(d);
+  }
+
   function initFinFiltroMes() {
     if (typeof flatpickr !== 'function') return;
-    if (!finMesPicker) {
-      finMesPicker = flatpickr('#fin-mes', {
-        plugins: [new monthSelectPlugin({ shorthand: true, dateFormat: 'Y-m', altFormat: 'F \\d\\e Y' })],
-        locale: 'pt',
-        defaultDate: new Date(),
-        onChange: () => { if (finFiltroModo === 'mes') carregarFinanceiroMensal(); }
-      });
+    try {
+      if (!finMesPicker) {
+        const temPlugin = typeof monthSelectPlugin === 'function';
+        finMesPicker = flatpickr('#fin-mes', {
+          plugins: temPlugin ? [new monthSelectPlugin({ shorthand: false, dateFormat: 'Y-m' })] : [],
+          locale: 'pt',
+          defaultDate: new Date(),
+          onChange: () => {
+            atualizarTextoFinMes();
+            if (finFiltroModo === 'mes') carregarFinanceiroMensal();
+          },
+          onReady: () => atualizarTextoFinMes()
+        });
+        atualizarTextoFinMes();
+      }
+    } catch (e) {
+      // se o flatpickr/plugin falhar por qualquer motivo, não deixa
+      // travar o resto do carregamento do Financeiro por causa disso
+      console.error('Falha ao iniciar seletor de mês:', e);
     }
-    if (!finPeriodoPicker) {
-      finPeriodoPicker = flatpickr('#fin-periodo', {
-        mode: 'range',
-        dateFormat: 'Y-m-d',
-        altInput: true,
-        altFormat: 'M/Y',
-        locale: 'pt',
-        onClose: () => { if (finFiltroModo === 'periodo') carregarFinanceiroMensal(); }
-      });
+    try {
+      if (!finPeriodoPicker) {
+        finPeriodoPicker = flatpickr('#fin-periodo', {
+          mode: 'range',
+          dateFormat: 'Y-m-d',
+          altInput: true,
+          altFormat: 'M/Y',
+          locale: 'pt',
+          onClose: () => { if (finFiltroModo === 'periodo') carregarFinanceiroMensal(); }
+        });
+      }
+    } catch (e) {
+      console.error('Falha ao iniciar seletor de período:', e);
     }
   }
 
