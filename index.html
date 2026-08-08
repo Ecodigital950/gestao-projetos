@@ -2238,6 +2238,15 @@
     });
   }
 
+  // Próxima data de vencimento do cartão = a mais próxima entre os itens
+  // de checklist ainda não concluídos (não é a data do cartão em si).
+  // Usada tanto pro badge/alerta quanto pra ordenação por urgência.
+  function proximaDataVencimentoTarefa(taskId) {
+    const itensChecklist = checklistCache[taskId] || [];
+    const pendentesComData = itensChecklist.filter(i => !i.concluido && i.data_vencimento).sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento));
+    return pendentesComData.length ? pendentesComData[0].data_vencimento : null;
+  }
+
   function renderKanban() {
     const board = document.getElementById('kanban-board');
     if (!kanbanColumnsCache.length) {
@@ -2252,6 +2261,18 @@
       const todasDaColuna = tasksCache.filter(t => t.coluna_id === col.id).filter(passaFiltroEtiqueta);
       const tarefasDaColuna = todasDaColuna.filter(t => !t.soneca_ate || t.soneca_ate <= hoje);
       const emSoneca = todasDaColuna.filter(t => t.soneca_ate && t.soneca_ate > hoje);
+      // Ordenação inteligente: cartão com vencimento mais próximo (ou já
+      // atrasado) sobe pro topo da coluna — quanto mais urgente, mais
+      // visível. Cartão sem nenhuma data mantém a ordem manual (arraste),
+      // e fica sempre depois dos que têm data.
+      tarefasDaColuna.sort((a, b) => {
+        const dataA = proximaDataVencimentoTarefa(a.id);
+        const dataB = proximaDataVencimentoTarefa(b.id);
+        if (dataA && dataB) return dataA.localeCompare(dataB);
+        if (dataA && !dataB) return -1;
+        if (!dataA && dataB) return 1;
+        return (a.ordem || 0) - (b.ordem || 0);
+      });
       const cards = tarefasDaColuna.map(t => {
         const responsaveis = (taskAssigneeLinksCache[t.id] || []).map(pid => profilesCacheForTasks.find(p => p.id === pid)).filter(Boolean);
         const projeto = projectsCache.find(p => p.id === t.project_id);
@@ -2263,8 +2284,7 @@
         // dentro do cartão, não a data do cartão em si (ele quase nunca usa
         // a data do cartão, define prazo item a item). Pega a mais próxima
         // entre os itens ainda não concluídos.
-        const itensPendentesComData = itensChecklist.filter(i => !i.concluido && i.data_vencimento).sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento));
-        const proximaTarefaData = itensPendentesComData.length ? itensPendentesComData[0].data_vencimento : null;
+        const proximaTarefaData = proximaDataVencimentoTarefa(t.id);
         const atrasado = proximaTarefaData && proximaTarefaData < hoje;
         const naoConcluida = idx !== kanbanColumnsCache.length - 1;
         const emAlerta = atrasado && naoConcluida;
