@@ -301,6 +301,11 @@
   .fin-section-title + .card { border-radius: 0 0 14px 14px; }
   .fin-section-title + .fin-cards-grid { border: 1px solid var(--card-border); border-top: none; border-radius: 0 0 14px 14px; padding: 14px; background: rgba(255,255,255,0.015); }
   .fin-cards-grid { display: grid; gap: 10px; }
+  .fin-mes-card-row { display: flex; gap: 28px; align-items: stretch; }
+  .fin-mes-card-esquerda { flex: 0 0 auto; min-width: 260px; }
+  .fin-mes-card-direita { flex: 1; display: flex; flex-direction: column; min-width: 240px; }
+  .fin-mes-card-direita label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  #fin-notas-mes { flex: 1; width: 100%; min-height: 150px; resize: vertical; font-size: 13.5px; line-height: 1.55; }
   .fin-mes-nav-btn { background: var(--card); border: 1px solid var(--card-border); color: var(--text); border-radius: 8px; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
   .fin-mes-nav-btn:hover { background: rgba(255,255,255,0.08); }
   #fin-filtro-mes-wrap label, #fin-filtro-periodo-wrap label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
@@ -408,6 +413,9 @@
     .fin-cards-grid { grid-template-columns: 1fr !important; }
     #fin-mes, .fin-periodo-input { max-width: 100%; flex: 1; }
     .fin-mes-picker-row { flex-wrap: wrap; }
+    .fin-mes-card-row { flex-direction: column; gap: 16px; }
+    .fin-mes-card-esquerda { min-width: 0; }
+    #fin-notas-mes { min-height: 100px; }
 
     .cal-day { min-height: 50px; padding: 4px; }
     .cal-weekday { font-size: 9.5px; }
@@ -553,30 +561,39 @@
 
         <div id="fin-mensal-view" style="display:none;">
           <div class="card">
-            <div class="tab-toggle-row">
-              <div class="tab-toggle-group">
-                <button type="button" id="fin-modo-mes-btn" class="tab-toggle active" onclick="definirFinModo('mes')">Mês</button>
-                <button type="button" id="fin-modo-periodo-btn" class="tab-toggle" onclick="definirFinModo('periodo')">Período</button>
-              </div>
-            </div>
+            <div class="fin-mes-card-row">
+              <div class="fin-mes-card-esquerda">
+                <div class="tab-toggle-row">
+                  <div class="tab-toggle-group">
+                    <button type="button" id="fin-modo-mes-btn" class="tab-toggle active" onclick="definirFinModo('mes')">Mês</button>
+                    <button type="button" id="fin-modo-periodo-btn" class="tab-toggle" onclick="definirFinModo('periodo')">Período</button>
+                  </div>
+                </div>
 
-            <div id="fin-filtro-mes-wrap">
-              <div class="preset-row">
-                <button type="button" class="secondary" onclick="aplicarFinPresetMes('passado')">Mês passado</button>
-                <button type="button" class="secondary" onclick="aplicarFinPresetMes('atual')">Mês atual</button>
-              </div>
-              <label>Mês</label>
-              <div class="fin-mes-picker-row">
-                <button type="button" class="fin-mes-nav-btn" onclick="mudarFinMes(-1)" title="Mês anterior"><i class="ti ti-chevron-left"></i></button>
-                <input type="text" id="fin-mes" placeholder="Selecione o mês">
-                <button type="button" class="fin-mes-nav-btn" onclick="mudarFinMes(1)" title="Próximo mês"><i class="ti ti-chevron-right"></i></button>
-              </div>
-            </div>
+                <div id="fin-filtro-mes-wrap">
+                  <div class="preset-row">
+                    <button type="button" class="secondary" onclick="aplicarFinPresetMes('passado')">Mês passado</button>
+                    <button type="button" class="secondary" onclick="aplicarFinPresetMes('atual')">Mês atual</button>
+                  </div>
+                  <label>Mês</label>
+                  <div class="fin-mes-picker-row">
+                    <button type="button" class="fin-mes-nav-btn" onclick="mudarFinMes(-1)" title="Mês anterior"><i class="ti ti-chevron-left"></i></button>
+                    <input type="text" id="fin-mes" placeholder="Selecione o mês">
+                    <button type="button" class="fin-mes-nav-btn" onclick="mudarFinMes(1)" title="Próximo mês"><i class="ti ti-chevron-right"></i></button>
+                  </div>
+                </div>
 
-            <div id="fin-filtro-periodo-wrap" style="display:none;">
-              <p class="placeholder" style="margin-bottom:10px;">Mostra a soma de todos os meses do período. Nesse modo os cards ficam só pra consulta — pra editar um lançamento, volte pro modo Mês.</p>
-              <label>Período</label>
-              <input type="text" id="fin-periodo" placeholder="Selecione o período" class="fin-periodo-input">
+                <div id="fin-filtro-periodo-wrap" style="display:none;">
+                  <p class="placeholder" style="margin-bottom:10px;">Mostra a soma de todos os meses do período. Nesse modo os cards ficam só pra consulta — pra editar um lançamento, volte pro modo Mês.</p>
+                  <label>Período</label>
+                  <input type="text" id="fin-periodo" placeholder="Selecione o período" class="fin-periodo-input">
+                </div>
+              </div>
+
+              <div class="fin-mes-card-direita" id="fin-mes-card-direita">
+                <label>Anotações do mês</label>
+                <textarea id="fin-notas-mes" placeholder="Anote o que quiser sobre esse mês — pendência, lembrete, contexto de algum gasto..." onblur="salvarFinNotasMes(this.value)"></textarea>
+              </div>
             </div>
           </div>
           <div class="grid-kpi" id="fin-resumo-kpis-v2"></div>
@@ -3270,6 +3287,7 @@
     document.getElementById('fin-filtro-mes-wrap').style.display = modo === 'mes' ? 'block' : 'none';
     document.getElementById('fin-filtro-periodo-wrap').style.display = modo === 'periodo' ? 'block' : 'none';
     document.getElementById('fin-prolabore-card').style.display = modo === 'mes' ? 'block' : 'none';
+    document.getElementById('fin-mes-card-direita').style.display = modo === 'mes' ? 'flex' : 'none';
     if (modo === 'periodo' && finPeriodoPicker && !finPeriodoPicker.selectedDates.length) {
       const hoje = new Date();
       finPeriodoPicker.setDate([inicioDoMes(hoje), fimDoMes(hoje)], false);
@@ -3321,6 +3339,7 @@
       const { data: pl } = await sb.from('fin_prolabore').select('*').eq('mes', mes).maybeSingle();
       const prolabore = pl ? Number(pl.valor) : 0;
       document.getElementById('fin-prolabore-valor').value = prolabore ? formatValorBR(prolabore) : '';
+      document.getElementById('fin-notas-mes').value = (pl && pl.notas) || '';
     }
     finEntriesCache = entries || [];
 
@@ -4208,6 +4227,15 @@
     const { error } = await sb.from('fin_prolabore').upsert({ mes, valor }, { onConflict: 'mes' });
     if (error) { alert('Erro ao salvar pró-labore: ' + error.message); return; }
     carregarFinanceiroMensal();
+  }
+
+  // ---- Anotações livres do mês — espaço que sobrava vazio do lado do
+  // filtro de mês/período (print do Bruno). Salva sozinho ao sair do
+  // campo, igual as outras anotações do app (ex: Notas do projeto). ----
+  async function salvarFinNotasMes(valor) {
+    const mes = finMesStr();
+    const { error } = await sb.from('fin_prolabore').upsert({ mes, notas: valor }, { onConflict: 'mes' });
+    if (error) { alert('Erro ao salvar anotação: ' + error.message); return; }
   }
 
   // ---- Configurações: categorias do Financeiro ----
