@@ -3810,6 +3810,12 @@
     const { error } = await sb.from('fin_entries').update({ [campo]: valor }).eq('id', id);
     if (error) { alert('Erro ao salvar: ' + error.message); return; }
     item[campo] = valor;
+    if (campo === 'nome') {
+      // atualiza a "memória" de nomes na hora — se essa foi a 3ª vez
+      // que esse nome apareceu na categoria, ele já vira sugestão sem
+      // precisar recarregar a página
+      await carregarFinNomesFrequentes();
+    }
     renderFinCardsV2();
   }
 
