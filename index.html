@@ -3395,6 +3395,29 @@
   let finCardsExpandidos = new Set();
   let finTagsCache = [];
 
+  // ---- "Memória" de descrições — nomes já usados 3+ vezes na mesma
+  // categoria viram sugestão (datalist nativo) no campo de descrição,
+  // pra não digitar de novo coisa repetida tipo "Padaria"/"Uber". ----
+  let finNomesFrequentesCache = {}; // categoria_id -> ['Padaria', 'Uber', ...]
+
+  async function carregarFinNomesFrequentes() {
+    const { data } = await sb.from('fin_entries').select('categoria_id, nome').not('nome', 'is', null).not('nome', 'eq', '');
+    const contagem = {}; // categoria_id -> { nome -> count }
+    (data || []).forEach(e => {
+      if (!e.categoria_id || !e.nome) return;
+      if (!contagem[e.categoria_id]) contagem[e.categoria_id] = {};
+      contagem[e.categoria_id][e.nome] = (contagem[e.categoria_id][e.nome] || 0) + 1;
+    });
+    const porCategoria = {};
+    Object.entries(contagem).forEach(([categoriaId, nomes]) => {
+      porCategoria[categoriaId] = Object.entries(nomes)
+        .filter(([, qtd]) => qtd >= 3)
+        .sort((a, b) => b[1] - a[1])
+        .map(([nome]) => nome);
+    });
+    finNomesFrequentesCache = porCategoria;
+  }
+
   // "natureza" da tag define como ela entra na conta dos KPIs (custo e
   // despesa somam no gasto total, poupança não) — mesmo se o Bruno mudar
   // o nome/cor da tag ou criar uma nova, o cálculo continua correto
@@ -3446,7 +3469,10 @@
 
   function renderFinCategoriaCard(cat) {
     if (!cat) return '';
-    const itens = finEntriesCache.filter(e => e.categoria_id === cat.id).sort((a, b) => (a.dia || 0) - (b.dia || 0));
+    // lançamento sem "dia" preenchido ainda (acabou de ser criado) fica no
+    // fim da lista em vez de pular pro topo — só entra na ordenação por
+    // dia depois que o dia for de fato digitado
+    const itens = finEntriesCache.filter(e => e.categoria_id === cat.id).sort((a, b) => (a.dia ?? 9999) - (b.dia ?? 9999));
     const total = itens.reduce((s, i) => s + Number(i.valor || 0), 0);
     const tagInfo = finTagInfo(cat);
     const icone = iconeCategoria(cat.nome);
@@ -3505,12 +3531,16 @@
             </div>` : `
             <div class="fin-lanc-row">
               <input type="text" value="${i.dia || ''}" placeholder="dia" onblur="salvarFinLancamentoCampo('${i.id}','dia',this.value)">
-              <input type="text" value="${escapeHtml(i.nome || '')}" placeholder="descrição" onblur="salvarFinLancamentoCampo('${i.id}','nome',this.value)">
+              <input type="text" value="${escapeHtml(i.nome || '')}" placeholder="descrição" list="fin-nomes-${cat.id}" onblur="salvarFinLancamentoCampo('${i.id}','nome',this.value)">
               <input type="text" inputmode="decimal" value="${formatValorBR(i.valor)}" placeholder="0,00" onblur="salvarFinLancamentoCampo('${i.id}','valor',this.value)">
               <i class="ti ti-trash fin-lanc-excluir" onclick="excluirFinLancamento('${i.id}')"></i>
             </div>`).join('')}
         </div>
-        ${somenteLeitura ? '' : `<button class="fin-lanc-add" onclick="adicionarFinLancamento('${cat.id}')"><i class="ti ti-plus"></i> Adicionar lançamento</button>`}
+        ${somenteLeitura ? '' : `
+          <datalist id="fin-nomes-${cat.id}">
+            ${(finNomesFrequentesCache[cat.id] || []).map(nome => `<option value="${escapeHtml(nome)}">`).join('')}
+          </datalist>
+          <button class="fin-lanc-add" onclick="adicionarFinLancamento('${cat.id}')"><i class="ti ti-plus"></i> Adicionar lançamento</button>`}
       </div>`;
   }
 
@@ -4068,8 +4098,16 @@
     carregarFinanceiroMensal();
   }
 
+  let finNomesFrequentesCarregados = false;
+
   async function carregarFinCategorias() {
     await carregarFinTags();
+    if (!finNomesFrequentesCarregados) {
+      finNomesFrequentesCarregados = true;
+      // não bloqueia o carregamento principal — quando terminar, só
+      // re-renderiza os cards pra datalist aparecer com sugestão
+      carregarFinNomesFrequentes().then(() => renderFinCardsV2());
+    }
     const { data } = await sb.from('fin_categories').select('*').order('ordem');
     finCategoriasCache = data || [];
     ['eco', 'pessoal'].forEach(ctx => {
