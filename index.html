@@ -1242,7 +1242,13 @@
   // Sem vírgula, qualquer ponto é tratado como separador de milhar (padrão BR).
   function parseValorBR(str) {
     if (str === null || str === undefined) return 0;
-    let s = String(str).trim().replace(/[^\d,.-]/g, '');
+    const texto = String(str);
+    // "calculadora" nos campos de valor: "150+70" vira 220 — soma cada
+    // pedaço recursivamente (cada pedaço já aceita vírgula/ponto normal)
+    if (texto.includes('+')) {
+      return texto.split('+').reduce((soma, parte) => soma + parseValorBR(parte), 0);
+    }
+    let s = texto.trim().replace(/[^\d,.-]/g, '');
     if (!s) return 0;
     if (s.includes(',')) {
       s = s.replace(/\./g, '').replace(',', '.');
