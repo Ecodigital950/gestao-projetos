@@ -889,7 +889,7 @@
         <div class="card">
           <p class="placeholder" style="margin-bottom:12px;">A cor e a imagem de fundo aparecem atrás do Kanban quando você filtra as Tarefas por esse projeto — igual o fundo de quadro do Trello.</p>
           <table>
-            <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th><th>Cor de fundo <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('fundoquadro', event)"></i></th><th>Imagem de fundo (URL)</th><th>Acesso</th></tr></thead>
+            <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th><th>Cor de fundo <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('fundoquadro', event)"></i></th><th>Imagem de fundo (URL)</th><th>Acesso</th><th>Ações</th></tr></thead>
             <tbody id="projetos-tbody"></tbody>
           </table>
           <p class="empty-note" id="projetos-empty" style="display:none;">Nenhum projeto cadastrado ainda.</p>
@@ -1274,10 +1274,18 @@
       // quem mais participa dele — se a Gaby cria um projeto, só ela (ou
       // o Bruno, como admin) escolhe se ele entra ou não, e vice-versa.
       const podeCompartilhar = (currentProfile && currentProfile.is_admin) || p.responsavel_id === (currentUser && currentUser.id);
-      tr.innerHTML = `<td>${escapeHtml(p.nome)}</td><td>${escapeHtml(p.status)}</td><td>${p.data_inicio || '-'}</td><td>${p.data_fim || '-'}</td>
+      // Editar nome e excluir ficam liberados pra qualquer usuário que
+      // enxerga essa linha — se a linha apareceu na tela é porque o RLS já
+      // deu has_project_access(id), e o RLS de update/delete em projects
+      // exige has_permission('projetos') AND has_project_access(id), que é
+      // exatamente quem tem o módulo Projetos liberado e acesso a esse
+      // projeto (dono, quem foi compartilhado, ou admin). Não precisa de
+      // checagem extra aqui no client, o banco já cobre.
+      tr.innerHTML = `<td><input type="text" value="${escapeHtml(p.nome)}" style="width:160px;" onblur="salvarNomeProjeto('${p.id}', this.value.trim(), this)"></td><td>${escapeHtml(p.status)}</td><td>${p.data_inicio || '-'}</td><td>${p.data_fim || '-'}</td>
         <td><input type="color" value="${p.cor_fundo || '#0f1526'}" style="height:28px; padding:1px; width:44px;" onchange="salvarCorFundoProjeto('${p.id}', this.value)"></td>
         <td><input type="text" value="${escapeHtml(p.imagem_fundo_url || '')}" placeholder="https://..." style="width:160px;" onblur="salvarImagemFundoProjeto('${p.id}', this.value.trim())"></td>
-        <td>${podeCompartilhar ? `<span class="row-action" style="cursor:pointer;" onclick="abrirProjAcessoModal('${p.id}')"><i class="ti ti-users"></i> Compartilhar</span>` : '<span class="fin-card-sub">—</span>'}</td>`;
+        <td>${podeCompartilhar ? `<span class="row-action" style="cursor:pointer;" onclick="abrirProjAcessoModal('${p.id}')"><i class="ti ti-users"></i> Compartilhar</span>` : '<span class="fin-card-sub">—</span>'}</td>
+        <td><span class="row-action danger" style="cursor:pointer;" onclick="excluirProjeto('${p.id}', '${escapeHtml(p.nome).replace(/'/g, "\\'")}')"><i class="ti ti-trash"></i> Excluir</span></td>`;
       tbody.appendChild(tr);
     });
   }
@@ -1384,6 +1392,36 @@
     const p = projectsCache.find(x => x.id === id);
     if (p) p.imagem_fundo_url = url || null;
     aplicarFundoQuadro();
+  }
+
+  async function salvarNomeProjeto(id, nome, inputEl) {
+    if (!nome) {
+      alert('O nome do projeto não pode ficar em branco.');
+      const p = projectsCache.find(x => x.id === id);
+      if (inputEl && p) inputEl.value = p.nome;
+      return;
+    }
+    const { error } = await sb.from('projects').update({ nome }).eq('id', id);
+    if (error) { alert('Erro ao salvar nome do projeto: ' + error.message); return; }
+    const p = projectsCache.find(x => x.id === id);
+    if (p) p.nome = nome;
+    await carregarProjetosSelects();
+    renderFiltroChips();
+  }
+
+  // Excluir projeto: liberado pra quem tem acesso a ele (RLS já garante
+  // isso), mas é destrutivo em cascata — custos, receitas, tarefas e
+  // custos fixos daquele projeto vão junto (delete_rule CASCADE no banco).
+  // Por isso o confirm() avisa explicitamente antes de mandar pro banco.
+  async function excluirProjeto(id, nome) {
+    if (!confirm(`Excluir o projeto "${nome}"?\n\nIsso apaga também TODAS as tarefas, custos, receitas e custos fixos lançados nesse projeto. Não tem como desfazer.`)) return;
+    const { error } = await sb.from('projects').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir projeto: ' + error.message); return; }
+    projectsCache = (projectsCache || []).filter(x => x.id !== id);
+    await carregarProjetos();
+    await carregarProjetosSelects();
+    if (tarefaFiltroAtivo === id) tarefaFiltroAtivo = null;
+    renderFiltroChips();
   }
 
   // Sempre entra no fim da fila de chips — quem quiser outra posição
