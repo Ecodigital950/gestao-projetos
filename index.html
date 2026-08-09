@@ -345,6 +345,14 @@
   .fin-lanc-excluir { font-size: 14px; color: var(--muted); cursor: pointer; }
   .fin-lanc-excluir:hover { color: var(--neg); }
   .fin-lanc-add { width: 100%; font-size: 12px; padding: 6px; }
+  /* ---- Caixa de giro: valor atual editável + histórico de alterações ---- */
+  .fin-caixa-giro-card { margin-bottom: 16px; }
+  .fin-caixa-giro-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .fin-caixa-giro-acoes { display: flex; align-items: center; gap: 14px; font-size: 12.5px; }
+  #fin-caixa-giro-form { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--card-border); }
+  #fin-caixa-giro-historico { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 6px; }
+  .fin-caixa-giro-hist-row { display: grid; grid-template-columns: 90px 100px 1fr 20px; align-items: center; gap: 10px; font-size: 12px; }
+  .fin-caixa-giro-hist-row span:nth-child(2) { color: var(--text); font-weight: 600; }
   /* ---- Metas/objetivos: resumo macro (mini) + aba dedicada (detalhe) ---- */
   .fin-metas-resumo { margin-bottom: 16px; }
   .fin-metas-resumo-topo { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
@@ -438,6 +446,7 @@
     .fin-meta-mini-row { grid-template-columns: 76px 1fr 40px; }
     .fin-meta-mini-valor { display: none; }
     .fin-metas-resumo-topo { flex-direction: column; align-items: flex-start; }
+    .fin-caixa-giro-hist-row { grid-template-columns: 70px 80px 1fr 20px; font-size: 11px; }
     #fin-mes, .fin-periodo-input { max-width: 100%; flex: 1; }
     .fin-mes-picker-row { flex-wrap: wrap; }
     .fin-mes-card-row { flex-direction: column; gap: 16px; }
@@ -632,6 +641,32 @@
             </div>
           </div>
           <div class="grid-kpi" id="fin-resumo-kpis-v2"></div>
+
+          <div class="card fin-caixa-giro-card">
+            <div class="fin-caixa-giro-topo">
+              <div>
+                <div class="fin-metas-resumo-label"><i class="ti ti-building-bank"></i> Caixa de giro</div>
+                <div class="fin-metas-resumo-valor" id="fin-caixa-giro-valor">R$ 0,00</div>
+                <div class="fin-card-sub" id="fin-caixa-giro-data-label">nenhum valor lançado ainda</div>
+              </div>
+              <div class="fin-caixa-giro-acoes">
+                <i class="ti ti-pencil fin-card-editar" title="Atualizar valor" onclick="abrirFinCaixaGiroForm()"></i>
+                <span class="row-action" style="cursor:pointer;" onclick="toggleFinCaixaGiroHistorico()">histórico</span>
+              </div>
+            </div>
+            <div id="fin-caixa-giro-form" style="display:none;">
+              <div class="form-row">
+                <div><label>Novo valor (R$)</label><input type="text" inputmode="decimal" id="fin-caixa-giro-input-valor" placeholder="0,00"></div>
+                <div><label>Data</label><input type="date" id="fin-caixa-giro-input-data"></div>
+                <div><label>Observação (opcional)</label><input type="text" id="fin-caixa-giro-input-obs" placeholder="Ex: aumentou por causa de..."></div>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button type="button" onclick="salvarFinCaixaGiro()">Salvar</button>
+                <button type="button" class="secondary" onclick="fecharFinCaixaGiroForm()">Cancelar</button>
+              </div>
+            </div>
+            <div id="fin-caixa-giro-historico" style="display:none;"></div>
+          </div>
 
           <div class="card fin-metas-resumo" id="fin-metas-resumo-card" style="display:none;">
             <div class="fin-metas-resumo-topo">
@@ -1508,6 +1543,7 @@
       document.getElementById('fin-projeto-view').style.display = 'none';
       document.getElementById('fin-mensal-view').style.display = 'block';
       initFinFiltroMes();
+      await carregarFinCaixaGiro();
       await carregarFinanceiroMensal();
       return;
     }
@@ -3536,6 +3572,79 @@
     const tag = finTagsCache.find(t => t.id === tagId);
     if (tag) return { label: tag.nome, cor: tag.cor, natureza: tag.natureza };
     return { label: 'sem tag', cor: 'var(--muted)', natureza: 'despesa' };
+  }
+
+  // ---- Caixa de giro: DIFERENTE de meta — não é um acumulado de
+  // lançamentos, é um valor único "atual" que o Bruno estipula e edita
+  // quando muda, guardando histórico de cada valor anterior (ex: "até
+  // junho era R$1.000, agora é R$2.000"). Cada edição INSERE uma linha
+  // nova em vez de sobrescrever — o valor exibido é sempre o mais recente
+  // por data. Fica exposto no macro do Financeiro, igual Receita/Custo/
+  // Despesa/Total, mas sem depender do mês em exibição (não é uma soma de
+  // lançamentos do mês, então aparece igual no modo Mês e no modo Período). ----
+  let finCaixaGiroCache = [];
+
+  async function carregarFinCaixaGiro() {
+    const { data } = await sb.from('fin_caixa_giro').select('*').order('data', { ascending: false }).order('created_at', { ascending: false });
+    finCaixaGiroCache = data || [];
+    renderFinCaixaGiro();
+  }
+
+  function renderFinCaixaGiro() {
+    const valorEl = document.getElementById('fin-caixa-giro-valor');
+    if (!valorEl) return;
+    const atual = finCaixaGiroCache[0];
+    valorEl.textContent = atual ? brl(atual.valor) : 'R$ 0,00';
+    document.getElementById('fin-caixa-giro-data-label').textContent = atual ? `atualizado em ${formatDateBR(atual.data)}` : 'nenhum valor lançado ainda';
+    renderFinCaixaGiroHistorico();
+  }
+
+  function renderFinCaixaGiroHistorico() {
+    const wrap = document.getElementById('fin-caixa-giro-historico');
+    if (!wrap) return;
+    wrap.innerHTML = finCaixaGiroCache.map(r => `
+      <div class="fin-caixa-giro-hist-row">
+        <span>${formatDateBR(r.data)}</span>
+        <span>${brl(r.valor)}</span>
+        <span class="fin-card-sub">${escapeHtml(r.observacao || '')}</span>
+        <i class="ti ti-trash fin-lanc-excluir" title="Excluir esse registro" onclick="excluirFinCaixaGiro('${r.id}')"></i>
+      </div>`).join('') || '<p class="empty-note">Nenhum valor lançado ainda.</p>';
+  }
+
+  function toggleFinCaixaGiroHistorico() {
+    const el = document.getElementById('fin-caixa-giro-historico');
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function abrirFinCaixaGiroForm() {
+    document.getElementById('fin-caixa-giro-form').style.display = 'block';
+    document.getElementById('fin-caixa-giro-input-valor').value = '';
+    document.getElementById('fin-caixa-giro-input-data').value = formatDateLocal(new Date());
+    document.getElementById('fin-caixa-giro-input-obs').value = '';
+    document.getElementById('fin-caixa-giro-input-valor').focus();
+  }
+
+  function fecharFinCaixaGiroForm() {
+    document.getElementById('fin-caixa-giro-form').style.display = 'none';
+  }
+
+  async function salvarFinCaixaGiro() {
+    const valor = parseValorBR(document.getElementById('fin-caixa-giro-input-valor').value);
+    if (!valor && valor !== 0) { alert('Digite o valor do caixa de giro.'); return; }
+    const data = document.getElementById('fin-caixa-giro-input-data').value || formatDateLocal(new Date());
+    const observacao = document.getElementById('fin-caixa-giro-input-obs').value.trim() || null;
+    const { error } = await sb.from('fin_caixa_giro').insert({ valor, data, observacao });
+    if (error) { alert('Erro ao salvar caixa de giro: ' + error.message); return; }
+    fecharFinCaixaGiroForm();
+    await carregarFinCaixaGiro();
+  }
+
+  async function excluirFinCaixaGiro(id) {
+    if (!confirm('Excluir esse registro do histórico do caixa de giro?')) return;
+    const { error } = await sb.from('fin_caixa_giro').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    await carregarFinCaixaGiro();
   }
 
   // ---- Metas/objetivos: categoria marcada com eh_meta acumula valor de
