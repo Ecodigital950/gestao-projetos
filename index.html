@@ -351,8 +351,8 @@
   .fin-caixa-giro-acoes { display: flex; align-items: center; gap: 14px; font-size: 12.5px; }
   #fin-caixa-giro-form { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--card-border); }
   #fin-caixa-giro-historico { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 6px; }
-  .fin-caixa-giro-hist-row { display: grid; grid-template-columns: 90px 100px 1fr 20px; align-items: center; gap: 10px; font-size: 12px; }
-  .fin-caixa-giro-hist-row span:nth-child(2) { color: var(--text); font-weight: 600; }
+  .fin-caixa-giro-hist-row { display: grid; grid-template-columns: 130px 90px 1fr 110px 20px; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .fin-caixa-giro-hist-row input { font-size: 11.5px; padding: 5px 6px; }
   /* ---- Metas/objetivos: resumo macro (mini) + aba dedicada (detalhe) ---- */
   .fin-metas-resumo { margin-bottom: 16px; }
   .fin-metas-resumo-topo { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
@@ -446,7 +446,7 @@
     .fin-meta-mini-row { grid-template-columns: 76px 1fr 40px; }
     .fin-meta-mini-valor { display: none; }
     .fin-metas-resumo-topo { flex-direction: column; align-items: flex-start; }
-    .fin-caixa-giro-hist-row { grid-template-columns: 70px 80px 1fr 20px; font-size: 11px; }
+    .fin-caixa-giro-hist-row { grid-template-columns: 1fr; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--card-border); }
     #fin-mes, .fin-periodo-input { max-width: 100%; flex: 1; }
     .fin-mes-picker-row { flex-wrap: wrap; }
     .fin-mes-card-row { flex-direction: column; gap: 16px; }
@@ -3599,24 +3599,42 @@
     if (!valorEl) return;
     const atual = finCaixaGiroCache[0];
     valorEl.textContent = atual ? brl(atual.valor) : 'R$ 0,00';
-    document.getElementById('fin-caixa-giro-data-label').textContent = atual ? `atualizado em ${formatDateBR(atual.data)}` : 'nenhum valor lançado ainda';
+    // O impacto no Total só faz sentido mostrar junto do valor ATUAL (não
+    // repetido em cada linha do histórico, que ficava poluído) — pedido do
+    // Bruno depois de ver a versão anterior.
+    const impactoAtual = atual ? Number(atual.valor_do_mes || 0) : 0;
+    const impactoTxt = impactoAtual ? ` · ${impactoAtual > 0 ? '−' : '+'} ${brl(Math.abs(impactoAtual))} no Total do mês` : '';
+    document.getElementById('fin-caixa-giro-data-label').textContent = atual ? `atualizado em ${formatDateBR(atual.data)}${impactoTxt}` : 'nenhum valor lançado ainda';
     renderFinCaixaGiroHistorico();
   }
 
+  // Histórico editável in-place (igual o padrão dos lançamentos financeiros)
+  // — antes só dava pra adicionar novo ou excluir, e um valor digitado
+  // errado obrigava a apagar e recriar. Isso gerou confusão real: o Bruno
+  // tentou "corrigir" um lançamento e acabou criando um registro duplicado
+  // por engano, porque não tinha como editar o que já existia.
   function renderFinCaixaGiroHistorico() {
     const wrap = document.getElementById('fin-caixa-giro-historico');
     if (!wrap) return;
-    wrap.innerHTML = finCaixaGiroCache.map(r => {
-      const impacto = Number(r.valor_do_mes || 0);
-      const impactoTxt = impacto ? ` · ${impacto > 0 ? '−' : '+'} ${brl(Math.abs(impacto))} no Total do mês` : '';
-      return `
+    wrap.innerHTML = finCaixaGiroCache.map(r => `
       <div class="fin-caixa-giro-hist-row">
-        <span>${formatDateBR(r.data)}</span>
-        <span>${brl(r.valor)}</span>
-        <span class="fin-card-sub">${escapeHtml(r.observacao || '')}${impactoTxt}</span>
+        <input type="date" value="${r.data}" onblur="salvarFinCaixaGiroCampo('${r.id}','data',this.value)">
+        <input type="text" inputmode="decimal" value="${formatValorBR(r.valor)}" onblur="salvarFinCaixaGiroCampo('${r.id}','valor',this.value)">
+        <input type="text" placeholder="observação" value="${escapeHtml(r.observacao || '')}" onblur="salvarFinCaixaGiroCampo('${r.id}','observacao',this.value)">
+        <input type="text" inputmode="decimal" placeholder="desconto no mês" value="${r.valor_do_mes ? formatValorBR(r.valor_do_mes) : ''}" onblur="salvarFinCaixaGiroCampo('${r.id}','valor_do_mes',this.value)">
         <i class="ti ti-trash fin-lanc-excluir" title="Excluir esse registro" onclick="excluirFinCaixaGiro('${r.id}')"></i>
-      </div>`;
-    }).join('') || '<p class="empty-note">Nenhum valor lançado ainda.</p>';
+      </div>`).join('') || '<p class="empty-note">Nenhum valor lançado ainda.</p>';
+  }
+
+  async function salvarFinCaixaGiroCampo(id, campo, valor) {
+    const payload = {};
+    if (campo === 'valor' || campo === 'valor_do_mes') payload[campo] = parseValorBR(valor);
+    else if (campo === 'observacao') payload[campo] = valor.trim() || null;
+    else payload[campo] = valor || formatDateLocal(new Date());
+    const { error } = await sb.from('fin_caixa_giro').update(payload).eq('id', id);
+    if (error) { alert('Erro ao salvar caixa de giro: ' + error.message); return; }
+    await carregarFinCaixaGiro();
+    renderFinCardsV2();
   }
 
   function toggleFinCaixaGiroHistorico() {
