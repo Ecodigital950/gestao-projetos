@@ -909,7 +909,7 @@
         <div class="card">
           <p class="placeholder" style="margin-bottom:12px;">Gerencie quais seções cada usuário pode acessar.</p>
           <table>
-            <thead><tr><th>Usuário</th><th>Dashboard</th><th>Financeiro</th><th>Tarefas</th><th>Projetos</th><th>Config.</th><th></th></tr></thead>
+            <thead><tr><th>Usuário</th><th>Dashboard</th><th>Financeiro</th><th>Tarefas</th><th>Projetos</th><th>Config.</th><th>Criar usuários <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('gerenciarusuarios', event)"></i></th><th></th></tr></thead>
             <tbody id="usuarios-tbody"></tbody>
           </table>
         </div>
@@ -1095,6 +1095,7 @@
     fundoquadro: 'Escolha uma cor ou uma imagem (cole uma URL) de fundo por projeto. Ela aparece atrás do quadro quando você filtra as Tarefas por esse projeto.',
     responsaveis: 'Uma tarefa pode ter mais de uma pessoa atribuída. Todas aparecem como avatares empilhados no cartão do Kanban.',
     notasfinanceiro: 'Anotações livres sobre o financeiro desse projeto — contexto de negociação, combinados com o cliente, lembretes etc. Salva sozinho quando você clica fora do campo.',
+    gerenciarusuarios: 'Deixa a pessoa criar conta pra outras pessoas (botão "Compartilhar" na tela de Projetos) sem virar admin geral — ela não ganha acesso às configurações técnicas (categorias, colunas, etiquetas, tags) nem passa a enxergar projetos que não são dela.',
     acessoprojeto: 'Isso é diferente do módulo "Tarefas"/"Financeiro" da tabela de cima. Aqui você escolhe QUAIS projetos cada pessoa não-admin enxerga — sem marcar aqui, o projeto (e as tarefas/custos/receitas dele) fica invisível pra ela, mesmo com o módulo liberado.'
   };
 
@@ -1308,10 +1309,13 @@
         </label>`).join('')
       : '<p class="empty-note">Não há outros usuários pra compartilhar ainda.</p>';
 
-    // Criar usuário novo é ação de admin (a edge function admin-create-user
-    // já barra quem não é admin do lado do servidor) — só mostra o atalho
-    // aqui pra quem realmente consegue usar, evitando um botão que erra.
-    document.getElementById('proj-acesso-modal-novo-usuario').style.display = (currentProfile && currentProfile.is_admin) ? 'block' : 'none';
+    // Criar usuário é liberado pra admin OU pra quem tem a permissão
+    // granular "gerenciar_usuarios" (poder de gestão de equipe sem virar
+    // admin geral) — a edge function admin-create-user checa a mesma
+    // regra do lado do servidor, então só mostra o atalho aqui pra quem
+    // realmente consegue usar.
+    const podeCriarUsuario = (currentProfile && currentProfile.is_admin) || currentPermissions.has('gerenciar_usuarios');
+    document.getElementById('proj-acesso-modal-novo-usuario').style.display = podeCriarUsuario ? 'block' : 'none';
     document.getElementById('proj-acesso-novo-nome').value = '';
     document.getElementById('proj-acesso-novo-email').value = '';
 
@@ -1954,6 +1958,11 @@
         const disabled = u.is_admin ? 'disabled' : '';
         cells += `<td><input type="checkbox" ${checked} ${disabled} onchange="togglePermissao('${u.id}','${m}',this.checked)"></td>`;
       });
+      // Permissão granular, fora do grid de módulos — dá poder de criar
+      // usuário (gestão de equipe) sem depender de virar admin geral.
+      const gerenciaChecked = u.is_admin || userPerms.has('gerenciar_usuarios') ? 'checked' : '';
+      const gerenciaDisabled = u.is_admin ? 'disabled' : '';
+      cells += `<td><input type="checkbox" ${gerenciaChecked} ${gerenciaDisabled} onchange="togglePermissao('${u.id}','gerenciar_usuarios',this.checked)"></td>`;
       cells += `<td><button class="row-action" onclick="editarNomeUsuario('${u.id}')">Editar nome</button></td>`;
       tr.innerHTML = cells;
       tbody.appendChild(tr);
