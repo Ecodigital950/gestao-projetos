@@ -2387,10 +2387,16 @@
   async function criarProjetoRapido() {
     const nome = prompt('Nome do novo projeto (vira um Kanban novo aqui do lado):');
     if (!nome || !nome.trim()) return;
-    const { data, error } = await sb.from('projects').insert({ nome: nome.trim(), status: 'ativo', responsavel_id: currentUser.id, ordem: proximaOrdemProjeto() }).select().single();
+    // Não encadear .select() aqui: pra usuários não-admin, o RLS não
+    // consegue reconferir a policy de SELECT (has_project_access) contra
+    // uma linha que o próprio INSERT acabou de criar dentro do mesmo
+    // comando (limite do Postgres, não bug de permissão). Geramos o id no
+    // cliente e evitamos o RETURNING pra não disparar essa reconferência.
+    const novoId = crypto.randomUUID();
+    const { error } = await sb.from('projects').insert({ id: novoId, nome: nome.trim(), status: 'ativo', responsavel_id: currentUser.id, ordem: proximaOrdemProjeto() });
     if (error) { alert('Erro ao criar projeto: ' + error.message); return; }
     await carregarProjetosSelects();
-    tarefaFiltroAtivo = data.id;
+    tarefaFiltroAtivo = novoId;
     renderFiltroChips();
     carregarTarefas();
   }
