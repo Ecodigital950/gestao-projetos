@@ -1057,6 +1057,17 @@
     <input type="hidden" id="proj-acesso-modal-id">
     <p class="placeholder" id="proj-acesso-modal-info" style="margin-bottom:14px;"></p>
     <div id="proj-acesso-modal-lista"></div>
+    <div id="proj-acesso-modal-novo-usuario" style="display:none; margin-top:18px; padding-top:16px; border-top:1px solid var(--card-border);">
+      <label style="display:flex;align-items:center;justify-content:space-between;">
+        <span>Essa pessoa ainda não tem acesso ao sistema? Crie o usuário aqui mesmo</span>
+      </label>
+      <div class="form-row" style="margin-top:8px;">
+        <div><label>Nome</label><input type="text" id="proj-acesso-novo-nome" placeholder="Ex: Maria Silva"></div>
+        <div><label>E-mail</label><input type="email" id="proj-acesso-novo-email" placeholder="maria@empresa.com"></div>
+        <div style="flex:0; display:flex; align-items:flex-end;"><button type="button" id="proj-acesso-novo-btn" onclick="criarUsuarioECompartilhar()">Criar e dar acesso</button></div>
+      </div>
+      <p class="placeholder" style="margin-top:6px;">A pessoa já entra com acesso a este projeto e permissão pra criar/gerenciar os próprios projetos. Senha padrão: <strong>Suasenha.321</strong>.</p>
+    </div>
     <div style="display:flex;justify-content:flex-end;margin-top:20px;">
       <button type="button" class="secondary" onclick="fecharProjAcessoModal()">Fechar</button>
     </div>
@@ -1296,11 +1307,53 @@
           ${escapeHtml(u.nome || u.email)}
         </label>`).join('')
       : '<p class="empty-note">Não há outros usuários pra compartilhar ainda.</p>';
+
+    // Criar usuário novo é ação de admin (a edge function admin-create-user
+    // já barra quem não é admin do lado do servidor) — só mostra o atalho
+    // aqui pra quem realmente consegue usar, evitando um botão que erra.
+    document.getElementById('proj-acesso-modal-novo-usuario').style.display = (currentProfile && currentProfile.is_admin) ? 'block' : 'none';
+    document.getElementById('proj-acesso-novo-nome').value = '';
+    document.getElementById('proj-acesso-novo-email').value = '';
+
     document.getElementById('proj-acesso-modal-overlay').classList.add('aberto');
   }
 
   function fecharProjAcessoModal() {
     document.getElementById('proj-acesso-modal-overlay').classList.remove('aberto');
+  }
+
+  // Cria o usuário sem sair do fluxo de compartilhamento do projeto — evita
+  // ter que ir em Configurações. Já sai com permissão de "projetos" (pode
+  // criar e gerenciar os próprios projetos, igual pedido) e acesso liberado
+  // pra ESTE projeto específico, já que é claramente a intenção de quem tá
+  // adicionando a pessoa por aqui.
+  async function criarUsuarioECompartilhar() {
+    const projectId = document.getElementById('proj-acesso-modal-id').value;
+    const nome = document.getElementById('proj-acesso-novo-nome').value.trim();
+    const email = document.getElementById('proj-acesso-novo-email').value.trim();
+    if (!email) { alert('Informe o e-mail da pessoa.'); return; }
+    const btn = document.getElementById('proj-acesso-novo-btn');
+    if (btn) btn.disabled = true;
+    const { data, error } = await sb.functions.invoke('admin-create-user', { body: { email, nome } });
+    if (btn) btn.disabled = false;
+    if (error) {
+      let msg = error.message || 'Erro desconhecido';
+      try { const corpo = await error.context.json(); if (corpo?.error) msg = corpo.error; } catch (e) { /* ignora */ }
+      alert('Erro ao criar usuário: ' + msg);
+      return;
+    }
+    if (data?.error) { alert('Erro ao criar usuário: ' + data.error); return; }
+    const novoUserId = data.user_id;
+
+    const { error: erroPerm } = await sb.from('user_permissions').insert({ user_id: novoUserId, modulo: 'projetos' });
+    if (erroPerm) console.error('Erro ao conceder permissão de projetos:', erroPerm);
+
+    const { error: erroAcesso } = await sb.from('project_access').insert({ project_id: projectId, user_id: novoUserId });
+    if (erroAcesso) console.error('Erro ao dar acesso ao projeto:', erroAcesso);
+
+    await carregarUsuariosBasico();
+    alert('Usuário criado e já com acesso a este projeto! Peça pra essa pessoa entrar com a senha padrão Suasenha.321 e trocar depois.');
+    abrirProjAcessoModal(projectId);
   }
 
   async function toggleProjAcesso(projectId, userId, ligado) {
