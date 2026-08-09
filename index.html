@@ -345,6 +345,30 @@
   .fin-lanc-excluir { font-size: 14px; color: var(--muted); cursor: pointer; }
   .fin-lanc-excluir:hover { color: var(--neg); }
   .fin-lanc-add { width: 100%; font-size: 12px; padding: 6px; }
+  /* ---- Metas/objetivos: resumo macro (mini) + aba dedicada (detalhe) ---- */
+  .fin-metas-resumo { margin-bottom: 16px; }
+  .fin-metas-resumo-topo { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .fin-metas-resumo-label { font-size: 12.5px; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 5px; }
+  .fin-metas-resumo-valor { font-size: 26px; font-weight: 700; color: var(--info); }
+  .fin-metas-resumo-lista { display: flex; flex-direction: column; gap: 9px; }
+  .fin-meta-mini-row { display: grid; grid-template-columns: 120px 1fr 90px 44px; align-items: center; gap: 10px; }
+  .fin-meta-mini-nome { font-size: 12.5px; color: var(--text); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fin-meta-mini-barra { height: 8px; border-radius: 5px; background: var(--card-border); overflow: hidden; }
+  .fin-meta-mini-progresso { height: 100%; background: var(--info); border-radius: 5px; transition: width .3s; }
+  .fin-meta-mini-valor { font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; }
+  .fin-meta-mini-pct { font-size: 12px; font-weight: 700; color: var(--info); text-align: right; }
+  .fin-meta-concluida .fin-meta-mini-progresso { background: var(--pos); }
+  .fin-meta-concluida .fin-meta-mini-pct { color: var(--pos); }
+  .fin-metas-tab-topo { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 14px; }
+  .fin-meta-card-detalhe { margin-bottom: 14px; }
+  .fin-meta-card-topo { display: flex; align-items: center; gap: 10px; }
+  .fin-meta-card-nome { font-size: 15px; font-weight: 700; color: var(--text); flex: 1; display: flex; align-items: center; gap: 6px; }
+  .fin-meta-badge-concluido { font-size: 11px; font-weight: 700; color: var(--pos); background: rgba(52,211,153,0.15); padding: 3px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px; }
+  .fin-meta-card-barra { height: 10px; border-radius: 6px; background: var(--card-border); overflow: hidden; margin: 12px 0; }
+  .fin-meta-card-barra-progresso { height: 100%; background: var(--info); border-radius: 6px; transition: width .3s; }
+  .fin-meta-concluida .fin-meta-card-barra-progresso { background: var(--pos); }
+  .fin-meta-card-linhas { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
+  .fin-meta-card-linhas strong { display: block; font-size: 14px; margin-top: 2px; }
   .fin-grid tr.fin-resumo-custo td { font-weight: 700; background: #1c2440; }
   .fin-grid tr.fin-resumo-receita td { font-weight: 700; background: #14304a; color: var(--info); }
   .fin-grid tr.fin-resumo-diferenca td { font-weight: 700; }
@@ -411,6 +435,9 @@
 
     .fin-colunas-stepper { display: none; }
     .fin-cards-grid { grid-template-columns: 1fr !important; }
+    .fin-meta-mini-row { grid-template-columns: 76px 1fr 40px; }
+    .fin-meta-mini-valor { display: none; }
+    .fin-metas-resumo-topo { flex-direction: column; align-items: flex-start; }
     #fin-mes, .fin-periodo-input { max-width: 100%; flex: 1; }
     .fin-mes-picker-row { flex-wrap: wrap; }
     .fin-mes-card-row { flex-direction: column; gap: 16px; }
@@ -560,6 +587,14 @@
         </div>
 
         <div id="fin-mensal-view" style="display:none;">
+          <div class="tab-toggle-row" style="margin-bottom:14px;">
+            <div class="tab-toggle-group">
+              <button type="button" id="fin-subaba-geral-btn" class="tab-toggle active" onclick="definirFinSubaba('geral')">Visão geral</button>
+              <button type="button" id="fin-subaba-metas-btn" class="tab-toggle" onclick="definirFinSubaba('metas')"><i class="ti ti-target-arrow"></i> Metas</button>
+            </div>
+          </div>
+
+          <div id="fin-subaba-geral">
           <div class="card">
             <div class="fin-mes-card-row">
               <div class="fin-mes-card-esquerda">
@@ -598,6 +633,14 @@
           </div>
           <div class="grid-kpi" id="fin-resumo-kpis-v2"></div>
 
+          <div class="card fin-metas-resumo" id="fin-metas-resumo-card" style="display:none;">
+            <div class="fin-metas-resumo-topo">
+              <div class="fin-metas-resumo-label"><i class="ti ti-target-arrow"></i> Adicionado às metas em <span id="fin-metas-resumo-mes-label"></span></div>
+              <div class="fin-metas-resumo-valor" id="fin-metas-resumo-valor">R$ 0,00</div>
+            </div>
+            <div class="fin-metas-resumo-lista" id="fin-metas-resumo-lista"></div>
+          </div>
+
           <div class="charts-row" style="margin-bottom:16px;">
             <div class="card">
               <h3 style="margin-top:0;">Despesas por categoria (mês)</h3>
@@ -635,6 +678,15 @@
               <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fin-prolabore-valor" placeholder="0,00"></div>
               <div style="display:flex;align-items:flex-end;"><button onclick="salvarProlabore()">Salvar</button></div>
             </div>
+          </div>
+          </div>
+
+          <div id="fin-subaba-metas" style="display:none;">
+            <div class="fin-metas-tab-topo">
+              <button type="button" class="secondary" onclick="abrirFinMetaModalNova('eco')"><i class="ti ti-plus"></i> Nova meta (Eco)</button>
+              <button type="button" onclick="abrirFinMetaModalNova('pessoal')"><i class="ti ti-plus"></i> Nova meta (Pessoal)</button>
+            </div>
+            <div id="fin-metas-tab-lista"></div>
           </div>
         </div>
       </div>
@@ -915,6 +967,15 @@
     <label style="display:flex;align-items:center;gap:8px;margin-top:14px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
       <input type="checkbox" id="fincat-modal-expansivel" style="width:auto;"> Permite vários lançamentos (abre lista de dia/descrição/valor)
     </label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
+      <input type="checkbox" id="fincat-modal-eh-meta" style="width:auto;" onchange="toggleFinMetaCamposModal()"> <i class="ti ti-target-arrow"></i> É uma meta/objetivo (acumula valor de mês a mês até bater um alvo)
+    </label>
+    <div id="fincat-modal-meta-campos" style="display:none;">
+      <div class="form-row" style="margin-top:8px;">
+        <div><label>Valor da meta (R$)</label><input type="text" inputmode="decimal" id="fincat-modal-meta-valor" placeholder="0,00"></div>
+        <div><label>Data da meta (opcional)</label><input type="date" id="fincat-modal-meta-data"></div>
+      </div>
+    </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;">
       <span id="fincat-modal-excluir" class="row-action danger" style="display:none;cursor:pointer;" onclick="excluirFinCategoriaModal()">Excluir categoria</span>
       <div style="display:flex;gap:8px;margin-left:auto;">
@@ -3362,8 +3423,10 @@
       document.getElementById('fin-notas-mes').value = (pl && pl.notas) || '';
     }
     finEntriesCache = entries || [];
+    await carregarFinMetasAcumulado();
 
     renderFinCardsV2();
+    if (finSubabaAtual === 'metas') renderFinMetasTab();
     if (finFiltroModo === 'mes') initSortableFinCards();
     aplicarFinColunas();
     const totalEntrada = finEntriesCache.filter(e => e.tipo === 'entrada').reduce((s, e) => s + Number(e.valor || 0), 0);
@@ -3475,6 +3538,130 @@
     return { label: 'sem tag', cor: 'var(--muted)', natureza: 'despesa' };
   }
 
+  // ---- Metas/objetivos: categoria marcada com eh_meta acumula valor de
+  // TODOS os meses (não só o mês selecionado no filtro) até bater o alvo
+  // (meta_valor). Isso é separado do finEntriesCache, que só tem os
+  // lançamentos do mês/período em exibição — por isso uma query própria. ----
+  let finMetasAcumuladoCache = {}; // categoria_id -> total acumulado desde sempre
+
+  async function carregarFinMetasAcumulado() {
+    const metaIds = finCategoriasCache.filter(c => c.eh_meta).map(c => c.id);
+    if (!metaIds.length) { finMetasAcumuladoCache = {}; return; }
+    const { data } = await sb.from('fin_entries').select('categoria_id, valor').in('categoria_id', metaIds);
+    const acumulado = {};
+    (data || []).forEach(e => { acumulado[e.categoria_id] = (acumulado[e.categoria_id] || 0) + Number(e.valor || 0); });
+    finMetasAcumuladoCache = acumulado;
+  }
+
+  // Resumo compacto no topo (parte macro) do Financeiro: um valor grande
+  // com quanto foi somado nas metas dentro do mês selecionado, e logo
+  // abaixo uma linha minimizada por meta (nome + barra + acumulado + %).
+  // Só aparece no modo "Mês" (não faz sentido num período agregado) e só
+  // se existir pelo menos uma categoria marcada como meta.
+  function renderFinMetasResumo() {
+    const card = document.getElementById('fin-metas-resumo-card');
+    if (!card) return;
+    const metas = finCategoriasCache.filter(c => c.eh_meta);
+    if (!metas.length || finFiltroModo !== 'mes') { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+
+    const metaIds = new Set(metas.map(m => m.id));
+    const totalMes = finEntriesCache.filter(e => metaIds.has(e.categoria_id)).reduce((s, e) => s + Number(e.valor || 0), 0);
+    document.getElementById('fin-metas-resumo-valor').textContent = brl(totalMes);
+    const dMes = (finMesPicker && finMesPicker.selectedDates[0]) || new Date();
+    document.getElementById('fin-metas-resumo-mes-label').textContent = mesLongo(dMes);
+
+    document.getElementById('fin-metas-resumo-lista').innerHTML = metas.map(m => {
+      const acumulado = finMetasAcumuladoCache[m.id] || 0;
+      const alvo = Number(m.meta_valor || 0);
+      const pct = alvo > 0 ? Math.min(100, (acumulado / alvo) * 100) : 0;
+      const concluida = alvo > 0 && acumulado >= alvo;
+      return `
+        <div class="fin-meta-mini-row ${concluida ? 'fin-meta-concluida' : ''}">
+          <span class="fin-meta-mini-nome" title="${escapeHtml(m.nome)}">${escapeHtml(m.nome)}</span>
+          <div class="fin-meta-mini-barra"><div class="fin-meta-mini-progresso" style="width:${pct}%"></div></div>
+          <span class="fin-meta-mini-valor">${brl(acumulado)}</span>
+          <span class="fin-meta-mini-pct">${concluida ? '<i class="ti ti-check"></i>' : Math.round(pct) + '%'}</span>
+        </div>`;
+    }).join('');
+  }
+
+  // ---- Sub-abas do Financeiro mensal: "Visão geral" (grade de categorias
+  // de sempre) e "Metas" (gerenciar/acompanhar cada objetivo em detalhe). ----
+  let finSubabaAtual = 'geral';
+
+  function definirFinSubaba(aba) {
+    finSubabaAtual = aba;
+    document.getElementById('fin-subaba-geral-btn').classList.toggle('active', aba === 'geral');
+    document.getElementById('fin-subaba-metas-btn').classList.toggle('active', aba === 'metas');
+    document.getElementById('fin-subaba-geral').style.display = aba === 'geral' ? 'block' : 'none';
+    document.getElementById('fin-subaba-metas').style.display = aba === 'metas' ? 'block' : 'none';
+    if (aba === 'metas') renderFinMetasTab();
+  }
+
+  // Abre o modal de categoria normal (mesmo de sempre), só que já com a
+  // caixinha "É uma meta" marcada — evita duplicar o formulário inteiro só
+  // pra criar uma meta a partir da aba Metas.
+  function abrirFinMetaModalNova(contexto) {
+    abrirFinCategoriaModal(contexto);
+    document.getElementById('fincat-modal-eh-meta').checked = true;
+    toggleFinMetaCamposModal();
+  }
+
+  function formatDateBR(dataStr) {
+    if (!dataStr) return '';
+    const [ano, mes, dia] = dataStr.split('-');
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  // Aba "Metas": um card detalhado por objetivo — acumulado x alvo,
+  // progresso, quanto falta, quanto entrou neste mês (respeita o filtro de
+  // mês, é isso que dá o "resumo de como está a meta" que o Bruno pediu
+  // pra motivação) e a data alvo, se tiver.
+  function renderFinMetasTab() {
+    const wrap = document.getElementById('fin-metas-tab-lista');
+    if (!wrap) return;
+    const metas = finCategoriasCache.filter(c => c.eh_meta);
+    if (!metas.length) {
+      wrap.innerHTML = '<p class="empty-note">Nenhuma meta cadastrada ainda. Crie uma com os botões acima.</p>';
+      return;
+    }
+    const hoje = formatDateLocal(new Date());
+    wrap.innerHTML = metas.map(m => {
+      const acumulado = finMetasAcumuladoCache[m.id] || 0;
+      const alvo = Number(m.meta_valor || 0);
+      const pct = alvo > 0 ? Math.min(100, (acumulado / alvo) * 100) : 0;
+      const concluida = alvo > 0 && acumulado >= alvo;
+      const falta = Math.max(0, alvo - acumulado);
+      const desteMes = finEntriesCache.filter(e => e.categoria_id === m.id).reduce((s, e) => s + Number(e.valor || 0), 0);
+
+      let dataInfo = '';
+      if (m.meta_data) {
+        const dias = Math.ceil((new Date(m.meta_data + 'T00:00:00') - new Date(hoje + 'T00:00:00')) / 86400000);
+        if (concluida) dataInfo = `<div class="fin-card-sub" style="margin-top:10px;"><i class="ti ti-calendar"></i> Meta era para ${formatDateBR(m.meta_data)}</div>`;
+        else if (dias < 0) dataInfo = `<div class="fin-card-sub" style="margin-top:10px; color:var(--neg);"><i class="ti ti-calendar-exclamation"></i> Data alvo era ${formatDateBR(m.meta_data)} — já passou</div>`;
+        else dataInfo = `<div class="fin-card-sub" style="margin-top:10px;"><i class="ti ti-calendar"></i> Faltam ${dias} dia${dias === 1 ? '' : 's'} até ${formatDateBR(m.meta_data)}</div>`;
+      }
+
+      return `
+        <div class="card fin-meta-card-detalhe ${concluida ? 'fin-meta-concluida' : ''}">
+          <div class="fin-meta-card-topo">
+            <span class="fin-meta-card-nome"><i class="ti ti-target-arrow"></i> ${escapeHtml(m.nome)}</span>
+            ${concluida ? '<span class="fin-meta-badge-concluido"><i class="ti ti-check"></i> Concluído</span>' : ''}
+            <i class="ti ti-pencil fin-card-editar" title="Editar meta" onclick="abrirFinCategoriaModal('${m.contexto}', '${m.id}')"></i>
+          </div>
+          <div class="fin-meta-card-barra"><div class="fin-meta-card-barra-progresso" style="width:${pct}%"></div></div>
+          <div class="fin-meta-card-linhas">
+            <div><span class="fin-card-sub">Acumulado</span><strong>${brl(acumulado)}${alvo ? ' de ' + brl(alvo) : ''}</strong></div>
+            <div><span class="fin-card-sub">Neste mês</span><strong>${brl(desteMes)}</strong></div>
+            ${alvo ? `<div><span class="fin-card-sub">Falta</span><strong>${brl(falta)}</strong></div>` : ''}
+            <div><span class="fin-card-sub">Progresso</span><strong>${Math.round(pct)}%</strong></div>
+          </div>
+          ${dataInfo}
+        </div>`;
+    }).join('');
+  }
+
   function renderFinCardsV2() {
     const kpisEl = document.getElementById('fin-resumo-kpis-v2');
     const ecoEl = document.getElementById('fin-cards-eco');
@@ -3499,6 +3686,8 @@
       finKpiCard('Despesa total', brl(despesaTotal), null, 'despesa'),
       finKpiCard('Total', brl(total), null, total >= 0 ? 'saldo_pos' : 'saldo_neg'),
     ].join('');
+
+    renderFinMetasResumo();
 
     const somenteLeitura = finFiltroModo === 'periodo';
     const cardAddEco = somenteLeitura ? '' : `<div class="fin-card fin-card-add" onclick="abrirFinCategoriaModal('eco')"><i class="ti ti-plus"></i> Nova categoria</div>`;
@@ -3676,16 +3865,30 @@
       document.getElementById('fincat-modal-nome').value = cat.nome;
       document.getElementById('fincat-modal-expansivel').checked = !!cat.expansivel;
       selecionarFinTagModal(cat.tag_id || (finTagsCache[0] && finTagsCache[0].id) || null);
+      document.getElementById('fincat-modal-eh-meta').checked = !!cat.eh_meta;
+      document.getElementById('fincat-modal-meta-valor').value = cat.meta_valor ? formatValorBR(cat.meta_valor) : '';
+      document.getElementById('fincat-modal-meta-data').value = cat.meta_data || '';
       excluirEl.style.display = 'inline';
     } else {
       document.getElementById('fin-cat-modal-titulo').textContent = `Nova categoria (${contexto === 'eco' ? 'Eco' : 'Pessoal'})`;
       document.getElementById('fincat-modal-nome').value = '';
       document.getElementById('fincat-modal-expansivel').checked = false;
       selecionarFinTagModal((finTagsCache[0] && finTagsCache[0].id) || null);
+      document.getElementById('fincat-modal-eh-meta').checked = false;
+      document.getElementById('fincat-modal-meta-valor').value = '';
+      document.getElementById('fincat-modal-meta-data').value = '';
       excluirEl.style.display = 'none';
     }
+    toggleFinMetaCamposModal();
     document.getElementById('fin-cat-modal-overlay').classList.add('aberto');
     document.getElementById('fincat-modal-nome').focus();
+  }
+
+  // Mostra/esconde os campos de valor e data da meta conforme a caixinha
+  // "É uma meta/objetivo" — só faz sentido preencher alvo quando marcado.
+  function toggleFinMetaCamposModal() {
+    const marcado = document.getElementById('fincat-modal-eh-meta').checked;
+    document.getElementById('fincat-modal-meta-campos').style.display = marcado ? 'block' : 'none';
   }
 
   function fecharFinCategoriaModal() {
@@ -3714,21 +3917,26 @@
     if (!nome) { alert('Digite o nome da categoria.'); return; }
     const expansivel = document.getElementById('fincat-modal-expansivel').checked;
     const tag_id = finTagModalSelecionada;
+    const eh_meta = document.getElementById('fincat-modal-eh-meta').checked;
+    const meta_valor = eh_meta ? parseValorBR(document.getElementById('fincat-modal-meta-valor').value) : null;
+    const meta_data = eh_meta ? (document.getElementById('fincat-modal-meta-data').value || null) : null;
 
     if (id) {
-      const { error } = await sb.from('fin_categories').update({ nome, tag_id, expansivel }).eq('id', id);
+      const { error } = await sb.from('fin_categories').update({ nome, tag_id, expansivel, eh_meta, meta_valor, meta_data }).eq('id', id);
       if (error) { alert('Erro ao salvar categoria: ' + error.message); return; }
     } else {
       const doContexto = finCategoriasCache.filter(c => c.contexto === contexto && c.tipo === 'despesa');
       const ordem = doContexto.length ? Math.max(...doContexto.map(c => c.ordem || 0)) + 10 : 0;
-      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag_id, expansivel, ordem });
+      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag_id, expansivel, ordem, eh_meta, meta_valor, meta_data });
       if (error) { alert('Erro ao criar categoria: ' + error.message); return; }
     }
     fecharFinCategoriaModal();
     await carregarFinCategorias();
+    await carregarFinMetasAcumulado();
     renderFinCardsV2();
     initSortableFinCards();
     aplicarFinColunas();
+    if (finSubabaAtual === 'metas') renderFinMetasTab();
   }
 
   // ---- Modal "Gerenciar tags" — CRUD completo (criar, editar nome/cor/
