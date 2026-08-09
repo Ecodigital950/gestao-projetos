@@ -213,6 +213,8 @@
   #fin-cat-modal-overlay.aberto { display: flex; }
   #fin-tags-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1001; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
   #fin-tags-modal-overlay.aberto { display: flex; }
+  #proj-acesso-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  #proj-acesso-modal-overlay.aberto { display: flex; }
   .fin-tags-modal-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--card-border); }
   .fin-tags-modal-row:last-child { border-bottom: none; }
   .fin-tags-modal-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
@@ -432,7 +434,7 @@
     table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
 
     .tarefa-modal-card, .fin-cat-modal-card { width: 100%; }
-    #tarefa-modal-overlay, #fin-cat-modal-overlay, #fin-tags-modal-overlay { padding: 12px 8px 90px; }
+    #tarefa-modal-overlay, #fin-cat-modal-overlay, #fin-tags-modal-overlay, #proj-acesso-modal-overlay { padding: 12px 8px 90px; }
 
     .login-box { width: 92vw; padding: 24px; }
 
@@ -887,7 +889,7 @@
         <div class="card">
           <p class="placeholder" style="margin-bottom:12px;">A cor e a imagem de fundo aparecem atrás do Kanban quando você filtra as Tarefas por esse projeto — igual o fundo de quadro do Trello.</p>
           <table>
-            <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th><th>Cor de fundo <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('fundoquadro', event)"></i></th><th>Imagem de fundo (URL)</th></tr></thead>
+            <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th><th>Cor de fundo <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('fundoquadro', event)"></i></th><th>Imagem de fundo (URL)</th><th>Acesso</th></tr></thead>
             <tbody id="projetos-tbody"></tbody>
           </table>
           <p class="empty-note" id="projetos-empty" style="display:none;">Nenhum projeto cadastrado ainda.</p>
@@ -1049,6 +1051,18 @@
   </div>
 </div>
 
+<div id="proj-acesso-modal-overlay" onclick="if(event.target===this) fecharProjAcessoModal()">
+  <div class="card fin-cat-modal-card">
+    <h3 style="margin-top:0;">Compartilhar projeto</h3>
+    <input type="hidden" id="proj-acesso-modal-id">
+    <p class="placeholder" id="proj-acesso-modal-info" style="margin-bottom:14px;"></p>
+    <div id="proj-acesso-modal-lista"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+      <button type="button" class="secondary" onclick="fecharProjAcessoModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const SUPABASE_URL = "https://vqevcjuptlnfvzttzlme.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_Lr3EvmY6tMjhIdMVjNHtzg_u6qIzHMF";
@@ -1165,6 +1179,12 @@
     const firstModule = MODULES.find(m => currentPermissions.has(m));
     if (firstModule) showView(firstModule);
 
+    // Lista básica de usuários (id/nome/email) — precisa carregar pra
+    // QUALQUER pessoa logada, não só admin, porque agora quem cria um
+    // projeto também pode escolher com quem compartilhar (botão
+    // "Compartilhar" na tela de Projetos usa isso pra listar as opções).
+    await carregarUsuariosBasico();
+
     if (currentPermissions.has('projetos')) carregarProjetos();
     if (profile.is_admin) {
       carregarUsuarios();
@@ -1238,11 +1258,59 @@
     empty.style.display = 'none';
     data.forEach(p => {
       const tr = document.createElement('tr');
+      // Só quem criou o projeto (responsavel_id) ou admin pode decidir
+      // quem mais participa dele — se a Gaby cria um projeto, só ela (ou
+      // o Bruno, como admin) escolhe se ele entra ou não, e vice-versa.
+      const podeCompartilhar = (currentProfile && currentProfile.is_admin) || p.responsavel_id === (currentUser && currentUser.id);
       tr.innerHTML = `<td>${escapeHtml(p.nome)}</td><td>${escapeHtml(p.status)}</td><td>${p.data_inicio || '-'}</td><td>${p.data_fim || '-'}</td>
         <td><input type="color" value="${p.cor_fundo || '#0f1526'}" style="height:28px; padding:1px; width:44px;" onchange="salvarCorFundoProjeto('${p.id}', this.value)"></td>
-        <td><input type="text" value="${escapeHtml(p.imagem_fundo_url || '')}" placeholder="https://..." style="width:160px;" onblur="salvarImagemFundoProjeto('${p.id}', this.value.trim())"></td>`;
+        <td><input type="text" value="${escapeHtml(p.imagem_fundo_url || '')}" placeholder="https://..." style="width:160px;" onblur="salvarImagemFundoProjeto('${p.id}', this.value.trim())"></td>
+        <td>${podeCompartilhar ? `<span class="row-action" style="cursor:pointer;" onclick="abrirProjAcessoModal('${p.id}')"><i class="ti ti-users"></i> Compartilhar</span>` : '<span class="fin-card-sub">—</span>'}</td>`;
       tbody.appendChild(tr);
     });
+  }
+
+  // ---- Compartilhar projeto: quem CRIOU o projeto (responsavel_id) decide
+  // quem mais participa dele — admin também pode mexer em qualquer
+  // projeto. Escreve na mesma tabela project_access que o quadro "Acesso
+  // por projeto" de Configurações já usava (RLS agora libera o dono do
+  // projeto além do admin, não só admin como antes). ----
+  async function abrirProjAcessoModal(projectId) {
+    const p = projectsCache.find(x => x.id === projectId) || (await sb.from('projects').select('*').eq('id', projectId).single()).data;
+    if (!p) return;
+    document.getElementById('proj-acesso-modal-id').value = projectId;
+    const dono = usuariosCache.find(u => u.id === p.responsavel_id);
+    document.getElementById('proj-acesso-modal-info').textContent =
+      `Projeto "${p.nome}" — criado por ${dono ? (dono.nome || dono.email) : 'alguém que não está mais na lista'}. Marque quem mais pode ver e participar dele:`;
+
+    const { data: acessos } = await sb.from('project_access').select('*').eq('project_id', projectId);
+    const idsComAcesso = new Set((acessos || []).map(a => a.user_id));
+    // Admin sempre enxerga tudo (has_project_access já garante isso), então
+    // não faz sentido mostrar checkbox pra admin aqui — só pras pessoas
+    // cujo acesso de fato depende dessa marcação.
+    const outros = usuariosCache.filter(u => u.id !== p.responsavel_id && !u.is_admin);
+    document.getElementById('proj-acesso-modal-lista').innerHTML = outros.length
+      ? outros.map(u => `
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--text);font-weight:400;">
+          <input type="checkbox" style="width:auto;" ${idsComAcesso.has(u.id) ? 'checked' : ''} onchange="toggleProjAcesso('${projectId}','${u.id}',this.checked)">
+          ${escapeHtml(u.nome || u.email)}
+        </label>`).join('')
+      : '<p class="empty-note">Não há outros usuários pra compartilhar ainda.</p>';
+    document.getElementById('proj-acesso-modal-overlay').classList.add('aberto');
+  }
+
+  function fecharProjAcessoModal() {
+    document.getElementById('proj-acesso-modal-overlay').classList.remove('aberto');
+  }
+
+  async function toggleProjAcesso(projectId, userId, ligado) {
+    if (ligado) {
+      const { error } = await sb.from('project_access').insert({ project_id: projectId, user_id: userId });
+      if (error) { alert('Erro ao dar acesso: ' + error.message); return; }
+    } else {
+      const { error } = await sb.from('project_access').delete().eq('project_id', projectId).eq('user_id', userId);
+      if (error) { alert('Erro ao remover acesso: ' + error.message); return; }
+    }
   }
 
   async function salvarCorFundoProjeto(id, cor) {
@@ -1807,6 +1875,15 @@
 
   // ---- Configurações: usuários e permissões ----
   let usuariosCache = [];
+
+  // Versão leve, pra QUALQUER usuário logado (não só admin) — só preenche
+  // usuariosCache, sem tocar em tabela nenhuma de admin. Usada pelo botão
+  // "Compartilhar" na tela de Projetos, pra montar a lista de com quem dá
+  // pra compartilhar um projeto.
+  async function carregarUsuariosBasico() {
+    const { data } = await sb.from('profiles').select('id,nome,email,is_admin').order('created_at', { ascending: true });
+    usuariosCache = data || [];
+  }
 
   async function carregarUsuarios() {
     const { data: profiles } = await sb.from('profiles').select('*').order('created_at', { ascending: true });
