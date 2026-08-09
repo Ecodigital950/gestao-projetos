@@ -660,6 +660,10 @@
                 <div><label>Data</label><input type="date" id="fin-caixa-giro-input-data"></div>
                 <div><label>Observação (opcional)</label><input type="text" id="fin-caixa-giro-input-obs" placeholder="Ex: aumentou por causa de..."></div>
               </div>
+              <div class="form-row">
+                <div><label>Saiu do resultado deste mês? (opcional, R$)</label><input type="text" inputmode="decimal" id="fin-caixa-giro-input-valor-mes" placeholder="0,00"></div>
+              </div>
+              <p class="placeholder" style="margin:4px 0 0;">Se esse valor ficou reservado no caixa de giro vindo do resultado do mês, preencha aqui — ele é descontado do "Total" desse mês. Deixe em branco se não tem relação com o resultado mensal.</p>
               <div style="display:flex; gap:8px; margin-top:8px;">
                 <button type="button" onclick="salvarFinCaixaGiro()">Salvar</button>
                 <button type="button" class="secondary" onclick="fecharFinCaixaGiroForm()">Cancelar</button>
@@ -3602,13 +3606,17 @@
   function renderFinCaixaGiroHistorico() {
     const wrap = document.getElementById('fin-caixa-giro-historico');
     if (!wrap) return;
-    wrap.innerHTML = finCaixaGiroCache.map(r => `
+    wrap.innerHTML = finCaixaGiroCache.map(r => {
+      const impacto = Number(r.valor_do_mes || 0);
+      const impactoTxt = impacto ? ` · ${impacto > 0 ? '−' : '+'} ${brl(Math.abs(impacto))} no Total do mês` : '';
+      return `
       <div class="fin-caixa-giro-hist-row">
         <span>${formatDateBR(r.data)}</span>
         <span>${brl(r.valor)}</span>
-        <span class="fin-card-sub">${escapeHtml(r.observacao || '')}</span>
+        <span class="fin-card-sub">${escapeHtml(r.observacao || '')}${impactoTxt}</span>
         <i class="ti ti-trash fin-lanc-excluir" title="Excluir esse registro" onclick="excluirFinCaixaGiro('${r.id}')"></i>
-      </div>`).join('') || '<p class="empty-note">Nenhum valor lançado ainda.</p>';
+      </div>`;
+    }).join('') || '<p class="empty-note">Nenhum valor lançado ainda.</p>';
   }
 
   function toggleFinCaixaGiroHistorico() {
@@ -3622,6 +3630,7 @@
     document.getElementById('fin-caixa-giro-input-valor').value = '';
     document.getElementById('fin-caixa-giro-input-data').value = formatDateLocal(new Date());
     document.getElementById('fin-caixa-giro-input-obs').value = '';
+    document.getElementById('fin-caixa-giro-input-valor-mes').value = '';
     document.getElementById('fin-caixa-giro-input-valor').focus();
   }
 
@@ -3634,10 +3643,29 @@
     if (!valor && valor !== 0) { alert('Digite o valor do caixa de giro.'); return; }
     const data = document.getElementById('fin-caixa-giro-input-data').value || formatDateLocal(new Date());
     const observacao = document.getElementById('fin-caixa-giro-input-obs').value.trim() || null;
-    const { error } = await sb.from('fin_caixa_giro').insert({ valor, data, observacao });
+    const valor_do_mes = parseValorBR(document.getElementById('fin-caixa-giro-input-valor-mes').value);
+    const { error } = await sb.from('fin_caixa_giro').insert({ valor, data, observacao, valor_do_mes });
     if (error) { alert('Erro ao salvar caixa de giro: ' + error.message); return; }
     fecharFinCaixaGiroForm();
     await carregarFinCaixaGiro();
+    renderFinCardsV2();
+  }
+
+  // Quanto do caixa de giro lançado no mês/período em exibição deve ser
+  // descontado (ou somado, se negativo) do "Total". Compara só o ano-mês
+  // (string 'YYYY-MM'), não o dia exato — casa com o jeito que fin_entries
+  // já agrupa por mês nesse app. Pedido do Bruno: se um valor do caixa de
+  // giro veio do resultado daquele mês (ex: "deixamos R$1.000 no caixa em
+  // julho"), esse valor precisa sumir do Total de julho, senão a conta
+  // fica contada duas vezes (uma como "sobra do mês", outra como reserva).
+  function finCaixaGiroImpactoNoTotal() {
+    if (finFiltroModo === 'periodo') {
+      const { de, ate } = finPeriodoIntervalo();
+      const deYM = de.slice(0, 7), ateYM = ate.slice(0, 7);
+      return finCaixaGiroCache.filter(r => { const ym = (r.data || '').slice(0, 7); return ym >= deYM && ym <= ateYM; }).reduce((s, r) => s + Number(r.valor_do_mes || 0), 0);
+    }
+    const mesYM = finMesStr().slice(0, 7);
+    return finCaixaGiroCache.filter(r => (r.data || '').slice(0, 7) === mesYM).reduce((s, r) => s + Number(r.valor_do_mes || 0), 0);
   }
 
   async function excluirFinCaixaGiro(id) {
@@ -3645,6 +3673,7 @@
     const { error } = await sb.from('fin_caixa_giro').delete().eq('id', id);
     if (error) { alert('Erro ao excluir: ' + error.message); return; }
     await carregarFinCaixaGiro();
+    renderFinCardsV2();
   }
 
   // ---- Metas/objetivos: categoria marcada com eh_meta acumula valor de
@@ -3787,13 +3816,15 @@
       const cat = finCategoriasCache.find(c => c.id === e.categoria_id);
       return cat && finTagInfo(cat).natureza === 'despesa' ? s + Number(e.valor || 0) : s;
     }, 0);
-    const total = receita - custoTotal - despesaTotal;
+    const reservaCaixaGiro = finCaixaGiroImpactoNoTotal();
+    const total = receita - custoTotal - despesaTotal - reservaCaixaGiro;
+    const totalSub = reservaCaixaGiro ? `${reservaCaixaGiro > 0 ? '−' : '+'} ${brl(Math.abs(reservaCaixaGiro))} no caixa de giro` : null;
 
     kpisEl.innerHTML = [
       finKpiCard('Receita', brl(receita), null, 'entrada'),
       finKpiCard('Custo total', brl(custoTotal), null, 'custo'),
       finKpiCard('Despesa total', brl(despesaTotal), null, 'despesa'),
-      finKpiCard('Total', brl(total), null, total >= 0 ? 'saldo_pos' : 'saldo_neg'),
+      finKpiCard('Total', brl(total), totalSub, total >= 0 ? 'saldo_pos' : 'saldo_neg'),
     ].join('');
 
     renderFinMetasResumo();
