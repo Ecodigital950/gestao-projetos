@@ -3455,6 +3455,7 @@
       entries = data;
     } else {
       const mes = finMesStr();
+      await preencherAssinaturasDoMes(mes);
       const { data } = await sb.from('fin_entries').select('*').eq('mes', mes).order('ordem').order('created_at');
       entries = data;
       const { data: pl } = await sb.from('fin_prolabore').select('*').eq('mes', mes).maybeSingle();
@@ -4542,13 +4543,18 @@
     finTagsCache = data || [];
   }
 
+  // "Gabarita" as assinaturas ativas (Eco + Pessoal) em todo mês visitado:
+  // cria a linha do lançamento com nome/categoria já certos, mas SEM
+  // valor (fica 0/em branco) — o Bruno preenche o valor real só quando de
+  // fato paga. valor_padrao existe só como referência no cadastro da
+  // assinatura, não é mais usado pra pré-preencher o lançamento.
   async function preencherAssinaturasDoMes(mes) {
     const { data: subs } = await sb.from('fin_subscriptions').select('*').eq('ativo', true);
     if (!subs || !subs.length) return;
     for (const sub of subs) {
       const { data: existente } = await sb.from('fin_entries').select('id').eq('assinatura_id', sub.id).eq('mes', mes).maybeSingle();
       if (!existente) {
-        await sb.from('fin_entries').insert({ contexto: sub.contexto, tipo: 'despesa', nome: sub.nome, valor: sub.valor_padrao, mes, assinatura_id: sub.id, categoria_id: sub.categoria_id });
+        await sb.from('fin_entries').insert({ contexto: sub.contexto, tipo: 'despesa', nome: sub.nome, valor: 0, mes, assinatura_id: sub.id, categoria_id: sub.categoria_id });
       }
     }
   }
