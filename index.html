@@ -855,7 +855,7 @@
             <div class="task-checklist-bar-track" style="margin:6px 0 10px;"><div class="task-checklist-bar-fill" id="tm-checklist-bar" style="width:0%;"></div></div>
             <div id="tm-checklist-lista"></div>
             <div class="form-row" style="margin-top:8px; align-items:flex-end;">
-              <div><input type="text" id="tm-checklist-novo-item" placeholder="Adicionar item..." onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarChecklistItemModal();}"></div>
+              <div><input type="text" id="tm-checklist-novo-item" placeholder="Adicionar item... (cole uma lista com várias linhas pra criar todas de uma vez)" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarChecklistItemModal();}" onpaste="return handleChecklistPaste(event)"></div>
               <div style="flex:0;"><button type="button" class="secondary" onclick="adicionarChecklistItemModal()">Adicionar item</button></div>
             </div>
 
@@ -3422,6 +3422,40 @@
       const item = lista.find(i => i.id === id);
       if (item) item.texto = texto;
     });
+    renderChecklistModal();
+  }
+
+  // ---- Colar lista com várias linhas no campo "Adicionar item" cria um
+  // item de checklist por linha, igual o Trello. Um <input> de uma linha só
+  // não guarda quebra de linha no .value (o navegador junta tudo numa
+  // linha só ao colar), então precisamos ler o texto original do
+  // clipboardData ANTES disso acontecer e decidir ali mesmo. ----
+  function handleChecklistPaste(event) {
+    const texto = (event.clipboardData || window.clipboardData).getData('text');
+    if (!texto || !/\r|\n/.test(texto)) return true; // colagem de uma linha só: deixa o navegador colar normal
+    event.preventDefault();
+    adicionarChecklistItensEmLote(texto);
+    return false;
+  }
+
+  // Quebra o texto colado em linhas, remove marcador de lista/checkbox no
+  // começo de cada uma ("- [ ] ", "* ", "1. ", "• "...) pra não duplicar o
+  // checkbox que o próprio checklist já desenha, e cria todos os itens de
+  // uma vez.
+  async function adicionarChecklistItensEmLote(textoColado) {
+    if (!tarefaModalId) return;
+    const linhas = textoColado.split(/\r\n|\r|\n/)
+      .map(l => l.replace(/^\s*(?:[-*•]\s*)?(?:\[[ xX]?\]\s*)?(?:\d+[.)]\s*)?/, '').trim())
+      .filter(l => l.length > 0);
+    if (linhas.length === 0) return;
+    if (linhas.length === 1) { document.getElementById('tm-checklist-novo-item').value = linhas[0]; return adicionarChecklistItemModal(); }
+    const inicioOrdem = (checklistCache[tarefaModalId] || []).length;
+    const novosItens = linhas.map((texto, idx) => ({ task_id: tarefaModalId, texto, ordem: inicioOrdem + idx }));
+    const { data, error } = await sb.from('task_checklist_items').insert(novosItens).select();
+    if (error) { alert('Erro ao adicionar itens: ' + error.message); return; }
+    if (!checklistCache[tarefaModalId]) checklistCache[tarefaModalId] = [];
+    checklistCache[tarefaModalId].push(...(data || []));
+    document.getElementById('tm-checklist-novo-item').value = '';
     renderChecklistModal();
   }
 
