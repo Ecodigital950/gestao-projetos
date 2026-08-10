@@ -3062,13 +3062,20 @@
     const titulo = inputEl.value.trim();
     if (!titulo) return;
     const projetoFiltro = (tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos' && tarefaFiltroAtivo !== 'hoje') ? tarefaFiltroAtivo : null;
-    const { data, error } = await sb.from('tasks').insert({ titulo, coluna_id: colunaId, project_id: projetoFiltro, prioridade: 'media', ordem: proximaOrdemNaColuna(colunaId) }).select().single();
+    // Mesmo motivo do fix de criarProjetoRapido (Fase 64): a policy de
+    // SELECT de "tasks" usa has_task_access(id), que reconsulta a própria
+    // tabela tasks pelo id — e o Postgres não vê a linha que o próprio
+    // INSERT acabou de criar dentro do mesmo comando. Pra usuário não-admin
+    // isso derrubava o .select().single() com erro de RLS mesmo o INSERT
+    // sendo válido. Gerando o id no cliente e sem RETURNING, evita o gatilho.
+    const novoId = crypto.randomUUID();
+    const { error } = await sb.from('tasks').insert({ id: novoId, titulo, coluna_id: colunaId, project_id: projetoFiltro, prioridade: 'media', ordem: proximaOrdemNaColuna(colunaId) });
     if (error) { alert('Erro ao criar tarefa: ' + error.message); return; }
     // se tem um filtro de etiqueta ativo, o cartão novo já nasce com essa
     // etiqueta — senão ele sumiria na hora, escondido pelo próprio filtro
     // que estava selecionado quando o cartão foi criado
-    if (etiquetaFiltroAtiva && data) {
-      const { error: erroEtiqueta } = await sb.from('task_label_links').insert({ task_id: data.id, label_id: etiquetaFiltroAtiva });
+    if (etiquetaFiltroAtiva) {
+      const { error: erroEtiqueta } = await sb.from('task_label_links').insert({ task_id: novoId, label_id: etiquetaFiltroAtiva });
       if (erroEtiqueta) console.error('Erro ao aplicar etiqueta no cartão novo:', erroEtiqueta);
     }
     inputEl.value = '';
