@@ -903,8 +903,12 @@
           <div class="form-row" style="align-items:flex-end;">
             <div><label>Nome</label><input type="text" id="novo-user-nome" placeholder="Ex: Maria Silva"></div>
             <div><label>E-mail</label><input type="email" id="novo-user-email" placeholder="maria@empresa.com"></div>
-            <div style="flex:0;"><button id="btn-criar-usuario" onclick="criarUsuarioAdmin()">Criar usuário</button></div>
           </div>
+          <div style="margin-top:14px;">
+            <label style="display:block;margin-bottom:8px;">O que essa pessoa pode acessar? <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('permissoescriar', event)"></i></label>
+            <div id="novo-user-permissoes"></div>
+          </div>
+          <button id="btn-criar-usuario" style="margin-top:14px;" onclick="criarUsuarioAdmin()">Criar usuário</button>
         </div>
         <div class="card">
           <p class="placeholder" style="margin-bottom:12px;">Gerencie quais seções cada usuário pode acessar.</p>
@@ -1064,9 +1068,13 @@
       <div class="form-row" style="margin-top:8px;">
         <div><label>Nome</label><input type="text" id="proj-acesso-novo-nome" placeholder="Ex: Maria Silva"></div>
         <div><label>E-mail</label><input type="email" id="proj-acesso-novo-email" placeholder="maria@empresa.com"></div>
-        <div style="flex:0; display:flex; align-items:flex-end;"><button type="button" id="proj-acesso-novo-btn" onclick="criarUsuarioECompartilhar()">Criar e dar acesso</button></div>
       </div>
-      <p class="placeholder" style="margin-top:6px;">A pessoa já entra com acesso a este projeto e permissão pra criar/gerenciar os próprios projetos. Senha padrão: <strong>Suasenha.321</strong>.</p>
+      <div style="margin-top:12px;">
+        <label style="display:block;margin-bottom:8px;">O que essa pessoa pode acessar? <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('permissoescriar', event)"></i></label>
+        <div id="proj-acesso-novo-permissoes"></div>
+      </div>
+      <div style="margin-top:10px;"><button type="button" id="proj-acesso-novo-btn" onclick="criarUsuarioECompartilhar()">Criar e dar acesso</button></div>
+      <p class="placeholder" style="margin-top:6px;">Senha padrão: <strong>Suasenha.321</strong>. "Projetos" já vem marcado porque você está compartilhando este projeto com ela — desmarque se não for o caso.</p>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:20px;">
       <button type="button" class="secondary" onclick="fecharProjAcessoModal()">Fechar</button>
@@ -1096,8 +1104,40 @@
     responsaveis: 'Uma tarefa pode ter mais de uma pessoa atribuída. Todas aparecem como avatares empilhados no cartão do Kanban.',
     notasfinanceiro: 'Anotações livres sobre o financeiro desse projeto — contexto de negociação, combinados com o cliente, lembretes etc. Salva sozinho quando você clica fora do campo.',
     gerenciarusuarios: 'Deixa a pessoa criar conta pra outras pessoas (botão "Compartilhar" na tela de Projetos) sem virar admin geral — ela não ganha acesso às configurações técnicas (categorias, colunas, etiquetas, tags) nem passa a enxergar projetos que não são dela.',
-    acessoprojeto: 'Isso é diferente do módulo "Tarefas"/"Financeiro" da tabela de cima. Aqui você escolhe QUAIS projetos cada pessoa não-admin enxerga — sem marcar aqui, o projeto (e as tarefas/custos/receitas dele) fica invisível pra ela, mesmo com o módulo liberado.'
+    acessoprojeto: 'Isso é diferente do módulo "Tarefas"/"Financeiro" da tabela de cima. Aqui você escolhe QUAIS projetos cada pessoa não-admin enxerga — sem marcar aqui, o projeto (e as tarefas/custos/receitas dele) fica invisível pra ela, mesmo com o módulo liberado.',
+    permissoescriar: 'Marque exatamente o que essa pessoa vai poder acessar assim que a conta for criada. Nada é liberado sozinho: o que ficar sem marcar, ela não vê, nem depois — até você mudar isso manualmente na tabela de permissões de Configurações. O poder de criar OUTRAS contas ("Criar usuários") não aparece aqui de propósito, por ser mais sensível — se quiser dar esse poder pra alguém, ative depois, com calma, na tabela de Configurações.'
   };
+
+  // Só admin de verdade pode conceder Financeiro (expõe dado pessoal E da
+  // empresa juntos) e Configurações — bate com a policy de RLS de
+  // user_permissions (perm_insert_admin), que só libera esse insert pra
+  // quem tem gerenciar_usuarios se o módulo for um desses 3.
+  const MODULOS_CONCESSAO_NAO_ADMIN = ['dashboard', 'tarefas', 'projetos'];
+
+  // ---- Checklist de permissões usado nos dois lugares que criam usuário
+  // (Configurações > Criar usuário, e Compartilhar projeto > Criar e dar
+  // acesso). Só concede o que estiver marcado — nada implícito. "Criar
+  // usuários" fica de fora de propósito (só ativa depois, manual). Quem
+  // não é admin de verdade só vê/consegue marcar o subconjunto seguro —
+  // Financeiro e Configurações ficam de fora da lista pra quem não é
+  // admin, porque o banco também bloqueia esse insert pra eles. ----
+  function renderPermissoesChecklist(containerId, preSelecionados) {
+    const pre = new Set(preSelecionados || []);
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const souAdmin = !!(currentProfile && currentProfile.is_admin);
+    const modulosDisponiveis = souAdmin ? MODULES : MODULES.filter(m => MODULOS_CONCESSAO_NAO_ADMIN.includes(m));
+    container.innerHTML = modulosDisponiveis.map(m => `
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:7px;text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--text);font-weight:400;">
+        <input type="checkbox" class="perm-check" value="${m}" style="width:auto;" ${pre.has(m) ? 'checked' : ''}>
+        ${MODULE_LABELS[m]}${m === 'financeiro' ? ' <span class="fin-card-sub" style="font-weight:400;">(Pessoal + Eco juntos, não dá pra separar hoje)</span>' : ''}
+      </label>`).join('') +
+      (!souAdmin ? '<p class="fin-card-sub" style="margin-top:2px;">Financeiro e Configurações só quem é admin pode liberar — peça pro Bruno se for o caso.</p>' : '');
+  }
+
+  function lerPermissoesChecklist(containerId) {
+    return Array.from(document.querySelectorAll('#' + containerId + ' .perm-check:checked')).map(el => el.value);
+  }
 
   function mostrarAjuda(chave, ev) {
     ev.stopPropagation();
@@ -1190,6 +1230,7 @@
     renderNav();
     const firstModule = MODULES.find(m => currentPermissions.has(m));
     if (firstModule) showView(firstModule);
+    renderPermissoesChecklist('novo-user-permissoes', []); // nada marcado por padrão — acesso explícito, não implícito
 
     // Lista básica de usuários (id/nome/email) — precisa carregar pra
     // QUALQUER pessoa logada, não só admin, porque agora quem cria um
@@ -1326,6 +1367,10 @@
     document.getElementById('proj-acesso-modal-novo-usuario').style.display = podeCriarUsuario ? 'block' : 'none';
     document.getElementById('proj-acesso-novo-nome').value = '';
     document.getElementById('proj-acesso-novo-email').value = '';
+    // "Projetos" já vem marcado (é claramente a intenção de quem tá
+    // compartilhando um projeto), mas nada mais — o resto fica por conta
+    // de quem tá criando escolher explicitamente.
+    renderPermissoesChecklist('proj-acesso-novo-permissoes', ['projetos']);
 
     document.getElementById('proj-acesso-modal-overlay').classList.add('aberto');
   }
@@ -1335,15 +1380,15 @@
   }
 
   // Cria o usuário sem sair do fluxo de compartilhamento do projeto — evita
-  // ter que ir em Configurações. Já sai com permissão de "projetos" (pode
-  // criar e gerenciar os próprios projetos, igual pedido) e acesso liberado
-  // pra ESTE projeto específico, já que é claramente a intenção de quem tá
-  // adicionando a pessoa por aqui.
+  // ter que ir em Configurações. Concede exatamente o que foi marcado no
+  // checklist "O que essa pessoa pode acessar?" (nada implícito) e só dá
+  // acesso a ESTE projeto específico se "Projetos" estiver marcado.
   async function criarUsuarioECompartilhar() {
     const projectId = document.getElementById('proj-acesso-modal-id').value;
     const nome = document.getElementById('proj-acesso-novo-nome').value.trim();
     const email = document.getElementById('proj-acesso-novo-email').value.trim();
     if (!email) { alert('Informe o e-mail da pessoa.'); return; }
+    const modulos = lerPermissoesChecklist('proj-acesso-novo-permissoes');
     const btn = document.getElementById('proj-acesso-novo-btn');
     if (btn) btn.disabled = true;
     const { data, error } = await sb.functions.invoke('admin-create-user', { body: { email, nome } });
@@ -1357,14 +1402,22 @@
     if (data?.error) { alert('Erro ao criar usuário: ' + data.error); return; }
     const novoUserId = data.user_id;
 
-    const { error: erroPerm } = await sb.from('user_permissions').insert({ user_id: novoUserId, modulo: 'projetos' });
-    if (erroPerm) console.error('Erro ao conceder permissão de projetos:', erroPerm);
+    if (modulos.length) {
+      const { error: erroPerm } = await sb.from('user_permissions').insert(modulos.map(m => ({ user_id: novoUserId, modulo: m })));
+      if (erroPerm) console.error('Erro ao conceder permissões:', erroPerm);
+    }
 
-    const { error: erroAcesso } = await sb.from('project_access').insert({ project_id: projectId, user_id: novoUserId });
-    if (erroAcesso) console.error('Erro ao dar acesso ao projeto:', erroAcesso);
+    // Acesso a ESTE projeto só faz sentido se "Projetos" foi marcado —
+    // sem o módulo liberado, o project_access sozinho não abre nada mesmo
+    // (has_project_access não é suficiente, RLS também exige
+    // has_permission('projetos')).
+    if (modulos.includes('projetos')) {
+      const { error: erroAcesso } = await sb.from('project_access').insert({ project_id: projectId, user_id: novoUserId });
+      if (erroAcesso) console.error('Erro ao dar acesso ao projeto:', erroAcesso);
+    }
 
     await carregarUsuariosBasico();
-    alert('Usuário criado e já com acesso a este projeto! Peça pra essa pessoa entrar com a senha padrão Suasenha.321 e trocar depois.');
+    alert('Usuário criado com os acessos marcados! Peça pra essa pessoa entrar com a senha padrão Suasenha.321 e trocar depois.');
     abrirProjAcessoModal(projectId);
   }
 
@@ -2071,6 +2124,7 @@
     const nome = document.getElementById('novo-user-nome').value.trim();
     const email = document.getElementById('novo-user-email').value.trim();
     if (!email) { alert('Informe o e-mail do usuário.'); return; }
+    const modulos = lerPermissoesChecklist('novo-user-permissoes');
     const btn = document.getElementById('btn-criar-usuario');
     if (btn) btn.disabled = true;
     const { data, error } = await sb.functions.invoke('admin-create-user', { body: { email, nome } });
@@ -2082,8 +2136,15 @@
       return;
     }
     if (data?.error) { alert('Erro ao criar usuário: ' + data.error); return; }
+    // Concede só o que foi marcado no checklist — nada implícito. Se nada
+    // foi marcado, a conta nasce sem acesso a nenhum módulo mesmo.
+    if (modulos.length) {
+      const { error: erroPerm } = await sb.from('user_permissions').insert(modulos.map(m => ({ user_id: data.user_id, modulo: m })));
+      if (erroPerm) console.error('Erro ao conceder permissões:', erroPerm);
+    }
     document.getElementById('novo-user-nome').value = '';
     document.getElementById('novo-user-email').value = '';
+    renderPermissoesChecklist('novo-user-permissoes', []);
     alert('Usuário criado! Peça pra essa pessoa entrar com a senha padrão Suasenha.321 e trocar depois.');
     carregarUsuarios();
   }
