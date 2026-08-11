@@ -2525,31 +2525,51 @@
     await carregarTaskLabelLinks(tasksCache.map(t => t.id));
     await carregarTaskAssignees(tasksCache.map(t => t.id));
     await carregarTaskActivities(tasksCache.map(t => t.id));
+    await carregarNotasGerais();
     atualizarNotaRapida();
     renderKanban();
     aplicarFundoQuadro();
   }
 
-  // ---- Nota rápida por projeto, no topo do Kanban — só um rascunho pra
-  // anotar algo antes de virar cartão. Some em "Todos"/"Hoje" porque não
-  // existe "o projeto" nesses filtros; aparece só dentro de um projeto
-  // específico. Divide a largura com os chips (flex), então conforme mais
-  // projetos forem criados e os chips ocuparem mais espaço, o campo de
-  // nota encolhe sozinho (e pode até cair pra linha de baixo, já que o
-  // container tem flex-wrap). ----
+  // ---- Nota rápida no topo do Kanban — só um rascunho pra anotar algo
+  // antes de virar cartão. Dentro de um projeto específico, salva em
+  // projects.notas_tarefas (uma por projeto). Em "Todos"/"Hoje", onde não
+  // existe "o projeto", salva em tarefas_notas_gerais (uma linha fixa pra
+  // cada uma dessas duas abas, já semeada no banco). Divide a largura com
+  // os chips (flex), então conforme mais projetos forem criados e os
+  // chips ocuparem mais espaço, o campo de nota encolhe sozinho (e pode
+  // até cair pra linha de baixo, já que o container tem flex-wrap). ----
+  let notasGeraisCache = { todos: '', hoje: '' };
+
+  async function carregarNotasGerais() {
+    const { data } = await sb.from('tarefas_notas_gerais').select('chave, texto');
+    (data || []).forEach(r => { notasGeraisCache[r.chave] = r.texto || ''; });
+  }
+
   function atualizarNotaRapida() {
     const wrap = document.getElementById('tarefa-nota-rapida-wrap');
     const campo = document.getElementById('tarefa-nota-rapida');
     if (!wrap || !campo) return;
-    const ehProjeto = tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos' && tarefaFiltroAtivo !== 'hoje';
-    const projeto = ehProjeto ? projectsCache.find(p => p.id === tarefaFiltroAtivo) : null;
+    if (tarefaFiltroAtivo === 'todos' || tarefaFiltroAtivo === 'hoje') {
+      wrap.style.display = 'block';
+      campo.placeholder = tarefaFiltroAtivo === 'hoje' ? 'Nota rápida do dia...' : 'Nota rápida geral...';
+      campo.value = notasGeraisCache[tarefaFiltroAtivo] || '';
+      return;
+    }
+    const projeto = tarefaFiltroAtivo ? projectsCache.find(p => p.id === tarefaFiltroAtivo) : null;
     wrap.style.display = projeto ? 'block' : 'none';
+    campo.placeholder = 'Nota rápida antes de criar o cartão...';
     campo.value = (projeto && projeto.notas_tarefas) || '';
   }
 
   async function salvarNotaRapidaProjeto(texto) {
-    const ehProjeto = tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos' && tarefaFiltroAtivo !== 'hoje';
-    if (!ehProjeto) return;
+    if (tarefaFiltroAtivo === 'todos' || tarefaFiltroAtivo === 'hoje') {
+      const { error } = await sb.from('tarefas_notas_gerais').update({ texto, atualizado_em: new Date().toISOString() }).eq('chave', tarefaFiltroAtivo);
+      if (error) { alert('Erro ao salvar nota: ' + error.message); return; }
+      notasGeraisCache[tarefaFiltroAtivo] = texto;
+      return;
+    }
+    if (!tarefaFiltroAtivo) return;
     const { error } = await sb.from('projects').update({ notas_tarefas: texto }).eq('id', tarefaFiltroAtivo);
     if (error) { alert('Erro ao salvar nota: ' + error.message); return; }
     const projeto = projectsCache.find(p => p.id === tarefaFiltroAtivo);
