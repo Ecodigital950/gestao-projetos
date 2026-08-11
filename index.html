@@ -908,6 +908,10 @@
             <label style="display:block;margin-bottom:8px;">O que essa pessoa pode acessar? <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('permissoescriar', event)"></i></label>
             <div id="novo-user-permissoes"></div>
           </div>
+          <div id="novo-user-projetos-wrap" style="display:none;margin-top:14px;">
+            <label style="display:block;margin-bottom:8px;">Quais projetos ela vai enxergar?</label>
+            <div id="novo-user-projetos"></div>
+          </div>
           <button id="btn-criar-usuario" style="margin-top:14px;" onclick="criarUsuarioAdmin()">Criar usuário</button>
         </div>
         <div class="card">
@@ -1089,6 +1093,10 @@
 
   const MODULES = ["dashboard", "financeiro", "tarefas", "projetos", "configuracoes"];
   const MODULE_LABELS = { dashboard: "Dashboard", financeiro: "Financeiro", tarefas: "Tarefas", projetos: "Projetos", configuracoes: "Configurações" };
+  // Só o texto do menu lateral muda pra "Kanban" — o módulo continua se
+  // chamando "tarefas" por baixo (permissões, título da tela, etc ficam
+  // como estavam, só o rótulo do menu lateral é diferente).
+  const NAV_LABELS = { ...MODULE_LABELS, tarefas: "Kanban" };
 
   let currentUser = null;
   let currentProfile = null;
@@ -1137,6 +1145,50 @@
 
   function lerPermissoesChecklist(containerId) {
     return Array.from(document.querySelectorAll('#' + containerId + ' .perm-check:checked')).map(el => el.value);
+  }
+
+  // ---- "Quais projetos ela vai enxergar?" no formulário de "Criar
+  // usuário" de Configurações — só aparece quando o módulo "Projetos" tá
+  // marcado no checklist acima (sem esse módulo, marcar projeto não
+  // adianta nada: o RLS exige has_permission('projetos') E
+  // has_project_access(id) juntos). Escuta o checkbox de "projetos" pra
+  // mostrar/esconder na hora. ----
+  let novoUserProjetosCarregado = false;
+
+  async function renderProjetosParaNovoUsuario() {
+    const container = document.getElementById('novo-user-projetos');
+    if (!container) return;
+    const { data } = await sb.from('projects').select('id,nome,responsavel_id').order('nome');
+    // O RLS de project_access só deixa CONCEDER acesso pra quem é dono do
+    // projeto (ou admin) — mesmo que a lista de SELECT acima traga também
+    // projetos compartilhados com quem tá criando (sem ser dono). Filtra
+    // aqui pra só oferecer o que realmente é possível marcar, e não deixar
+    // a pessoa marcar algo que vai falhar silenciosamente depois.
+    const souAdmin = !!(currentProfile && currentProfile.is_admin);
+    const projetosConcediveis = souAdmin ? (data || []) : (data || []).filter(p => p.responsavel_id === (currentUser && currentUser.id));
+    container.innerHTML = (projetosConcediveis.length)
+      ? projetosConcediveis.map(p => `
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--text);font-weight:400;">
+          <input type="checkbox" class="novo-user-projeto-check" value="${p.id}" style="width:auto;">
+          ${escapeHtml(p.nome)}
+        </label>`).join('')
+      : (souAdmin ? '<p class="empty-note">Nenhum projeto cadastrado ainda.</p>' : '<p class="empty-note">Você só pode dar acesso a projetos que você mesmo criou.</p>');
+  }
+
+  function atualizarVisibilidadeProjetosNovoUser() {
+    const checkProjetos = document.querySelector('#novo-user-permissoes .perm-check[value="projetos"]');
+    const wrap = document.getElementById('novo-user-projetos-wrap');
+    if (!wrap) return;
+    const mostrar = !!(checkProjetos && checkProjetos.checked);
+    wrap.style.display = mostrar ? 'block' : 'none';
+    if (mostrar && !novoUserProjetosCarregado) {
+      novoUserProjetosCarregado = true;
+      renderProjetosParaNovoUsuario();
+    }
+  }
+
+  function lerProjetosSelecionadosNovoUser() {
+    return Array.from(document.querySelectorAll('#novo-user-projetos .novo-user-projeto-check:checked')).map(el => el.value);
   }
 
   function mostrarAjuda(chave, ev) {
@@ -1231,6 +1283,11 @@
     const firstModule = MODULES.find(m => currentPermissions.has(m));
     if (firstModule) showView(firstModule);
     renderPermissoesChecklist('novo-user-permissoes', []); // nada marcado por padrão — acesso explícito, não implícito
+    // Delegação (sobrevive ao innerHTML ser reescrito a cada render do
+    // checklist): mostra/esconde "Quais projetos ela vai enxergar?"
+    // conforme o checkbox "Projetos" é marcado/desmarcado.
+    const elNovoUserPerm = document.getElementById('novo-user-permissoes');
+    if (elNovoUserPerm) elNovoUserPerm.addEventListener('change', atualizarVisibilidadeProjetosNovoUser);
 
     // Lista básica de usuários (id/nome/email) — precisa carregar pra
     // QUALQUER pessoa logada, não só admin, porque agora quem cria um
@@ -1264,8 +1321,8 @@
       if (!currentPermissions.has(m)) return;
       const el = document.createElement('a');
       el.className = 'nav-item';
-      el.innerHTML = `<i class="ti ${MODULE_ICONS[m] || 'ti-point'}"></i><span class="nav-label">${escapeHtml(MODULE_LABELS[m])}</span>`;
-      el.title = MODULE_LABELS[m];
+      el.innerHTML = `<i class="ti ${MODULE_ICONS[m] || 'ti-point'}"></i><span class="nav-label">${escapeHtml(NAV_LABELS[m])}</span>`;
+      el.title = NAV_LABELS[m];
       el.onclick = () => showView(m);
       el.id = 'nav-' + m;
       nav.appendChild(el);
@@ -2142,10 +2199,24 @@
       const { error: erroPerm } = await sb.from('user_permissions').insert(modulos.map(m => ({ user_id: data.user_id, modulo: m })));
       if (erroPerm) console.error('Erro ao conceder permissões:', erroPerm);
     }
+    // Acesso aos projetos marcados — só faz sentido (e só é lido) quando
+    // "Projetos" tá marcado no checklist acima, então lerProjetosSelecio
+    // nadosNovoUser() já reflete isso indiretamente (o bloco fica
+    // escondido/vazio quando "Projetos" não tá marcado).
+    let avisoAcessoProjeto = '';
+    if (modulos.includes('projetos')) {
+      const projetosSelecionados = lerProjetosSelecionadosNovoUser();
+      if (projetosSelecionados.length) {
+        const { error: erroAcesso } = await sb.from('project_access').insert(projetosSelecionados.map(pid => ({ project_id: pid, user_id: data.user_id })));
+        if (erroAcesso) avisoAcessoProjeto = '\n\nAtenção: os módulos foram concedidos, mas o acesso aos projetos marcados NÃO foi salvo (' + erroAcesso.message + '). Ajuste em "Acesso por projeto" logo abaixo.';
+      }
+    }
     document.getElementById('novo-user-nome').value = '';
     document.getElementById('novo-user-email').value = '';
     renderPermissoesChecklist('novo-user-permissoes', []);
-    alert('Usuário criado! Peça pra essa pessoa entrar com a senha padrão Suasenha.321 e trocar depois.');
+    document.getElementById('novo-user-projetos-wrap').style.display = 'none';
+    document.querySelectorAll('#novo-user-projetos .novo-user-projeto-check').forEach(el => { el.checked = false; });
+    alert('Usuário criado com os acessos marcados! Peça pra essa pessoa entrar com a senha padrão Suasenha.321 e trocar depois.' + avisoAcessoProjeto);
     carregarUsuarios();
   }
 
