@@ -1656,12 +1656,23 @@
   let projectsCache = [];
   let costCategoriesCache = [];
 
+  // Projetos onde EU (o usuário logado) sou dono ou fui explicitamente
+  // adicionado via "Compartilhar" — usado pra filtrar os chips do
+  // Kanban/Tarefas mesmo pra admin, que via RLS enxergaria TODOS os
+  // projetos ali (Dashboard/Financeiro/Projetos continuam mostrando tudo
+  // de propósito, isso aqui é só pro filtro pessoal de tarefas).
+  let meusProjectAccessIds = new Set();
+
   async function carregarProjetosSelects() {
     // Traz cor_fundo/imagem_fundo_url/notas_financeiro também — não é só
     // pra popular selects, esse cache é reaproveitado pelo Kanban
     // (aplicarFundoQuadro) e agora pelo Financeiro (notas por projeto).
-    const { data } = await sb.from('projects').select('id,nome,cor_fundo,imagem_fundo_url,notas_financeiro,notas_tarefas,ordem').order('ordem', { ascending: true, nullsFirst: false }).order('nome');
+    const { data } = await sb.from('projects').select('id,nome,cor_fundo,imagem_fundo_url,notas_financeiro,notas_tarefas,ordem,responsavel_id').order('ordem', { ascending: true, nullsFirst: false }).order('nome');
     projectsCache = data || [];
+    if (currentUser) {
+      const { data: acessos } = await sb.from('project_access').select('project_id').eq('user_id', currentUser.id);
+      meusProjectAccessIds = new Set((acessos || []).map(a => a.project_id));
+    }
     const dashSel = document.getElementById('dash-projeto');
     const finSel = document.getElementById('fin-projeto');
     if (dashSel) {
@@ -1673,6 +1684,16 @@
         projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
       finSel.value = anterior || '__financeiro__';
     }
+  }
+
+  // Mesma condição que o RLS usa pra decidir se alguém (não-admin) enxerga
+  // um projeto: ser o dono (responsavel_id) ou ter sido explicitamente
+  // adicionado (project_access). Aplicando essa mesma regra pro filtro de
+  // chips SEM o bypass de admin, o Bruno só vê no Kanban os projetos que
+  // ele criou ou em que foi de fato incluído — não todo projeto que
+  // qualquer pessoa da equipe criar.
+  function souParticipanteDoProjeto(p) {
+    return p.responsavel_id === (currentUser && currentUser.id) || meusProjectAccessIds.has(p.id);
   }
 
   async function carregarCategorias() {
@@ -2501,8 +2522,20 @@
       const dataAttr = arrastavel ? ` data-project-id="${o.id}"` : '';
       return `<button type="button" class="filtro-chip${ativo}"${dataAttr} onclick="selecionarFiltroTarefaSeNaoArrastou('${o.id}')">${escapeHtml(o.nome)}</button>`;
     };
+    // Só mostra chip de projeto onde a pessoa logada é dona ou foi
+    // explicitamente adicionada — mesmo pra admin, que sem esse filtro
+    // veria TODO projeto de todo mundo aqui (o RLS libera geral pra
+    // admin, mas o filtro pessoal de tarefas não deve virar bagunça com
+    // Kanban de gente que não participa).
+    const projetosMeus = projectsCache.filter(souParticipanteDoProjeto);
+    // Se o filtro ativo era um projeto que sumiu da lista (chip removido
+    // por essa regra nova, ou acesso perdido), volta pra "Todos" em vez de
+    // deixar preso num filtro que não existe mais.
+    if (tarefaFiltroAtivo !== 'todos' && tarefaFiltroAtivo !== 'hoje' && !projetosMeus.some(p => p.id === tarefaFiltroAtivo)) {
+      tarefaFiltroAtivo = 'todos';
+    }
     wrap.innerHTML = fixos.map(o => chipHtml(o, false)).join('') +
-      `<span id="tarefa-filtro-chips-projetos" style="display:contents;">${projectsCache.map(o => chipHtml(o, true)).join('')}</span>` +
+      `<span id="tarefa-filtro-chips-projetos" style="display:contents;">${projetosMeus.map(o => chipHtml(o, true)).join('')}</span>` +
       `<button type="button" class="filtro-chip filtro-chip-add" onclick="criarProjetoRapido()" title="Criar novo projeto/Kanban">+</button>`;
     initSortableChips();
   }
