@@ -32,6 +32,14 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Arial, sans-serif;
   }
   a { color: var(--info); }
+  .fin-titulo-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .fin-ultima-atualizacao {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 15px; font-weight: 600; color: var(--info);
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    padding: 7px 14px; border-radius: 999px;
+  }
   input, select, button, textarea {
     font-family: inherit;
     font-size: 14px;
@@ -515,7 +523,10 @@
         </div>
       </div>
       <div id="view-financeiro" class="view">
-        <h2>Financeiro</h2>
+        <div class="fin-titulo-row">
+          <h2>Financeiro</h2>
+          <span id="fin-ultima-atualizacao" class="fin-ultima-atualizacao" style="display:none;"></span>
+        </div>
         <div class="card">
           <div class="form-row">
             <div><label>Projeto</label>
@@ -1833,9 +1844,29 @@
   let editingCostId = null;
   let editingRevenueId = null;
 
+  // ---- Badge "última atualização" no topo do Financeiro — data/hora do
+  // lançamento (entrada ou despesa) mais recente em fin_entries, seja ele
+  // recém-criado (created_at) ou só editado (updated_at, Fase 72). Sempre
+  // visível ali em cima, independente do projeto selecionado no filtro
+  // logo abaixo. ----
+  async function atualizarBadgeUltimaAtualizacaoFinanceiro() {
+    const el = document.getElementById('fin-ultima-atualizacao');
+    if (!el) return;
+    const { data } = await sb.from('fin_entries').select('updated_at').order('updated_at', { ascending: false }).limit(1);
+    const registro = data && data[0];
+    if (!registro || !registro.updated_at) { el.style.display = 'none'; return; }
+    const d = new Date(registro.updated_at);
+    const dataFmt = d.toLocaleDateString('pt-BR');
+    const horaFmt = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    el.innerHTML = `<i class="ti ti-clock"></i> Última atualização: ${dataFmt} às ${horaFmt}`;
+    el.style.display = 'inline-flex';
+  }
+
   async function carregarFinanceiro() {
     const projetoId = document.getElementById('fin-projeto').value;
     if (!projetoId) return;
+
+    atualizarBadgeUltimaAtualizacaoFinanceiro();
 
     if (projetoId === '__financeiro__') {
       document.getElementById('fin-projeto-view').style.display = 'none';
@@ -3854,6 +3885,11 @@
   }
 
   async function carregarFinanceiroMensal() {
+    // Roda em paralelo, não precisa segurar o resto do carregamento — é só
+    // pra manter o badge do topo em dia com qualquer add/edição de
+    // lançamento (essa função é chamada de novo depois de toda mutação em
+    // fin_entries).
+    atualizarBadgeUltimaAtualizacaoFinanceiro();
     await carregarFinCategorias();
     await carregarFinConfigColunas();
 
