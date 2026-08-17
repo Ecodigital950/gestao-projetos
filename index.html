@@ -842,32 +842,34 @@
             <label class="tm-section-label">Descrição</label>
             <textarea id="tm-descricao" class="tm-box tm-descricao-area" placeholder="Adicione uma descrição..." style="width:100%; margin-bottom:16px;" onblur="salvarCampoTarefaModal('descricao', this.value.trim())"></textarea>
 
-            <div style="display:flex; justify-content:space-between; align-items:baseline;">
-              <label class="tm-section-label" style="margin:0;">Atividades <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('atividades', event)"></i></label>
-            </div>
-            <div id="tm-atividades-lista" style="margin:8px 0;"></div>
-            <div class="form-row" style="align-items:flex-end; margin-bottom:16px;">
-              <div><label>Tipo</label>
-                <select id="tm-atividade-tipo">
-                  <option value="ligacao">Ligação</option>
-                  <option value="reuniao">Reunião</option>
-                  <option value="lembrete" selected>Lembrete</option>
-                </select>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <label class="tm-section-label" style="margin:0;">Checklist <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('checklist-modo', event)"></i></label>
+              <div class="tab-toggle-group">
+                <button type="button" id="tm-modo-simples-btn" class="tab-toggle active" onclick="mudarModoChecklistModal('simples')">Checklist simples</button>
+                <button type="button" id="tm-modo-atividades-btn" class="tab-toggle" onclick="mudarModoChecklistModal('atividades')">Atividades</button>
               </div>
-              <div style="flex:2;"><label>Título</label><input type="text" id="tm-atividade-titulo" placeholder="Ex: Follow-up com o cliente"></div>
-              <div><label>Quando</label><input type="datetime-local" id="tm-atividade-quando"></div>
-              <div style="flex:0;"><button type="button" class="secondary" onclick="adicionarAtividadeModal()">Agendar</button></div>
             </div>
 
-            <div style="display:flex; justify-content:space-between; align-items:baseline;">
-              <label class="tm-section-label" style="margin:0;">Checklist</label>
-              <span id="tm-checklist-contador" style="font-size:11px; color:var(--muted);"></span>
+            <div id="tm-checklist-simples-wrap">
+              <div style="display:flex; justify-content:flex-end;">
+                <span id="tm-checklist-contador" style="font-size:11px; color:var(--muted);"></span>
+              </div>
+              <div class="task-checklist-bar-track" style="margin:6px 0 10px;"><div class="task-checklist-bar-fill" id="tm-checklist-bar" style="width:0%;"></div></div>
+              <div id="tm-checklist-lista"></div>
+              <div class="form-row" style="margin-top:8px; align-items:flex-end;">
+                <div><input type="text" id="tm-checklist-novo-item" placeholder="Adicionar item... (cole uma lista com várias linhas pra criar todas de uma vez)" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarChecklistItemModal();}" onpaste="return handleChecklistPaste(event)"></div>
+                <div style="flex:0;"><button type="button" class="secondary" onclick="adicionarChecklistItemModal()">Adicionar item</button></div>
+              </div>
             </div>
-            <div class="task-checklist-bar-track" style="margin:6px 0 10px;"><div class="task-checklist-bar-fill" id="tm-checklist-bar" style="width:0%;"></div></div>
-            <div id="tm-checklist-lista"></div>
-            <div class="form-row" style="margin-top:8px; align-items:flex-end;">
-              <div><input type="text" id="tm-checklist-novo-item" placeholder="Adicionar item... (cole uma lista com várias linhas pra criar todas de uma vez)" onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarChecklistItemModal();}" onpaste="return handleChecklistPaste(event)"></div>
-              <div style="flex:0;"><button type="button" class="secondary" onclick="adicionarChecklistItemModal()">Adicionar item</button></div>
+
+            <div id="tm-checklist-atividades-wrap" style="display:none;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px;">
+                <span style="font-size:11px; color:var(--muted);">ATIVIDADES</span>
+                <span id="tm-atividades-resumo" style="font-size:12px; color:var(--info); font-weight:600;"></span>
+              </div>
+              <div class="task-checklist-bar-track" style="margin-bottom:10px;"><div class="task-checklist-bar-fill" id="tm-atividades-bar-geral" style="width:0%; background:var(--info);"></div></div>
+              <div id="tm-atividades-lista" style="margin-bottom:8px;"></div>
+              <button type="button" class="secondary" style="width:100%;" onclick="criarAtividadeModal()">+ Nova atividade</button>
             </div>
 
             <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--card-border); margin-top:18px; padding-top:14px;">
@@ -1115,10 +1117,10 @@
 
   // ---- Ícones de ajuda clicáveis (explicam funções novas) ----
   const AJUDA_TEXTOS = {
-    atividades: 'Agende ligações, reuniões ou lembretes dentro da tarefa. O ícone que aparece no cartão do Kanban mostra se a próxima atividade está em dia (verde) ou atrasada (vermelho) — assim dá pra ver o que precisa de atenção sem abrir cartão por cartão.',
+    'checklist-modo': 'Escolha "Checklist simples" pra uma lista única de tarefas, ou "Atividades" quando o cartão tem várias entregas parecidas (ex: 15 vídeos, 4 tarefas cada). No modo Atividades você cria um grupo por entrega, cada um com seu próprio checklist e responsável por tarefa.',
     repeticao: 'Quando essa tarefa chega na última coluna do quadro, uma cópia nova é criada sozinha na primeira coluna, com a data de vencimento avançada (diária, semanal ou mensal). Serve pra tarefas que se repetem, tipo reunião semanal ou cobrança mensal.',
     soneca: 'Esconde o cartão do quadro até a data escolhida, sem apagar ele. Reaparece sozinho quando a data chega, e enquanto isso fica listado em "em soneca" no rodapé da coluna.',
-    hoje: 'Junta as atividades pendentes (ligação, reunião, lembrete) E as tarefas com data de vencimento de todos os seus projetos numa lista só, ordenada por data — pra ver o que precisa fazer sem entrar projeto por projeto.',
+    hoje: 'Junta as tarefas com data de vencimento de todos os seus projetos numa lista só, ordenada por data — pra ver o que precisa fazer sem entrar projeto por projeto.',
     fundoquadro: 'Escolha uma cor ou uma imagem (cole uma URL) de fundo por projeto. Ela aparece atrás do quadro quando você filtra as Tarefas por esse projeto.',
     responsaveis: 'Uma tarefa pode ter mais de uma pessoa atribuída. Todas aparecem como avatares empilhados no cartão do Kanban.',
     notasfinanceiro: 'Anotações livres sobre o financeiro desse projeto — contexto de negociação, combinados com o cliente, lembretes etc. Salva sozinho quando você clica fora do campo.',
@@ -2474,7 +2476,8 @@
   let taskLabelsCache = []; // todas as etiquetas cadastradas
   let taskLabelLinksCache = {}; // task_id -> [label_id, ...]
   let taskAssigneeLinksCache = {}; // task_id -> [profile_id, ...]
-  let taskActivitiesCache = {}; // task_id -> [atividades]
+  let atividadesCache = {}; // task_id -> [{...atividade, itens:[...]}] (modo "Atividades" do checklist)
+  let atividadeAbertaMap = {}; // atividade_id -> bool, lembra se o grupo está expandido
 
   function hexToRgba(hex, alpha) {
     const h = (hex || '#38bdf8').replace('#', '');
@@ -2532,13 +2535,25 @@
     });
   }
 
-  async function carregarTaskActivities(taskIds) {
-    taskActivitiesCache = {};
+  // Carrega os grupos de "Atividades" (modo alternativo ao checklist
+  // simples) de uma leva de tarefas, já com os itens de cada grupo
+  // aninhados dentro de cada atividade.
+  async function carregarAtividadesGrupos(taskIds) {
+    atividadesCache = {};
     if (!taskIds.length) return;
-    const { data } = await sb.from('task_activities').select('*').in('task_id', taskIds).order('quando');
-    (data || []).forEach(a => {
-      if (!taskActivitiesCache[a.task_id]) taskActivitiesCache[a.task_id] = [];
-      taskActivitiesCache[a.task_id].push(a);
+    const { data: ativs } = await sb.from('task_atividades').select('*').in('task_id', taskIds).order('ordem');
+    const ativIds = (ativs || []).map(a => a.id);
+    let itensPorAtividade = {};
+    if (ativIds.length) {
+      const { data: itens } = await sb.from('task_atividade_itens').select('*').in('atividade_id', ativIds).order('ordem');
+      (itens || []).forEach(i => {
+        if (!itensPorAtividade[i.atividade_id]) itensPorAtividade[i.atividade_id] = [];
+        itensPorAtividade[i.atividade_id].push(i);
+      });
+    }
+    (ativs || []).forEach(a => {
+      if (!atividadesCache[a.task_id]) atividadesCache[a.task_id] = [];
+      atividadesCache[a.task_id].push({ ...a, itens: itensPorAtividade[a.id] || [] });
     });
   }
 
@@ -2645,9 +2660,16 @@
       // o cartão que não tem vencimento próprio mas tem um ITEM de
       // checklist vencendo hoje (ex: cartão de projeto longo, com uma
       // etapa específica com prazo hoje) — sem isso, esse cartão nunca
-      // aparecia em "Hoje".
-      const { data: itensComPrazo } = await sb.from('task_checklist_items').select('task_id').lte('data_vencimento', hoje);
-      const idsComItemHoje = [...new Set((itensComPrazo || []).map(i => i.task_id))];
+      // aparecia em "Hoje". Isso vale tanto pro checklist simples quanto
+      // pros itens dentro de uma Atividade (grupo).
+      const [{ data: itensComPrazo }, { data: itensAtividadeComPrazo }] = await Promise.all([
+        sb.from('task_checklist_items').select('task_id').lte('data_vencimento', hoje),
+        sb.from('task_atividade_itens').select('data_vencimento, task_atividades!inner(task_id)').lte('data_vencimento', hoje)
+      ]);
+      const idsComItemHoje = [...new Set([
+        ...(itensComPrazo || []).map(i => i.task_id),
+        ...(itensAtividadeComPrazo || []).map(i => i.task_atividades.task_id)
+      ])];
       query = idsComItemHoje.length
         ? query.or(`data_vencimento.lte.${hoje},id.in.(${idsComItemHoje.join(',')})`)
         : query.lte('data_vencimento', hoje);
@@ -2659,7 +2681,7 @@
     await carregarChecklistDeTarefas(tasksCache.map(t => t.id));
     await carregarTaskLabelLinks(tasksCache.map(t => t.id));
     await carregarTaskAssignees(tasksCache.map(t => t.id));
-    await carregarTaskActivities(tasksCache.map(t => t.id));
+    await carregarAtividadesGrupos(tasksCache.map(t => t.id));
     await carregarNotasGerais();
     atualizarNotaRapida();
     renderKanban();
@@ -2742,7 +2764,10 @@
   // de checklist ainda não concluídos (não é a data do cartão em si).
   // Usada tanto pro badge/alerta quanto pra ordenação por urgência.
   function proximaDataVencimentoTarefa(taskId) {
-    const itensChecklist = checklistCache[taskId] || [];
+    const t = tasksCache.find(x => x.id === taskId);
+    const itensChecklist = (t && t.checklist_modo === 'atividades')
+      ? (atividadesCache[taskId] || []).flatMap(a => a.itens)
+      : (checklistCache[taskId] || []);
     const pendentesComData = itensChecklist.filter(i => !i.concluido && i.data_vencimento).sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento));
     return pendentesComData.length ? pendentesComData[0].data_vencimento : null;
   }
@@ -2776,7 +2801,12 @@
       const cards = tarefasDaColuna.map(t => {
         const responsaveis = (taskAssigneeLinksCache[t.id] || []).map(pid => profilesCacheForTasks.find(p => p.id === pid)).filter(Boolean);
         const projeto = projectsCache.find(p => p.id === t.project_id);
-        const itensChecklist = checklistCache[t.id] || [];
+        // No modo "atividades" o checklist do cartão é a soma dos itens de
+        // todas as atividades (grupos); no modo "simples" continua sendo a
+        // lista flat de sempre.
+        const itensChecklist = t.checklist_modo === 'atividades'
+          ? (atividadesCache[t.id] || []).flatMap(a => a.itens)
+          : (checklistCache[t.id] || []);
         const feitos = itensChecklist.filter(i => i.concluido).length;
         const total = itensChecklist.length;
         const pctChecklist = total ? Math.round((feitos / total) * 100) : 0;
@@ -2789,23 +2819,12 @@
         const naoConcluida = idx !== kanbanColumnsCache.length - 1;
         const emAlerta = atrasado && naoConcluida;
         const labelsDaTarefa = (taskLabelLinksCache[t.id] || []).map(lid => taskLabelsCache.find(l => l.id === lid)).filter(Boolean);
-        const atividades = taskActivitiesCache[t.id] || [];
-        const pendentes = atividades.filter(a => !a.concluida).sort((a, b) => a.quando.localeCompare(b.quando));
-        const proximaAtividade = pendentes[0] || null;
-        let iconeAtividade = '';
-        if (proximaAtividade) {
-          const atrasadaAtividade = proximaAtividade.quando < new Date().toISOString();
-          iconeAtividade = atrasadaAtividade
-            ? `<i class="ti ti-alert-circle" style="font-size:15px; color:var(--neg);" title="Atividade atrasada: ${escapeHtml(proximaAtividade.titulo)}"></i>`
-            : `<i class="ti ti-circle-check" style="font-size:15px; color:var(--pos);" title="Próxima atividade: ${escapeHtml(proximaAtividade.titulo)}"></i>`;
-        }
         return `
           <div class="task-card prio-${t.prioridade}" data-task-id="${t.id}" onclick="abrirTarefaModalSeNaoArrastou('${t.id}')">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
               <div class="titulo">${escapeHtml(t.titulo)}</div>
               <span style="display:flex; gap:6px; flex-shrink:0;">
                 ${t.repeticao ? `<i class="ti ti-repeat" style="font-size:14px; color:var(--muted);" title="Repete: ${t.repeticao}"></i>` : ''}
-                ${iconeAtividade}
               </span>
             </div>
             ${t.descricao ? `<div class="descricao">${escapeHtml(t.descricao)}</div>` : ''}
@@ -2821,7 +2840,7 @@
               </span>
             </div>
             ${total ? `<div style="margin-top:8px;">
-              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--muted); margin-bottom:3px;"><span>Checklist</span><span>${feitos}/${total}</span></div>
+              <div style="display:flex; justify-content:space-between; font-size:10.5px; color:var(--muted); margin-bottom:3px;"><span>${t.checklist_modo === 'atividades' ? 'Atividades' : 'Checklist'}</span><span>${feitos}/${total}</span></div>
               <div class="task-checklist-bar-track"><div class="task-checklist-bar-fill" style="width:${pctChecklist}%;"></div></div>
             </div>` : ''}
             <div class="actions">
@@ -2913,73 +2932,41 @@
     if (aba === 'kanban') ajustarAlturaKanban();
   }
 
-  // ---- Central de atividades (estilo "o que fazer hoje" do Pipedrive, cruzando todos os projetos) ----
-  const ICONE_ATIVIDADE_LISTA = { ligacao: 'ti-phone', reuniao: 'ti-users', lembrete: 'ti-bell' };
-
-  // ---- Aba "Hoje": junta 2 fontes diferentes na mesma lista —
-  // atividades agendadas (ligação/reunião/lembrete, task_activities) E
-  // tarefas com data de vencimento (tasks.data_vencimento). Antes só
-  // entravam atividades; um cartão que só tinha "Vencimento" preenchido
-  // (sem nenhuma atividade agendada) nunca aparecia aqui, o que não fazia
-  // sentido pra uma tela que se propõe a mostrar "o que preciso fazer
-  // hoje". Tarefa já na última coluna (concluída) ou em soneca não entra.
+  // ---- Aba "Hoje": tarefas com data de vencimento (tasks.data_vencimento)
+  // de todos os projetos, numa lista só. Tarefa já na última coluna
+  // (concluída) ou em soneca não entra.
   async function carregarAtividadesHoje() {
     const cont = document.getElementById('atividades-hoje-lista');
     if (!cont) return;
     cont.innerHTML = '<p class="empty-note">Carregando...</p>';
-    const agora = new Date().toISOString();
     const hojeStr = formatDateLocal(new Date());
 
-    const [{ data: dataAtividades, error: erroAtividades }, { data: dataTarefas, error: erroTarefas }] = await Promise.all([
-      sb.from('task_activities').select('*, tasks(id, titulo, project_id)').order('quando'),
-      sb.from('tasks').select('id, titulo, project_id, data_vencimento, coluna_id, soneca_ate').not('data_vencimento', 'is', null)
-    ]);
-    if (erroAtividades || erroTarefas) {
-      cont.innerHTML = `<p class="empty-note">Erro ao carregar: ${escapeHtml((erroAtividades || erroTarefas).message)}</p>`;
+    const { data: dataTarefas, error: erroTarefas } = await sb.from('tasks').select('id, titulo, project_id, data_vencimento, coluna_id, soneca_ate').not('data_vencimento', 'is', null);
+    if (erroTarefas) {
+      cont.innerHTML = `<p class="empty-note">Erro ao carregar: ${escapeHtml(erroTarefas.message)}</p>`;
       return;
     }
 
     const ultima = ultimaColunaId();
-    const itensAtividade = (dataAtividades || []).filter(a => a.tasks).map(a => ({
-      origem: 'atividade', id: a.id, taskId: a.tasks.id, concluida: a.concluida,
-      quando: a.quando, tituloLinha: a.titulo, tarefaTitulo: a.tasks.titulo, projectId: a.tasks.project_id,
-      icone: ICONE_ATIVIDADE_LISTA[a.tipo] || 'ti-bell'
-    }));
     const itensTarefa = (dataTarefas || [])
       .filter(t => t.coluna_id !== ultima)
       .filter(t => !t.soneca_ate || t.soneca_ate <= hojeStr)
       .map(t => ({
-        origem: 'tarefa', id: t.id, taskId: t.id, concluida: false,
+        id: t.id, taskId: t.id,
         dataVencimento: t.data_vencimento, tituloLinha: 'Vencimento', tarefaTitulo: t.titulo, projectId: t.project_id,
         icone: 'ti-calendar-event'
       }));
 
-    const pendentesAtividades = itensAtividade.filter(a => !a.concluida);
-    const concluidas = itensAtividade.filter(a => a.concluida);
-    const atrasadas = [
-      ...pendentesAtividades.filter(a => a.quando < agora),
-      ...itensTarefa.filter(t => t.dataVencimento < hojeStr)
-    ];
-    const deHoje = [
-      ...pendentesAtividades.filter(a => a.quando >= agora && a.quando.slice(0, 10) === hojeStr),
-      ...itensTarefa.filter(t => t.dataVencimento === hojeStr)
-    ];
-    const proximas = [
-      ...pendentesAtividades.filter(a => a.quando >= agora && a.quando.slice(0, 10) !== hojeStr),
-      ...itensTarefa.filter(t => t.dataVencimento > hojeStr)
-    ];
+    const atrasadas = itensTarefa.filter(t => t.dataVencimento < hojeStr);
+    const deHoje = itensTarefa.filter(t => t.dataVencimento === hojeStr);
+    const proximas = itensTarefa.filter(t => t.dataVencimento > hojeStr);
 
     function linhaItemHoje(item) {
       const projeto = projectsCache.find(p => p.id === item.projectId);
-      const quandoFmt = item.origem === 'atividade'
-        ? new Date(item.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-        : item.dataVencimento.split('-').reverse().join('/');
-      const checkbox = item.origem === 'atividade'
-        ? `<input type="checkbox" ${item.concluida ? 'checked' : ''} onchange="toggleAtividadeListaHoje('${item.id}', this.checked)">`
-        : `<span style="width:13px; display:inline-block;"></span>`;
+      const quandoFmt = item.dataVencimento.split('-').reverse().join('/');
       return `
-        <div class="checklist-item ${item.concluida ? 'done' : ''}">
-          ${checkbox}
+        <div class="checklist-item">
+          <span style="width:13px; display:inline-block;"></span>
           <i class="ti ${item.icone}" style="font-size:14px; color:var(--muted);"></i>
           <span class="checklist-texto" style="cursor:pointer;" onclick="abrirTarefaDeAtividade('${item.taskId}')">
             ${escapeHtml(item.tituloLinha)}
@@ -2992,21 +2979,8 @@
     if (atrasadas.length) html += `<h3 style="font-size:13px; color:var(--neg); margin:0 0 6px;">Atrasadas</h3>` + atrasadas.map(linhaItemHoje).join('');
     if (deHoje.length) html += `<h3 style="font-size:13px; margin:16px 0 6px;">Hoje</h3>` + deHoje.map(linhaItemHoje).join('');
     if (proximas.length) html += `<h3 style="font-size:13px; margin:16px 0 6px; color:var(--muted);">Próximas</h3>` + proximas.map(linhaItemHoje).join('');
-    if (!atrasadas.length && !deHoje.length && !proximas.length) html += '<p class="empty-note">Nenhuma atividade ou vencimento pendente.</p>';
-    if (concluidas.length) {
-      html += `<details style="margin-top:16px;"><summary style="font-size:12px; color:var(--muted); cursor:pointer;">${concluidas.length} concluídas</summary>` + concluidas.map(linhaItemHoje).join('') + '</details>';
-    }
+    if (!atrasadas.length && !deHoje.length && !proximas.length) html += '<p class="empty-note">Nenhum vencimento pendente.</p>';
     cont.innerHTML = html;
-  }
-
-  async function toggleAtividadeListaHoje(id, concluida) {
-    const { error } = await sb.from('task_activities').update({ concluida }).eq('id', id);
-    if (error) { alert('Erro: ' + error.message); return; }
-    Object.values(taskActivitiesCache).forEach(lista => {
-      const a = lista.find(x => x.id === id);
-      if (a) a.concluida = concluida;
-    });
-    carregarAtividadesHoje();
   }
 
   function calMudarMes(delta) {
@@ -3225,7 +3199,9 @@
   function atualizarAlertaCartao(cardEl, tarefa, novaColunaId) {
     if (!cardEl) return;
     const hoje = formatDateLocal(new Date());
-    const itensChecklist = checklistCache[tarefa.id] || [];
+    const itensChecklist = tarefa.checklist_modo === 'atividades'
+      ? (atividadesCache[tarefa.id] || []).flatMap(a => a.itens)
+      : (checklistCache[tarefa.id] || []);
     const itensPendentesComData = itensChecklist.filter(i => !i.concluido && i.data_vencimento).sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento));
     const proximaTarefaData = itensPendentesComData.length ? itensPendentesComData[0].data_vencimento : null;
     const atrasado = proximaTarefaData && proximaTarefaData < hoje;
@@ -3345,9 +3321,9 @@
     document.getElementById('tm-repeticao').value = t.repeticao || '';
     document.getElementById('tm-soneca').value = t.soneca_ate || '';
     renderChecklistModal();
+    renderChecklistModoModal();
     renderEtiquetasModal();
     renderResponsaveisModal();
-    renderAtividadesModal();
     document.getElementById('tarefa-modal-overlay').classList.add('aberto');
   }
 
@@ -3501,63 +3477,213 @@
     renderKanban();
   }
 
-  // ---- Atividades da tarefa (dentro do modal) ----
-  const ICONE_ATIVIDADE = { ligacao: 'ti-phone', reuniao: 'ti-users', lembrete: 'ti-bell' };
+  // ---- Checklist em modo "Atividades": grupos de tarefas dentro do
+  // cartão (ex: um grupo por vídeo), cada um com seu próprio checklist e
+  // responsável por tarefa. Alternativa ao checklist simples de sempre —
+  // qual dos dois modos a tarefa usa fica salvo em tasks.checklist_modo. ----
 
-  function renderAtividadesModal() {
+  function renderChecklistModoModal() {
+    const t = tasksCache.find(x => x.id === tarefaModalId);
+    if (!t) return;
+    const modo = t.checklist_modo || 'simples';
+    document.getElementById('tm-modo-simples-btn').classList.toggle('active', modo === 'simples');
+    document.getElementById('tm-modo-atividades-btn').classList.toggle('active', modo === 'atividades');
+    document.getElementById('tm-checklist-simples-wrap').style.display = modo === 'simples' ? 'block' : 'none';
+    document.getElementById('tm-checklist-atividades-wrap').style.display = modo === 'atividades' ? 'block' : 'none';
+    if (modo === 'atividades') renderAtividadesGruposModal();
+  }
+
+  async function mudarModoChecklistModal(modo) {
+    if (!tarefaModalId) return;
+    const { error } = await sb.from('tasks').update({ checklist_modo: modo }).eq('id', tarefaModalId);
+    if (error) { alert('Erro ao mudar o modo do checklist: ' + error.message); return; }
+    const t = tasksCache.find(x => x.id === tarefaModalId);
+    if (t) t.checklist_modo = modo;
+    renderChecklistModoModal();
+    renderKanban();
+  }
+
+  function renderAtividadesGruposModal() {
     const cont = document.getElementById('tm-atividades-lista');
     if (!cont || !tarefaModalId) return;
-    const atividades = (taskActivitiesCache[tarefaModalId] || []).slice().sort((a, b) => a.quando.localeCompare(b.quando));
-    const agora = new Date().toISOString();
+    const atividades = (atividadesCache[tarefaModalId] || []).slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+
+    let totalTarefas = 0, feitasTarefas = 0, gruposCompletos = 0;
+    atividades.forEach(a => {
+      totalTarefas += a.itens.length;
+      const feitas = a.itens.filter(i => i.concluido).length;
+      feitasTarefas += feitas;
+      if (a.itens.length && feitas === a.itens.length) gruposCompletos++;
+    });
+    document.getElementById('tm-atividades-resumo').textContent = atividades.length
+      ? `${gruposCompletos}/${atividades.length} atividades · ${feitasTarefas}/${totalTarefas} tarefas`
+      : '';
+    document.getElementById('tm-atividades-bar-geral').style.width = (totalTarefas ? Math.round(100 * feitasTarefas / totalTarefas) : 0) + '%';
+
+    const respOpts = '<option value="">+ atribuir</option>' + profilesCacheForTasks.map(p => `<option value="${p.id}">${escapeHtml(p.nome || p.email)}</option>`).join('');
+
     cont.innerHTML = atividades.map(a => {
-      const atrasada = !a.concluida && a.quando < agora;
-      const quandoFmt = new Date(a.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+      const feitas = a.itens.filter(i => i.concluido).length;
+      const total = a.itens.length;
+      const completo = total > 0 && feitas === total;
+      const aberto = !!atividadeAbertaMap[a.id];
+      const itensHtml = a.itens.map(i => `
+        <div class="checklist-item ${i.concluido ? 'done' : ''}">
+          <input type="checkbox" ${i.concluido ? 'checked' : ''} onchange="toggleItemAtividade('${i.id}', this.checked)">
+          <span class="checklist-texto" title="Clique pra editar" onclick="editarItemAtividadeTexto(this, '${i.id}')">${escapeHtml(i.texto)}</span>
+          <button class="row-action danger" onclick="excluirItemAtividade('${i.id}')">Excluir</button>
+        </div>
+        <div class="checklist-item-extra">
+          <select onchange="salvarItemAtividadeResponsavel('${i.id}', this.value || null)">${respOpts.replace(`value="${i.responsavel_id || ''}"`, `value="${i.responsavel_id || ''}" selected`)}</select>
+          <input type="date" value="${i.data_vencimento || ''}" onchange="salvarItemAtividadeData('${i.id}', this.value || null)">
+        </div>`).join('') || '<p class="empty-note" style="padding-left:26px;">Essa atividade ainda não tem nenhuma tarefa.</p>';
+
       return `
-      <div class="checklist-item ${a.concluida ? 'done' : ''}">
-        <input type="checkbox" ${a.concluida ? 'checked' : ''} onchange="toggleAtividadeModal('${a.id}', this.checked)">
-        <i class="ti ${ICONE_ATIVIDADE[a.tipo] || 'ti-bell'}" style="font-size:14px; color:var(--muted);"></i>
-        <span class="checklist-texto" style="cursor:default;">${escapeHtml(a.titulo)} <span style="color:${atrasada ? 'var(--neg)' : 'var(--muted)'};">· ${quandoFmt}</span></span>
-        <button class="row-action danger" onclick="excluirAtividadeModal('${a.id}')">Excluir</button>
-      </div>`;
-    }).join('') || '<p class="empty-note">Nenhuma atividade agendada.</p>';
+        <div style="background:#0f1526; border:1px solid var(--card-border); border-radius:8px; margin-bottom:8px; overflow:hidden;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; cursor:pointer;" onclick="alternarAtividadeAberta('${a.id}')">
+            <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:0;">
+              <i class="ti ti-chevron-down" style="font-size:13px; color:var(--muted); transition:transform .15s; transform:rotate(${aberto ? 0 : -90}deg); flex-shrink:0;"></i>
+              <span class="tm-editable" contenteditable="true" data-placeholder="Nome da atividade" style="font-size:13.5px; font-weight:600;" onclick="event.stopPropagation()" onblur="salvarNomeAtividade('${a.id}', this.textContent.trim())" onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}">${escapeHtml(a.nome)}</span>
+            </div>
+            <span style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+              <span style="font-size:12px; font-weight:600; color:${completo ? 'var(--pos)' : 'var(--muted)'};">${feitas}/${total}</span>
+              <button class="row-action danger" onclick="event.stopPropagation(); excluirAtividade('${a.id}')">Excluir</button>
+            </span>
+          </div>
+          ${aberto ? `
+          <div style="padding:0 10px 10px 34px;">
+            ${itensHtml}
+            <div class="form-row" style="margin-top:8px; align-items:flex-end;">
+              <div><input type="text" id="tm-atividade-novo-item-${a.id}" placeholder="Adicionar tarefa nesta atividade..." onkeydown="if(event.key==='Enter'){event.preventDefault();adicionarItemAtividade('${a.id}');}"></div>
+              <div style="flex:0;"><button type="button" class="secondary" onclick="adicionarItemAtividade('${a.id}')">Adicionar</button></div>
+            </div>
+          </div>` : ''}
+        </div>`;
+    }).join('') || '<p class="empty-note">Nenhuma atividade ainda. Clique em "+ Nova atividade" pra criar a primeira.</p>';
   }
 
-  async function adicionarAtividadeModal() {
+  async function criarAtividadeModal() {
     if (!tarefaModalId) return;
-    const titulo = document.getElementById('tm-atividade-titulo').value.trim();
-    const quandoLocal = document.getElementById('tm-atividade-quando').value;
-    if (!titulo || !quandoLocal) { alert('Preencha o título e a data/hora da atividade.'); return; }
-    const tipo = document.getElementById('tm-atividade-tipo').value;
-    const quando = new Date(quandoLocal).toISOString();
-    const { data, error } = await sb.from('task_activities').insert({ task_id: tarefaModalId, tipo, titulo, quando }).select().single();
-    if (error) { alert('Erro ao agendar atividade: ' + error.message); return; }
-    if (!taskActivitiesCache[tarefaModalId]) taskActivitiesCache[tarefaModalId] = [];
-    taskActivitiesCache[tarefaModalId].push(data);
-    document.getElementById('tm-atividade-titulo').value = '';
-    document.getElementById('tm-atividade-quando').value = '';
-    renderAtividadesModal();
+    const atuais = atividadesCache[tarefaModalId] || [];
+    const nome = `Atividade ${atuais.length + 1}`;
+    const ordem = atuais.length ? Math.max(...atuais.map(a => a.ordem || 0)) + 1 : 0;
+    const { data, error } = await sb.from('task_atividades').insert({ task_id: tarefaModalId, nome, ordem }).select().single();
+    if (error) { alert('Erro ao criar atividade: ' + error.message); return; }
+    if (!atividadesCache[tarefaModalId]) atividadesCache[tarefaModalId] = [];
+    atividadesCache[tarefaModalId].push({ ...data, itens: [] });
+    atividadeAbertaMap[data.id] = true;
+    renderAtividadesGruposModal();
     renderKanban();
   }
 
-  async function toggleAtividadeModal(id, concluida) {
-    const { error } = await sb.from('task_activities').update({ concluida }).eq('id', id);
-    if (error) { alert('Erro: ' + error.message); return; }
-    Object.values(taskActivitiesCache).forEach(lista => {
+  function alternarAtividadeAberta(id) {
+    atividadeAbertaMap[id] = !atividadeAbertaMap[id];
+    renderAtividadesGruposModal();
+  }
+
+  async function salvarNomeAtividade(id, nome) {
+    if (!nome) { renderAtividadesGruposModal(); return; }
+    const { error } = await sb.from('task_atividades').update({ nome }).eq('id', id);
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    Object.values(atividadesCache).forEach(lista => {
       const a = lista.find(x => x.id === id);
-      if (a) a.concluida = concluida;
+      if (a) a.nome = nome;
     });
-    renderAtividadesModal();
+  }
+
+  async function excluirAtividade(id) {
+    if (!confirm('Excluir essa atividade e todas as tarefas dela?')) return;
+    const { error } = await sb.from('task_atividades').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    Object.keys(atividadesCache).forEach(taskId => {
+      atividadesCache[taskId] = (atividadesCache[taskId] || []).filter(a => a.id !== id);
+    });
+    delete atividadeAbertaMap[id];
+    renderAtividadesGruposModal();
     renderKanban();
   }
 
-  async function excluirAtividadeModal(id) {
-    if (!confirm('Excluir essa atividade?')) return;
-    const { error } = await sb.from('task_activities').delete().eq('id', id);
+  function buscarItemAtividade(id) {
+    for (const lista of Object.values(atividadesCache)) {
+      for (const a of lista) {
+        const item = a.itens.find(i => i.id === id);
+        if (item) return item;
+      }
+    }
+    return null;
+  }
+
+  async function adicionarItemAtividade(atividadeId) {
+    const input = document.getElementById(`tm-atividade-novo-item-${atividadeId}`);
+    if (!input) return;
+    const texto = input.value.trim();
+    if (!texto) return;
+    const atividade = (atividadesCache[tarefaModalId] || []).find(a => a.id === atividadeId);
+    const ordem = atividade && atividade.itens.length ? Math.max(...atividade.itens.map(i => i.ordem || 0)) + 1 : 0;
+    const { data, error } = await sb.from('task_atividade_itens').insert({ atividade_id: atividadeId, texto, ordem }).select().single();
+    if (error) { alert('Erro ao adicionar tarefa: ' + error.message); return; }
+    if (atividade) atividade.itens.push(data);
+    renderAtividadesGruposModal();
+    renderKanban();
+    const novoInput = document.getElementById(`tm-atividade-novo-item-${atividadeId}`);
+    if (novoInput) novoInput.focus();
+  }
+
+  async function toggleItemAtividade(id, concluido) {
+    const { error } = await sb.from('task_atividade_itens').update({ concluido }).eq('id', id);
+    if (error) { alert('Erro: ' + error.message); return; }
+    const item = buscarItemAtividade(id);
+    if (item) item.concluido = concluido;
+    renderAtividadesGruposModal();
+    renderKanban();
+  }
+
+  function editarItemAtividadeTexto(spanEl, id) {
+    const item = buscarItemAtividade(id);
+    if (!item) return;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = item.texto;
+    input.className = 'checklist-texto-input';
+    spanEl.replaceWith(input);
+    input.focus();
+    input.select();
+    input.onblur = () => salvarItemAtividadeTexto(id, input.value);
+    input.onkeydown = (e) => { if (e.key === 'Enter') input.blur(); };
+  }
+
+  async function salvarItemAtividadeTexto(id, novoTexto) {
+    const texto = novoTexto.trim();
+    if (!texto) { renderAtividadesGruposModal(); return; }
+    const { error } = await sb.from('task_atividade_itens').update({ texto }).eq('id', id);
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    const item = buscarItemAtividade(id);
+    if (item) item.texto = texto;
+    renderAtividadesGruposModal();
+  }
+
+  async function salvarItemAtividadeResponsavel(id, responsavelId) {
+    const { error } = await sb.from('task_atividade_itens').update({ responsavel_id: responsavelId }).eq('id', id);
+    if (error) { alert('Erro ao atribuir: ' + error.message); return; }
+    const item = buscarItemAtividade(id);
+    if (item) item.responsavel_id = responsavelId;
+  }
+
+  async function salvarItemAtividadeData(id, data) {
+    const { error } = await sb.from('task_atividade_itens').update({ data_vencimento: data }).eq('id', id);
+    if (error) { alert('Erro ao salvar data: ' + error.message); return; }
+    const item = buscarItemAtividade(id);
+    if (item) item.data_vencimento = data;
+  }
+
+  async function excluirItemAtividade(id) {
+    if (!confirm('Excluir essa tarefa?')) return;
+    const { error } = await sb.from('task_atividade_itens').delete().eq('id', id);
     if (error) { alert('Erro ao excluir: ' + error.message); return; }
-    Object.keys(taskActivitiesCache).forEach(taskId => {
-      taskActivitiesCache[taskId] = (taskActivitiesCache[taskId] || []).filter(a => a.id !== id);
-    });
-    renderAtividadesModal();
+    Object.values(atividadesCache).forEach(lista => lista.forEach(a => {
+      a.itens = a.itens.filter(i => i.id !== id);
+    }));
+    renderAtividadesGruposModal();
     renderKanban();
   }
 
