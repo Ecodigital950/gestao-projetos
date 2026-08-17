@@ -3547,6 +3547,7 @@
             </div>
             <span style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
               <span style="font-size:12px; font-weight:600; color:${completo ? 'var(--pos)' : 'var(--muted)'};">${feitas}/${total}</span>
+              <button class="row-action" onclick="event.stopPropagation(); duplicarAtividade('${a.id}')" title="Duplicar atividade">Duplicar</button>
               <button class="row-action danger" onclick="event.stopPropagation(); excluirAtividade('${a.id}')">Excluir</button>
             </span>
           </div>
@@ -3572,6 +3573,52 @@
     if (!atividadesCache[tarefaModalId]) atividadesCache[tarefaModalId] = [];
     atividadesCache[tarefaModalId].push({ ...data, itens: [] });
     atividadeAbertaMap[data.id] = true;
+    renderAtividadesGruposModal();
+    renderKanban();
+  }
+
+  // Gera "Vídeo 2 (cópia)", e se já existir, "Vídeo 2 (cópia 2)", "(cópia 3)"...
+  function nomeAtividadeDuplicada(nomeOriginal, atuais) {
+    const nomesExistentes = new Set(atuais.map(a => a.nome));
+    const base = nomeOriginal.replace(/ \(cópia( \d+)?\)$/, '');
+    let candidato = `${base} (cópia)`;
+    let n = 2;
+    while (nomesExistentes.has(candidato)) {
+      candidato = `${base} (cópia ${n})`;
+      n++;
+    }
+    return candidato;
+  }
+
+  // Duplica a atividade inteira: cria um novo grupo com o mesmo nome (+
+  // "(cópia)") e copia todas as tarefas dele (texto, responsável e data),
+  // mas já desmarcadas — pra reaproveitar rápido a mesma estrutura numa
+  // nova entrega (ex: os 4 passos-padrão de um vídeo novo).
+  async function duplicarAtividade(id) {
+    if (!tarefaModalId) return;
+    const atuais = atividadesCache[tarefaModalId] || [];
+    const original = atuais.find(a => a.id === id);
+    if (!original) return;
+    const nome = nomeAtividadeDuplicada(original.nome, atuais);
+    const ordem = atuais.length ? Math.max(...atuais.map(a => a.ordem || 0)) + 1 : 0;
+    const { data: novaAtividade, error } = await sb.from('task_atividades').insert({ task_id: tarefaModalId, nome, ordem }).select().single();
+    if (error) { alert('Erro ao duplicar atividade: ' + error.message); return; }
+    let novosItens = [];
+    if (original.itens.length) {
+      const payload = original.itens.map((i, idx) => ({
+        atividade_id: novaAtividade.id,
+        texto: i.texto,
+        ordem: idx,
+        responsavel_id: i.responsavel_id,
+        data_vencimento: i.data_vencimento,
+        concluido: false
+      }));
+      const { data, error: errItens } = await sb.from('task_atividade_itens').insert(payload).select();
+      if (errItens) alert('Atividade duplicada, mas houve erro ao copiar as tarefas: ' + errItens.message);
+      else novosItens = data;
+    }
+    atividadesCache[tarefaModalId].push({ ...novaAtividade, itens: novosItens });
+    atividadeAbertaMap[novaAtividade.id] = true;
     renderAtividadesGruposModal();
     renderKanban();
   }
