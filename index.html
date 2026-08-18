@@ -2786,11 +2786,13 @@
       const todasDaColuna = tasksCache.filter(t => t.coluna_id === col.id).filter(passaFiltroEtiqueta);
       const tarefasDaColuna = todasDaColuna.filter(t => !t.soneca_ate || t.soneca_ate <= hoje);
       const emSoneca = todasDaColuna.filter(t => t.soneca_ate && t.soneca_ate > hoje);
-      // Ordenação inteligente: cartão com vencimento mais próximo (ou já
-      // atrasado) sobe pro topo da coluna — quanto mais urgente, mais
-      // visível. Cartão sem nenhuma data mantém a ordem manual (arraste),
-      // e fica sempre depois dos que têm data.
+      // Ordenação inteligente: cartão fixado sempre no topo, acima de
+      // qualquer outro critério. Dentro de cada grupo (fixado/não fixado),
+      // cartão com vencimento mais próximo (ou já atrasado) sobe primeiro
+      // — quanto mais urgente, mais visível. Cartão sem nenhuma data mantém
+      // a ordem manual (arraste), e fica sempre depois dos que têm data.
       tarefasDaColuna.sort((a, b) => {
+        if (!!a.fixado !== !!b.fixado) return a.fixado ? -1 : 1;
         const dataA = proximaDataVencimentoTarefa(a.id);
         const dataB = proximaDataVencimentoTarefa(b.id);
         if (dataA && dataB) return dataA.localeCompare(dataB);
@@ -2823,8 +2825,11 @@
           <div class="task-card prio-${t.prioridade}" data-task-id="${t.id}" onclick="abrirTarefaModalSeNaoArrastou('${t.id}')">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
               <div class="titulo">${escapeHtml(t.titulo)}</div>
-              <span style="display:flex; gap:6px; flex-shrink:0;">
-                ${t.repeticao ? `<i class="ti ti-repeat" style="font-size:14px; color:var(--muted);" title="Repete: ${t.repeticao}"></i>` : ''}
+              <span style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
+                ${t.repeticao ? `<i class="ti ti-repeat" style="font-size:14px; color:var(--muted); margin-right:4px;" title="Repete: ${t.repeticao}"></i>` : ''}
+                <button class="row-action" onclick="event.stopPropagation(); toggleFixarTarefa('${t.id}', ${!t.fixado})" title="${t.fixado ? 'Desafixar do topo' : 'Fixar no topo'}" style="padding:2px 4px; color:${t.fixado ? 'var(--info)' : 'var(--muted)'};">
+                  <i class="ti ti-pin" style="font-size:13px; transform:rotate(${t.fixado ? '0' : '45'}deg); display:inline-block;"></i>
+                </button>
               </span>
             </div>
             ${t.descricao ? `<div class="descricao">${escapeHtml(t.descricao)}</div>` : ''}
@@ -3100,6 +3105,17 @@
     if (error) { alert('Erro ao mover tarefa: ' + error.message); return; }
     await tratarMovimentoParaColuna(id, novaColuna.id);
     carregarTarefas();
+  }
+
+  // Fixa/desafixa um cartão no topo da coluna dele — sobe na frente de
+  // qualquer ordenação por vencimento ou arraste manual (ver sort em
+  // renderKanban). Botão pequeno no canto do cartão, sem popup nem confirmação.
+  async function toggleFixarTarefa(id, novoValor) {
+    const { error } = await sb.from('tasks').update({ fixado: novoValor }).eq('id', id);
+    if (error) { alert('Erro ao fixar tarefa: ' + error.message); return; }
+    const t = tasksCache.find(x => x.id === id);
+    if (t) t.fixado = novoValor;
+    renderKanban();
   }
 
   // ---- Drag and drop com SortableJS (biblioteca por trás de vários clones
