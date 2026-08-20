@@ -3538,7 +3538,7 @@
 
     const respOpts = '<option value="">+ atribuir</option>' + profilesCacheForTasks.map(p => `<option value="${p.id}">${escapeHtml(p.nome || p.email)}</option>`).join('');
 
-    cont.innerHTML = atividades.map(a => {
+    cont.innerHTML = atividades.map((a, aidx) => {
       const feitas = a.itens.filter(i => i.concluido).length;
       const total = a.itens.length;
       const completo = total > 0 && feitas === total;
@@ -3567,6 +3567,10 @@
             </div>
             <span style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
               <span style="font-size:12px; font-weight:600; color:${completo ? 'var(--pos)' : 'var(--muted)'};">${feitas}/${total}</span>
+              <span class="checklist-move">
+                <button class="row-action" ${aidx === 0 ? 'disabled' : ''} onclick="event.stopPropagation(); moverAtividade('${a.id}', -1)" title="Mover atividade pra cima">▲</button>
+                <button class="row-action" ${aidx === atividades.length - 1 ? 'disabled' : ''} onclick="event.stopPropagation(); moverAtividade('${a.id}', 1)" title="Mover atividade pra baixo">▼</button>
+              </span>
               <button class="row-action" onclick="event.stopPropagation(); duplicarAtividade('${a.id}')" title="Duplicar atividade">Duplicar</button>
               <button class="row-action danger" onclick="event.stopPropagation(); excluirAtividade('${a.id}')">Excluir</button>
             </span>
@@ -3752,6 +3756,26 @@
     }));
     renderAtividadesGruposModal();
     renderKanban();
+  }
+
+  async function moverAtividade(id, direcao) {
+    if (!tarefaModalId) return;
+    const atividades = (atividadesCache[tarefaModalId] || []).slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+    const idx = atividades.findIndex(a => a.id === id);
+    const novoIdx = idx + direcao;
+    if (idx < 0 || novoIdx < 0 || novoIdx >= atividades.length) return;
+    const ativA = atividades[idx];
+    const ativB = atividades[novoIdx];
+    const ordemA = ativA.ordem;
+    const ordemB = ativB.ordem;
+    const [r1, r2] = await Promise.all([
+      sb.from('task_atividades').update({ ordem: ordemB }).eq('id', ativA.id),
+      sb.from('task_atividades').update({ ordem: ordemA }).eq('id', ativB.id),
+    ]);
+    if (r1.error || r2.error) { alert('Erro ao mover atividade: ' + (r1.error || r2.error).message); return; }
+    ativA.ordem = ordemB;
+    ativB.ordem = ordemA;
+    renderAtividadesGruposModal();
   }
 
   async function moverItemAtividade(atividadeId, id, direcao) {
