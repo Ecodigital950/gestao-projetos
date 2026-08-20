@@ -283,6 +283,7 @@
   .checklist-item input.checklist-texto-input { flex: 1; font-size: 13px; }
   .checklist-move { display: flex; gap: 2px; flex-shrink: 0; }
   .checklist-move .row-action { padding: 1px 5px; font-size: 10px; }
+  .checklist-move-select { font-size: 11px; padding: 2px 4px; height: 24px; background: transparent; border: 1px dashed var(--card-border); color: var(--muted); border-radius: 4px; flex-shrink: 0; }
   .checklist-item-extra { display: flex; gap: 8px; padding: 0 0 8px 26px; }
   .checklist-item-extra select, .checklist-item-extra input[type="date"] { font-size: 11.5px; padding: 3px 6px; height: 26px; background: transparent; border: 1px dashed var(--card-border); color: var(--muted); }
   .checklist-item-extra select:not([value=""]), .checklist-item-extra input[type="date"]:valid { color: var(--text); }
@@ -3547,10 +3548,9 @@
         <div class="checklist-item ${i.concluido ? 'done' : ''}">
           <input type="checkbox" ${i.concluido ? 'checked' : ''} onchange="toggleItemAtividade('${i.id}', this.checked)">
           <span class="checklist-texto" title="Clique pra editar" onclick="editarItemAtividadeTexto(this, '${i.id}')">${escapeHtml(i.texto)}</span>
-          <span class="checklist-move">
-            <button class="row-action" ${iidx === 0 ? 'disabled' : ''} onclick="moverItemAtividade('${a.id}', '${i.id}', -1)" title="Mover pra cima">▲</button>
-            <button class="row-action" ${iidx === a.itens.length - 1 ? 'disabled' : ''} onclick="moverItemAtividade('${a.id}', '${i.id}', 1)" title="Mover pra baixo">▼</button>
-          </span>
+          <select class="checklist-move-select" onclick="event.stopPropagation()" onchange="moverItemAtividadePara('${a.id}', '${i.id}', parseInt(this.value, 10))" title="Mover para a posição...">
+            ${a.itens.map((_, ii) => `<option value="${ii + 1}" ${ii === iidx ? 'selected' : ''}>${ii + 1}º</option>`).join('')}
+          </select>
           <button class="row-action danger" onclick="excluirItemAtividade('${i.id}')">Excluir</button>
         </div>
         <div class="checklist-item-extra">
@@ -3567,10 +3567,9 @@
             </div>
             <span style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
               <span style="font-size:12px; font-weight:600; color:${completo ? 'var(--pos)' : 'var(--muted)'};">${feitas}/${total}</span>
-              <span class="checklist-move">
-                <button class="row-action" ${aidx === 0 ? 'disabled' : ''} onclick="event.stopPropagation(); moverAtividade('${a.id}', -1)" title="Mover atividade pra cima">▲</button>
-                <button class="row-action" ${aidx === atividades.length - 1 ? 'disabled' : ''} onclick="event.stopPropagation(); moverAtividade('${a.id}', 1)" title="Mover atividade pra baixo">▼</button>
-              </span>
+              <select class="checklist-move-select" onclick="event.stopPropagation()" onchange="event.stopPropagation(); moverAtividadePara('${a.id}', parseInt(this.value, 10))" title="Mover para a posição...">
+                ${atividades.map((_, ai) => `<option value="${ai + 1}" ${ai === aidx ? 'selected' : ''}>${ai + 1}º</option>`).join('')}
+              </select>
               <button class="row-action" onclick="event.stopPropagation(); duplicarAtividade('${a.id}')" title="Duplicar atividade">Duplicar</button>
               <button class="row-action danger" onclick="event.stopPropagation(); excluirAtividade('${a.id}')">Excluir</button>
             </span>
@@ -3758,44 +3757,42 @@
     renderKanban();
   }
 
-  async function moverAtividade(id, direcao) {
+  // Move a atividade pra uma posição escolhida (1 = topo). Em vez de só
+  // trocar a "ordem" com o vizinho (que travava quando duas atividades
+  // acabavam com o mesmo número salvo — bug real encontrado num cartão),
+  // reindexa a lista inteira do zero a cada movimento. Isso corrige
+  // sozinho qualquer ordem duplicada/torta que tenha ficado de antes, e
+  // nunca mais deve "prender" o movimento no meio do caminho.
+  async function moverAtividadePara(id, novaPosicao1Based) {
     if (!tarefaModalId) return;
     const atividades = (atividadesCache[tarefaModalId] || []).slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
-    const idx = atividades.findIndex(a => a.id === id);
-    const novoIdx = idx + direcao;
-    if (idx < 0 || novoIdx < 0 || novoIdx >= atividades.length) return;
-    const ativA = atividades[idx];
-    const ativB = atividades[novoIdx];
-    const ordemA = ativA.ordem;
-    const ordemB = ativB.ordem;
-    const [r1, r2] = await Promise.all([
-      sb.from('task_atividades').update({ ordem: ordemB }).eq('id', ativA.id),
-      sb.from('task_atividades').update({ ordem: ordemA }).eq('id', ativB.id),
-    ]);
-    if (r1.error || r2.error) { alert('Erro ao mover atividade: ' + (r1.error || r2.error).message); return; }
-    ativA.ordem = ordemB;
-    ativB.ordem = ordemA;
+    const idxAtual = atividades.findIndex(a => a.id === id);
+    if (idxAtual < 0) return;
+    const novoIdx = Math.max(0, Math.min(atividades.length - 1, novaPosicao1Based - 1));
+    if (novoIdx === idxAtual) return;
+    const [movida] = atividades.splice(idxAtual, 1);
+    atividades.splice(novoIdx, 0, movida);
+    const resultados = await Promise.all(atividades.map((a, i) => sb.from('task_atividades').update({ ordem: i }).eq('id', a.id)));
+    const comErro = resultados.find(r => r.error);
+    if (comErro) { alert('Erro ao mover atividade: ' + comErro.error.message); return; }
+    atividades.forEach((a, i) => { a.ordem = i; });
     renderAtividadesGruposModal();
   }
 
-  async function moverItemAtividade(atividadeId, id, direcao) {
+  async function moverItemAtividadePara(atividadeId, itemId, novaPosicao1Based) {
     const atividade = (atividadesCache[tarefaModalId] || []).find(a => a.id === atividadeId);
     if (!atividade) return;
-    const itens = atividade.itens;
-    const idx = itens.findIndex(i => i.id === id);
-    const novoIdx = idx + direcao;
-    if (idx < 0 || novoIdx < 0 || novoIdx >= itens.length) return;
-    const itemA = itens[idx];
-    const itemB = itens[novoIdx];
-    const ordemA = itemA.ordem;
-    const ordemB = itemB.ordem;
-    const [r1, r2] = await Promise.all([
-      sb.from('task_atividade_itens').update({ ordem: ordemB }).eq('id', itemA.id),
-      sb.from('task_atividade_itens').update({ ordem: ordemA }).eq('id', itemB.id),
-    ]);
-    if (r1.error || r2.error) { alert('Erro ao mover tarefa: ' + (r1.error || r2.error).message); return; }
-    itemA.ordem = ordemB;
-    itemB.ordem = ordemA;
+    const itens = atividade.itens.slice().sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+    const idxAtual = itens.findIndex(i => i.id === itemId);
+    if (idxAtual < 0) return;
+    const novoIdx = Math.max(0, Math.min(itens.length - 1, novaPosicao1Based - 1));
+    if (novoIdx === idxAtual) return;
+    const [movido] = itens.splice(idxAtual, 1);
+    itens.splice(novoIdx, 0, movido);
+    const resultados = await Promise.all(itens.map((it, i) => sb.from('task_atividade_itens').update({ ordem: i }).eq('id', it.id)));
+    const comErro = resultados.find(r => r.error);
+    if (comErro) { alert('Erro ao mover tarefa: ' + comErro.error.message); return; }
+    itens.forEach((it, i) => { it.ordem = i; });
     atividade.itens.sort((a, b) => a.ordem - b.ordem);
     renderAtividadesGruposModal();
   }
