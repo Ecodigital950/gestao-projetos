@@ -350,10 +350,12 @@
   .fin-card-total { font-size: 16px; font-weight: 700; }
   .fin-card-sub { font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 3px; white-space: nowrap; }
   .fin-lanc-lista { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-  .fin-lanc-row { display: grid; grid-template-columns: 44px 1fr 76px 92px 54px 20px; gap: 5px; align-items: center; }
-  .fin-lanc-pago-badge { cursor: pointer; font-size: 10px; font-weight: 700; text-align: center; padding: 3px 4px; border-radius: 4px; white-space: nowrap; }
-  .fin-lanc-projeto-select { font-size: 11px; padding: 4px 3px; background: transparent; border: 1px dashed var(--card-border); color: var(--muted); border-radius: 4px; }
-  .fin-lanc-projeto-select:not([value=""]) { color: var(--text); }
+  .fin-lanc-row { display: grid; grid-template-columns: 32px 1fr 62px 22px 20px 16px; gap: 4px; align-items: center; }
+  .fin-lanc-badge-projeto-wrap { position: relative; width: 22px; height: 22px; flex-shrink: 0; }
+  .fin-lanc-badge-projeto { width: 22px; height: 22px; border-radius: 50%; font-size: 8.5px; font-weight: 700; color: #0c1120; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+  .fin-lanc-badge-projeto.vazio { background: transparent; border: 1px dashed var(--card-border); color: var(--muted); font-size: 11px; }
+  .fin-lanc-badge-projeto-select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: none; padding: 0; }
+  .fin-lanc-badge-pago { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; font-size: 11px; }
   .fin-lanc-row input { font-size: 11.5px; padding: 5px 6px; }
   .fin-lanc-row input:last-of-type { text-align: right; }
   .fin-lanc-excluir { font-size: 14px; color: var(--muted); cursor: pointer; }
@@ -4677,23 +4679,33 @@
           ${itens.map(i => {
             const projetoAtual = projectsCache.find(p => p.id === i.project_id);
             const rotuloProjeto = cat.tipo === 'entrada' ? 'Origem' : 'Centro de custo';
+            const badgeProjetoHtml = projetoAtual
+              ? `<span class="fin-lanc-badge-projeto" style="background:${corAvatar(projetoAtual.id)};">${iniciaisResponsavel(projetoAtual)}</span>`
+              : `<span class="fin-lanc-badge-projeto vazio"><i class="ti ti-folder"></i></span>`;
+            const tituloProjeto = projetoAtual ? `${rotuloProjeto}: ${projetoAtual.nome}` : `Sem ${rotuloProjeto.toLowerCase()}`;
+            const badgePagoHtml = i.assinatura_id
+              ? `<span class="fin-lanc-badge-pago" style="background:${i.pago ? 'var(--pos)' : 'transparent'}; border:${i.pago ? 'none' : '1px solid var(--card-border)'};" title="${i.pago ? 'Pago' : 'Pendente'}" ${somenteLeitura ? '' : `onclick="toggleFinLancamentoPago('${i.id}', ${!i.pago})"`}><i class="ti ${i.pago ? 'ti-check' : 'ti-clock'}" style="color:${i.pago ? '#04342c' : 'var(--muted)'};"></i></span>`
+              : '<span></span>';
             return somenteLeitura ? `
-            <div class="fin-lanc-row" style="grid-template-columns: 60px 1fr 76px 92px 54px;">
+            <div class="fin-lanc-row" style="grid-template-columns: 50px 1fr 62px 22px 20px;">
               <span class="fin-card-sub">${i.mes ? mesAbrev(i.mes) : (i.dia || '')}</span>
               <span class="fin-card-sub">${escapeHtml(i.nome || '')}</span>
               <span class="fin-card-sub">${brl(i.valor)}</span>
-              <span class="fin-card-sub" title="${rotuloProjeto}">${projetoAtual ? escapeHtml(projetoAtual.nome) : ''}</span>
-              ${i.assinatura_id ? `<span class="fin-card-sub" style="color:${i.pago ? 'var(--pos)' : 'var(--muted)'};">${i.pago ? 'Pago' : 'Pendente'}</span>` : '<span></span>'}
+              <span title="${tituloProjeto}">${badgeProjetoHtml}</span>
+              ${badgePagoHtml}
             </div>` : `
             <div class="fin-lanc-row">
               <input type="text" value="${i.dia || ''}" placeholder="dia" onblur="salvarFinLancamentoCampo('${i.id}','dia',this.value)">
               <input type="text" value="${escapeHtml(i.nome || '')}" placeholder="descrição" list="fin-nomes-${cat.id}" onblur="salvarFinLancamentoCampo('${i.id}','nome',this.value)">
               <input type="text" inputmode="decimal" value="${formatValorBR(i.valor)}" placeholder="0,00" onblur="salvarFinLancamentoCampo('${i.id}','valor',this.value)">
-              <select class="fin-lanc-projeto-select" title="${rotuloProjeto}" onchange="salvarFinLancamentoCampo('${i.id}','project_id',this.value)">
-                <option value="">${rotuloProjeto}</option>
-                ${projectsCache.map(p => `<option value="${p.id}" ${p.id === i.project_id ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`).join('')}
-              </select>
-              ${i.assinatura_id ? `<span class="fin-lanc-pago-badge" onclick="toggleFinLancamentoPago('${i.id}', ${!i.pago})" title="${i.pago ? 'Clique pra marcar como não pago' : 'Clique pra marcar como pago'}" style="background:${i.pago ? 'rgba(52,211,153,0.18)' : 'rgba(137,146,171,0.15)'}; color:${i.pago ? 'var(--pos)' : 'var(--muted)'};">${i.pago ? 'Pago' : 'Pendente'}</span>` : '<span></span>'}
+              <div class="fin-lanc-badge-projeto-wrap" title="${tituloProjeto}">
+                ${badgeProjetoHtml}
+                <select class="fin-lanc-badge-projeto-select" onchange="salvarFinLancamentoCampo('${i.id}','project_id',this.value)">
+                  <option value="">Sem ${rotuloProjeto.toLowerCase()}</option>
+                  ${projectsCache.map(p => `<option value="${p.id}" ${p.id === i.project_id ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`).join('')}
+                </select>
+              </div>
+              ${badgePagoHtml}
               <i class="ti ti-trash fin-lanc-excluir" onclick="excluirFinLancamento('${i.id}')"></i>
             </div>`;
           }).join('')}
