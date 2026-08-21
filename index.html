@@ -1042,6 +1042,9 @@
     <label style="display:flex;align-items:center;gap:8px;margin-top:10px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
       <input type="checkbox" id="fincat-modal-eh-meta" style="width:auto;" onchange="toggleFinMetaCamposModal()"> <i class="ti ti-target-arrow"></i> É uma meta/objetivo (acumula valor de mês a mês até bater um alvo)
     </label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
+      <input type="checkbox" id="fincat-modal-eh-assinatura" style="width:auto;"> <i class="ti ti-refresh"></i> É uma categoria de assinaturas (mostra a tag Pago/Pendente em todo item)
+    </label>
     <div id="fincat-modal-meta-campos" style="display:none;">
       <div class="form-row" style="margin-top:8px;">
         <div><label>Valor da meta (R$)</label><input type="text" inputmode="decimal" id="fincat-modal-meta-valor" placeholder="0,00"></div>
@@ -4683,7 +4686,7 @@
               ? `<span class="fin-lanc-badge-projeto" style="background:${corAvatar(projetoAtual.id)};">${iniciaisResponsavel(projetoAtual)}</span>`
               : `<span class="fin-lanc-badge-projeto vazio"><i class="ti ti-folder"></i></span>`;
             const tituloProjeto = projetoAtual ? `${rotuloProjeto}: ${projetoAtual.nome}` : `Sem ${rotuloProjeto.toLowerCase()}`;
-            const badgePagoHtml = i.assinatura_id
+            const badgePagoHtml = (cat.eh_assinatura || i.assinatura_id)
               ? `<span class="fin-lanc-badge-pago" style="background:${i.pago ? 'var(--pos)' : 'transparent'}; border:${i.pago ? 'none' : '1px solid var(--card-border)'};" title="${i.pago ? 'Pago' : 'Pendente'}" ${somenteLeitura ? '' : `onclick="toggleFinLancamentoPago('${i.id}', ${!i.pago})"`}><i class="ti ${i.pago ? 'ti-check' : 'ti-clock'}" style="color:${i.pago ? '#04342c' : 'var(--muted)'};"></i></span>`
               : '<span></span>';
             return somenteLeitura ? `
@@ -4808,6 +4811,7 @@
       document.getElementById('fincat-modal-eh-meta').checked = !!cat.eh_meta;
       document.getElementById('fincat-modal-meta-valor').value = cat.meta_valor ? formatValorBR(cat.meta_valor) : '';
       document.getElementById('fincat-modal-meta-data').value = cat.meta_data || '';
+      document.getElementById('fincat-modal-eh-assinatura').checked = !!cat.eh_assinatura;
       excluirEl.style.display = 'inline';
     } else {
       document.getElementById('fin-cat-modal-titulo').textContent = `Nova categoria (${contexto === 'eco' ? 'Eco' : 'Pessoal'})`;
@@ -4817,6 +4821,7 @@
       document.getElementById('fincat-modal-eh-meta').checked = false;
       document.getElementById('fincat-modal-meta-valor').value = '';
       document.getElementById('fincat-modal-meta-data').value = '';
+      document.getElementById('fincat-modal-eh-assinatura').checked = false;
       excluirEl.style.display = 'none';
     }
     toggleFinMetaCamposModal();
@@ -4860,14 +4865,15 @@
     const eh_meta = document.getElementById('fincat-modal-eh-meta').checked;
     const meta_valor = eh_meta ? parseValorBR(document.getElementById('fincat-modal-meta-valor').value) : null;
     const meta_data = eh_meta ? (document.getElementById('fincat-modal-meta-data').value || null) : null;
+    const eh_assinatura = document.getElementById('fincat-modal-eh-assinatura').checked;
 
     if (id) {
-      const { error } = await sb.from('fin_categories').update({ nome, tag_id, expansivel, eh_meta, meta_valor, meta_data }).eq('id', id);
+      const { error } = await sb.from('fin_categories').update({ nome, tag_id, expansivel, eh_meta, meta_valor, meta_data, eh_assinatura }).eq('id', id);
       if (error) { alert('Erro ao salvar categoria: ' + error.message); return; }
     } else {
       const doContexto = finCategoriasCache.filter(c => c.contexto === contexto && c.tipo === 'despesa');
       const ordem = doContexto.length ? Math.max(...doContexto.map(c => c.ordem || 0)) + 10 : 0;
-      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag_id, expansivel, ordem, eh_meta, meta_valor, meta_data });
+      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag_id, expansivel, ordem, eh_meta, meta_valor, meta_data, eh_assinatura });
       if (error) { alert('Erro ao criar categoria: ' + error.message); return; }
     }
     fecharFinCategoriaModal();
