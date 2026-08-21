@@ -350,7 +350,10 @@
   .fin-card-total { font-size: 16px; font-weight: 700; }
   .fin-card-sub { font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 3px; white-space: nowrap; }
   .fin-lanc-lista { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-  .fin-lanc-row { display: grid; grid-template-columns: 44px 1fr 76px 20px; gap: 5px; align-items: center; }
+  .fin-lanc-row { display: grid; grid-template-columns: 44px 1fr 76px 92px 54px 20px; gap: 5px; align-items: center; }
+  .fin-lanc-pago-badge { cursor: pointer; font-size: 10px; font-weight: 700; text-align: center; padding: 3px 4px; border-radius: 4px; white-space: nowrap; }
+  .fin-lanc-projeto-select { font-size: 11px; padding: 4px 3px; background: transparent; border: 1px dashed var(--card-border); color: var(--muted); border-radius: 4px; }
+  .fin-lanc-projeto-select:not([value=""]) { color: var(--text); }
   .fin-lanc-row input { font-size: 11.5px; padding: 5px 6px; }
   .fin-lanc-row input:last-of-type { text-align: right; }
   .fin-lanc-excluir { font-size: 14px; color: var(--muted); cursor: pointer; }
@@ -521,6 +524,10 @@
         <div class="charts-row">
           <div class="card"><h3 style="margin-top:0;">Distribuição de Custo (Projetado)</h3><div class="chart-canvas-wrap"><canvas id="dash-pie"></canvas></div></div>
           <div class="card"><h3 style="margin-top:0;">Custo Total x Receita — Projetado x Real</h3><div class="chart-canvas-wrap"><canvas id="dash-bar"></canvas></div></div>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;">Financeiro (Eco/Pessoal) por Projeto</h3>
+          <div id="dash-por-projeto"></div>
         </div>
       </div>
       <div id="view-financeiro" class="view">
@@ -1839,6 +1846,67 @@
         plugins: { legend: { labels: { color: '#e8ebf5' } } }
       }
     });
+
+    await carregarDashboardPorProjeto(de, ate);
+  }
+
+  // ---- Dashboard: despesa/custo/entrada do Financeiro (Eco/Pessoal)
+  // centralizados por projeto (Centro de custo / Origem, Fase 74/75).
+  // Consulta fin_entries diretamente (independe de finCategoriasCache/
+  // finTagsCache já estarem carregados, já que o Dashboard pode ser a
+  // primeira tela visitada) e ignora itens não pagos (finItemConta). ----
+  async function carregarDashboardPorProjeto(de, ate) {
+    const el = document.getElementById('dash-por-projeto');
+    if (!el) return;
+
+    let query = sb.from('fin_entries').select('tipo,valor,project_id,pago,categoria_id,mes').not('project_id', 'is', null);
+    if (de) query = query.gte('mes', de);
+    if (ate) query = query.lte('mes', ate);
+
+    const [{ data: entries }, { data: categorias }, { data: tags }] = await Promise.all([
+      query,
+      sb.from('fin_categories').select('id,tipo,tag_id'),
+      sb.from('fin_tags').select('id,natureza'),
+    ]);
+
+    const catNatureza = {};
+    (categorias || []).forEach(c => {
+      if (c.tipo === 'entrada') { catNatureza[c.id] = 'entrada'; return; }
+      const tag = (tags || []).find(t => t.id === c.tag_id);
+      catNatureza[c.id] = tag ? tag.natureza : 'despesa';
+    });
+
+    const porProjeto = {};
+    (entries || []).forEach(e => {
+      if (e.pago === false) return;
+      const nat = catNatureza[e.categoria_id] || (e.tipo === 'entrada' ? 'entrada' : 'despesa');
+      if (nat === 'poupanca') return;
+      if (!porProjeto[e.project_id]) porProjeto[e.project_id] = { entrada: 0, custo: 0, despesa: 0 };
+      porProjeto[e.project_id][nat] += Number(e.valor || 0);
+    });
+
+    const linhas = Object.entries(porProjeto).map(([pid, v]) => {
+      const proj = projectsCache.find(p => p.id === pid);
+      const saida = v.custo + v.despesa;
+      return { nome: proj ? proj.nome : 'Projeto removido', entrada: v.entrada, custo: v.custo, despesa: v.despesa, saldo: v.entrada - saida };
+    }).sort((a, b) => (b.entrada + b.custo + b.despesa) - (a.entrada + a.custo + a.despesa));
+
+    if (!linhas.length) {
+      el.innerHTML = '<p class="fin-card-sub" style="padding:8px 0;">Nenhum lançamento do Financeiro (Eco/Pessoal) vinculado a um projeto ainda.</p>';
+      return;
+    }
+
+    el.innerHTML = `<table style="margin-top:8px;"><thead><tr>
+      <th>Projeto</th><th>Entrada</th><th>Custo</th><th>Despesa</th><th>Saldo</th>
+    </tr></thead><tbody>
+      ${linhas.map(l => `<tr>
+        <td>${escapeHtml(l.nome)}</td>
+        <td>${brl(l.entrada)}</td>
+        <td>${brl(l.custo)}</td>
+        <td>${brl(l.despesa)}</td>
+        <td style="color:${l.saldo >= 0 ? 'var(--pos)' : 'var(--neg)'};">${brl(l.saldo)}</td>
+      </tr>`).join('')}
+    </tbody></table>`;
   }
 
   // ---- Financeiro por projeto ----
@@ -4126,6 +4194,7 @@
     // lançamento (essa função é chamada de novo depois de toda mutação em
     // fin_entries).
     atualizarBadgeUltimaAtualizacaoFinanceiro();
+    if (!projectsCache.length) await carregarProjetosSelects();
     await carregarFinCategorias();
     await carregarFinConfigColunas();
 
@@ -4151,15 +4220,15 @@
     if (finSubabaAtual === 'metas') renderFinMetasTab();
     if (finFiltroModo === 'mes') initSortableFinCards();
     aplicarFinColunas();
-    const totalEntrada = finEntriesCache.filter(e => e.tipo === 'entrada').reduce((s, e) => s + Number(e.valor || 0), 0);
-    const totalDespesaEco = finEntriesCache.filter(e => e.tipo === 'despesa' && e.contexto === 'eco').reduce((s, e) => s + Number(e.valor || 0), 0);
-    const totalDespesaPessoal = finEntriesCache.filter(e => e.tipo === 'despesa' && e.contexto === 'pessoal').reduce((s, e) => s + Number(e.valor || 0), 0);
+    const totalEntrada = finEntriesCache.filter(e => e.tipo === 'entrada' && finItemConta(e)).reduce((s, e) => s + Number(e.valor || 0), 0);
+    const totalDespesaEco = finEntriesCache.filter(e => e.tipo === 'despesa' && e.contexto === 'eco' && finItemConta(e)).reduce((s, e) => s + Number(e.valor || 0), 0);
+    const totalDespesaPessoal = finEntriesCache.filter(e => e.tipo === 'despesa' && e.contexto === 'pessoal' && finItemConta(e)).reduce((s, e) => s + Number(e.valor || 0), 0);
 
     // Rosca: despesas por categoria (Eco + Pessoal juntos, rótulo indica o
     // contexto pra não confundir categorias com o mesmo nome nos dois lados).
     const catDonutData = [];
     finCategoriasCache.filter(c => c.tipo === 'despesa').forEach(cat => {
-      const total = finEntriesCache.filter(e => e.categoria_id === cat.id).reduce((s, e) => s + Number(e.valor || 0), 0);
+      const total = finEntriesCache.filter(e => e.categoria_id === cat.id && finItemConta(e)).reduce((s, e) => s + Number(e.valor || 0), 0);
       if (total > 0) catDonutData.push({ label: `${cat.nome} · ${cat.contexto === 'eco' ? 'Eco' : 'Pessoal'}`, valor: total, cor: corCategoria(cat.id) });
     });
     catDonutData.sort((a, b) => b.valor - a.valor);
@@ -4190,7 +4259,7 @@
     }
 
     // Barra: entrada x despesa, Eco x Pessoal.
-    const entradaPessoal = finEntriesCache.filter(e => e.tipo === 'entrada' && e.contexto === 'pessoal').reduce((s, e) => s + Number(e.valor || 0), 0);
+    const entradaPessoal = finEntriesCache.filter(e => e.tipo === 'entrada' && e.contexto === 'pessoal' && finItemConta(e)).reduce((s, e) => s + Number(e.valor || 0), 0);
     if (finBarChart) { finBarChart.destroy(); finBarChart = null; }
     const barEl = document.getElementById('fin-bar-ecopessoal');
     if (barEl) {
@@ -4252,6 +4321,12 @@
   // despesa somam no gasto total, poupança não) — mesmo se o Bruno mudar
   // o nome/cor da tag ou criar uma nova, o cálculo continua correto
   // porque olha pra natureza, não pro nome.
+  // Item "não pago" (assinatura ainda não confirmada) fica visível na
+  // lista, mas nunca entra em soma nenhuma — Total, KPIs, gráficos, metas.
+  // pago === undefined também conta como pago (linhas antigas de antes
+  // dessa coluna existir, ou qualquer linha que não seja de assinatura).
+  function finItemConta(e) { return e.pago !== false; }
+
   function finTagInfo(catOuTagId) {
     if (catOuTagId && catOuTagId.tipo === 'entrada') return { label: 'receita', cor: '#34d399', natureza: 'poupanca' };
     const tagId = catOuTagId && typeof catOuTagId === 'object' ? catOuTagId.tag_id : catOuTagId;
@@ -4385,9 +4460,9 @@
   async function carregarFinMetasAcumulado() {
     const metaIds = finCategoriasCache.filter(c => c.eh_meta).map(c => c.id);
     if (!metaIds.length) { finMetasAcumuladoCache = {}; return; }
-    const { data } = await sb.from('fin_entries').select('categoria_id, valor').in('categoria_id', metaIds);
+    const { data } = await sb.from('fin_entries').select('categoria_id, valor, pago').in('categoria_id', metaIds);
     const acumulado = {};
-    (data || []).forEach(e => { acumulado[e.categoria_id] = (acumulado[e.categoria_id] || 0) + Number(e.valor || 0); });
+    (data || []).filter(finItemConta).forEach(e => { acumulado[e.categoria_id] = (acumulado[e.categoria_id] || 0) + Number(e.valor || 0); });
     finMetasAcumuladoCache = acumulado;
   }
 
@@ -4404,7 +4479,7 @@
     card.style.display = 'block';
 
     const metaIds = new Set(metas.map(m => m.id));
-    const totalMes = finEntriesCache.filter(e => metaIds.has(e.categoria_id)).reduce((s, e) => s + Number(e.valor || 0), 0);
+    const totalMes = finEntriesCache.filter(e => metaIds.has(e.categoria_id) && finItemConta(e)).reduce((s, e) => s + Number(e.valor || 0), 0);
     document.getElementById('fin-metas-resumo-valor').textContent = brl(totalMes);
     const dMes = (finMesPicker && finMesPicker.selectedDates[0]) || new Date();
     document.getElementById('fin-metas-resumo-mes-label').textContent = mesLongo(dMes);
@@ -4471,7 +4546,7 @@
       const pct = alvo > 0 ? Math.min(100, (acumulado / alvo) * 100) : 0;
       const concluida = alvo > 0 && acumulado >= alvo;
       const falta = Math.max(0, alvo - acumulado);
-      const desteMes = finEntriesCache.filter(e => e.categoria_id === m.id).reduce((s, e) => s + Number(e.valor || 0), 0);
+      const desteMes = finEntriesCache.filter(e => e.categoria_id === m.id && finItemConta(e)).reduce((s, e) => s + Number(e.valor || 0), 0);
 
       let dataInfo = '';
       if (m.meta_data) {
@@ -4507,12 +4582,14 @@
     if (!kpisEl || !ecoEl || !pessoalEl) return;
 
     const receitaCat = finCategoriasCache.find(c => c.tipo === 'entrada');
-    const receita = receitaCat ? finEntriesCache.filter(e => e.categoria_id === receitaCat.id).reduce((s, e) => s + Number(e.valor || 0), 0) : 0;
+    const receita = receitaCat ? finEntriesCache.filter(e => e.categoria_id === receitaCat.id && finItemConta(e)).reduce((s, e) => s + Number(e.valor || 0), 0) : 0;
     const custoTotal = finEntriesCache.reduce((s, e) => {
+      if (!finItemConta(e)) return s;
       const cat = finCategoriasCache.find(c => c.id === e.categoria_id);
       return cat && finTagInfo(cat).natureza === 'custo' ? s + Number(e.valor || 0) : s;
     }, 0);
     const despesaTotal = finEntriesCache.reduce((s, e) => {
+      if (!finItemConta(e)) return s;
       const cat = finCategoriasCache.find(c => c.id === e.categoria_id);
       return cat && finTagInfo(cat).natureza === 'despesa' ? s + Number(e.valor || 0) : s;
     }, 0);
@@ -4547,7 +4624,7 @@
     // fim da lista em vez de pular pro topo — só entra na ordenação por
     // dia depois que o dia for de fato digitado
     const itens = finEntriesCache.filter(e => e.categoria_id === cat.id).sort((a, b) => (a.dia ?? 9999) - (b.dia ?? 9999));
-    const total = itens.reduce((s, i) => s + Number(i.valor || 0), 0);
+    const total = itens.filter(finItemConta).reduce((s, i) => s + Number(i.valor || 0), 0);
     const tagInfo = finTagInfo(cat);
     const icone = iconeCategoria(cat.nome);
     const usaLista = cat.expansivel || itens.length > 1;
@@ -4597,18 +4674,29 @@
         </div>
         <div class="fin-card-total" style="margin-bottom:8px;">${brl(total)}</div>
         <div class="fin-lanc-lista">
-          ${itens.map(i => somenteLeitura ? `
-            <div class="fin-lanc-row" style="grid-template-columns: 60px 1fr 76px;">
+          ${itens.map(i => {
+            const projetoAtual = projectsCache.find(p => p.id === i.project_id);
+            const rotuloProjeto = cat.tipo === 'entrada' ? 'Origem' : 'Centro de custo';
+            return somenteLeitura ? `
+            <div class="fin-lanc-row" style="grid-template-columns: 60px 1fr 76px 92px 54px;">
               <span class="fin-card-sub">${i.mes ? mesAbrev(i.mes) : (i.dia || '')}</span>
               <span class="fin-card-sub">${escapeHtml(i.nome || '')}</span>
               <span class="fin-card-sub">${brl(i.valor)}</span>
+              <span class="fin-card-sub" title="${rotuloProjeto}">${projetoAtual ? escapeHtml(projetoAtual.nome) : ''}</span>
+              ${i.assinatura_id ? `<span class="fin-card-sub" style="color:${i.pago ? 'var(--pos)' : 'var(--muted)'};">${i.pago ? 'Pago' : 'Pendente'}</span>` : '<span></span>'}
             </div>` : `
             <div class="fin-lanc-row">
               <input type="text" value="${i.dia || ''}" placeholder="dia" onblur="salvarFinLancamentoCampo('${i.id}','dia',this.value)">
               <input type="text" value="${escapeHtml(i.nome || '')}" placeholder="descrição" list="fin-nomes-${cat.id}" onblur="salvarFinLancamentoCampo('${i.id}','nome',this.value)">
               <input type="text" inputmode="decimal" value="${formatValorBR(i.valor)}" placeholder="0,00" onblur="salvarFinLancamentoCampo('${i.id}','valor',this.value)">
+              <select class="fin-lanc-projeto-select" title="${rotuloProjeto}" onchange="salvarFinLancamentoCampo('${i.id}','project_id',this.value)">
+                <option value="">${rotuloProjeto}</option>
+                ${projectsCache.map(p => `<option value="${p.id}" ${p.id === i.project_id ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`).join('')}
+              </select>
+              ${i.assinatura_id ? `<span class="fin-lanc-pago-badge" onclick="toggleFinLancamentoPago('${i.id}', ${!i.pago})" title="${i.pago ? 'Clique pra marcar como não pago' : 'Clique pra marcar como pago'}" style="background:${i.pago ? 'rgba(52,211,153,0.18)' : 'rgba(137,146,171,0.15)'}; color:${i.pago ? 'var(--pos)' : 'var(--muted)'};">${i.pago ? 'Pago' : 'Pendente'}</span>` : '<span></span>'}
               <i class="ti ti-trash fin-lanc-excluir" onclick="excluirFinLancamento('${i.id}')"></i>
-            </div>`).join('')}
+            </div>`;
+          }).join('')}
         </div>
         ${somenteLeitura ? '' : `
           <datalist id="fin-nomes-${cat.id}">
@@ -4900,6 +4988,7 @@
     let valor = valorStr;
     if (campo === 'valor') valor = parseValorBR(valorStr);
     else if (campo === 'dia') valor = valorStr ? (parseInt(valorStr, 10) || null) : null;
+    else if (campo === 'project_id') valor = valorStr || null;
     const { error } = await sb.from('fin_entries').update({ [campo]: valor }).eq('id', id);
     if (error) { alert('Erro ao salvar: ' + error.message); return; }
     item[campo] = valor;
@@ -4909,6 +4998,17 @@
       // precisar recarregar a página
       await carregarFinNomesFrequentes();
     }
+    renderFinCardsV2();
+  }
+
+  // Tag "Pago" — só existe pra lançamentos gerados por assinatura
+  // (assinatura_id preenchido). Enquanto não pago, o valor fica visível
+  // na lista mas não entra na soma dos totais/KPIs (ver finItemConta()).
+  async function toggleFinLancamentoPago(id, novoPago) {
+    const { error } = await sb.from('fin_entries').update({ pago: novoPago }).eq('id', id);
+    if (error) { alert('Erro ao atualizar: ' + error.message); return; }
+    const item = finEntriesCache.find(e => e.id === id);
+    if (item) item.pago = novoPago;
     renderFinCardsV2();
   }
 
@@ -5235,7 +5335,10 @@
     for (const sub of subs) {
       const { data: existente } = await sb.from('fin_entries').select('id').eq('assinatura_id', sub.id).eq('mes', mes).maybeSingle();
       if (!existente) {
-        await sb.from('fin_entries').insert({ contexto: sub.contexto, tipo: 'despesa', nome: sub.nome, valor: 0, mes, assinatura_id: sub.id, categoria_id: sub.categoria_id });
+        // Nasce como "não pago" — é só uma previsão até o Bruno confirmar
+        // que pagou de verdade marcando a tag Pago (aí sim entra na conta
+        // do Total/KPIs do mês).
+        await sb.from('fin_entries').insert({ contexto: sub.contexto, tipo: 'despesa', nome: sub.nome, valor: 0, mes, assinatura_id: sub.id, categoria_id: sub.categoria_id, pago: false });
       }
     }
   }
