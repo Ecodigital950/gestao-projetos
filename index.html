@@ -359,15 +359,28 @@
   .fin-lanc-badge-projeto-select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: none; padding: 0; }
   .fin-lanc-badge-pago { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; font-size: 11px; }
   .criativos-tabela-card { padding: 0; overflow: hidden; }
-  .criativos-tabela-scroll { overflow-x: auto; }
-  .criativos-tabela { border-collapse: separate; border-spacing: 0; font-size: 11.5px; white-space: nowrap; width: 100%; }
-  .criativos-tabela th { text-align: left; padding: 8px 10px; color: var(--muted); font-weight: 400; border-bottom: 1px solid var(--card-border); }
-  .criativos-tabela td { padding: 4px 6px; border-bottom: 1px solid var(--card-border); vertical-align: middle; }
-  .criativos-th-fixa, .criativos-td-fixa { position: sticky; left: 0; z-index: 2; background: var(--card); }
-  .criativos-tabela input, .criativos-tabela select { font-size: 11.5px; padding: 5px 6px; width: 100%; box-sizing: border-box; }
-  .criativos-texto-truncada { display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--text); padding: 4px 2px; }
+  .criativos-tabela-scroll { overflow: auto; max-height: 72vh; }
+  .criativos-tabela { border-collapse: separate; border-spacing: 0; font-size: 13px; white-space: nowrap; width: 100%; }
+  .criativos-tabela th { text-align: left; padding: 10px 12px; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--card-border); border-right: 1px solid var(--card-border); position: sticky; top: 0; z-index: 3; background: var(--card); }
+  .criativos-tabela thead tr:first-child th { top: 0; z-index: 3; }
+  .criativos-tabela thead tr:last-child th { top: 37px; }
+  .criativos-tabela td { padding: 8px 10px; border-bottom: 1px solid var(--card-border); border-right: 1px solid var(--card-border); vertical-align: middle; }
+  .criativos-tabela tbody tr:nth-child(even) td:not(.criativos-td-fixa) { background: rgba(255,255,255,0.025); }
+  .criativos-th-fixa, .criativos-td-fixa { position: sticky; left: 0; background: var(--card); }
+  .criativos-td-fixa { z-index: 2; }
+  th.criativos-th-fixa { z-index: 4; }
+  .criativos-tabela input, .criativos-tabela select { font-size: 13px; padding: 7px 9px; width: 100%; box-sizing: border-box; min-width: 70px; }
+  .criativos-tabela tbody td:nth-child(2), .criativos-tabela thead tr:last-child th:nth-child(2) { min-width: 190px; }
+  .criativos-tabela tbody td:nth-child(3), .criativos-tabela thead tr:last-child th:nth-child(3) { min-width: 140px; }
+  .criativos-tabela tbody td:nth-child(4), .criativos-tabela thead tr:last-child th:nth-child(4) { min-width: 130px; }
+  .criativos-tabela tbody td:nth-child(5), .criativos-tabela thead tr:last-child th:nth-child(5) { min-width: 190px; }
+  .criativos-tabela tbody td:nth-child(6), .criativos-tabela thead tr:last-child th:nth-child(6) { min-width: 130px; }
+  .criativos-tabela tbody td:nth-child(n+7):nth-child(-n+14), .criativos-tabela thead tr:last-child th:nth-child(n+7):nth-child(-n+14) { min-width: 105px; }
+  .criativos-tabela tbody td:nth-child(n+15):nth-child(-n+22), .criativos-tabela thead tr:last-child th:nth-child(n+15):nth-child(-n+22) { min-width: 100px; }
+  .criativos-texto-truncada { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--text); padding: 6px 4px; border-radius: 4px; }
+  .criativos-texto-truncada:hover { background: rgba(255,255,255,0.05); }
   .criativos-texto-truncada:empty::before { content: attr(data-vazio); color: var(--muted); }
-  .criativos-status-select { border: none; font-size: 10.5px; font-weight: 500; padding: 4px 8px; border-radius: 12px; cursor: pointer; }
+  .criativos-status-select { border: none; font-size: 12px; font-weight: 500; padding: 7px 10px; border-radius: 12px; cursor: pointer; min-width: 110px; }
   .criativos-num-pos { color: var(--pos); font-weight: 500; }
   .criativos-num-neg { color: var(--neg); font-weight: 500; }
   .fin-lanc-row input { font-size: 11.5px; padding: 5px 6px; }
