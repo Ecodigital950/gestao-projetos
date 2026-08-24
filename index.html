@@ -219,6 +219,8 @@
   #tarefa-modal-overlay.aberto { display: flex; }
   #fin-cat-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
   #fin-cat-modal-overlay.aberto { display: flex; }
+  #criativo-texto-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  #criativo-texto-modal-overlay.aberto { display: flex; }
   #fin-tags-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1001; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
   #fin-tags-modal-overlay.aberto { display: flex; }
   #proj-acesso-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
@@ -356,6 +358,18 @@
   .fin-lanc-badge-projeto.vazio { background: transparent; border: 1px dashed var(--card-border); color: var(--muted); font-size: 11px; }
   .fin-lanc-badge-projeto-select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: none; padding: 0; }
   .fin-lanc-badge-pago { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; font-size: 11px; }
+  .criativos-tabela-card { padding: 0; overflow: hidden; }
+  .criativos-tabela-scroll { overflow-x: auto; }
+  .criativos-tabela { border-collapse: separate; border-spacing: 0; font-size: 11.5px; white-space: nowrap; width: 100%; }
+  .criativos-tabela th { text-align: left; padding: 8px 10px; color: var(--muted); font-weight: 400; border-bottom: 1px solid var(--card-border); }
+  .criativos-tabela td { padding: 4px 6px; border-bottom: 1px solid var(--card-border); vertical-align: middle; }
+  .criativos-th-fixa, .criativos-td-fixa { position: sticky; left: 0; z-index: 2; background: var(--card); }
+  .criativos-tabela input, .criativos-tabela select { font-size: 11.5px; padding: 5px 6px; width: 100%; box-sizing: border-box; }
+  .criativos-texto-truncada { display: block; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--text); padding: 4px 2px; }
+  .criativos-texto-truncada:empty::before { content: attr(data-vazio); color: var(--muted); }
+  .criativos-status-select { border: none; font-size: 10.5px; font-weight: 500; padding: 4px 8px; border-radius: 12px; cursor: pointer; }
+  .criativos-num-pos { color: var(--pos); font-weight: 500; }
+  .criativos-num-neg { color: var(--neg); font-weight: 500; }
   .fin-lanc-row input { font-size: 11.5px; padding: 5px 6px; }
   .fin-lanc-row input:last-of-type { text-align: right; }
   .fin-lanc-excluir { font-size: 14px; color: var(--muted); cursor: pointer; }
@@ -752,6 +766,63 @@
           </div>
         </div>
       </div>
+      <div id="view-criativos" class="view">
+        <h2>Criativos</h2>
+        <div class="card">
+          <div class="form-row">
+            <div><label>Projeto</label>
+              <select id="criativos-projeto-filtro" onchange="carregarCriativos()">
+                <option value="">Todos os projetos</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:flex-end;">
+              <button type="button" onclick="adicionarCriativo()"><i class="ti ti-plus"></i> Novo criativo</button>
+            </div>
+          </div>
+        </div>
+        <div class="card criativos-tabela-card">
+          <div class="criativos-tabela-scroll">
+            <table class="criativos-tabela">
+              <thead>
+                <tr>
+                  <th class="criativos-th-fixa"></th>
+                  <th colspan="4">Criativo</th>
+                  <th colspan="9" style="color:var(--pos-azul,#78b6f0);">Métricas primárias</th>
+                  <th colspan="8" style="color:var(--muted);">Métricas secundárias</th>
+                  <th></th>
+                </tr>
+                <tr>
+                  <th class="criativos-th-fixa">Projeto</th>
+                  <th>Persona</th>
+                  <th>Ângulo</th>
+                  <th>Formato</th>
+                  <th>Copy</th>
+                  <th>Status</th>
+                  <th>Investim.</th>
+                  <th>Faturam.</th>
+                  <th>Vendas</th>
+                  <th>CPA</th>
+                  <th>ROI</th>
+                  <th>Lucro</th>
+                  <th>Ticket méd.</th>
+                  <th>Convers.</th>
+                  <th>Cliques</th>
+                  <th>CTR</th>
+                  <th>CPC</th>
+                  <th>CPM</th>
+                  <th>Hook rate</th>
+                  <th>Retenção body</th>
+                  <th>Checkout</th>
+                  <th>Custo/checkout</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="criativos-tbody"></tbody>
+            </table>
+          </div>
+          <p class="empty-note" id="criativos-empty" style="display:none;">Nenhum criativo cadastrado ainda.</p>
+        </div>
+      </div>
       <div id="view-tarefas" class="view">
         <h2>Tarefas</h2>
         <div class="tarefas-topo-row">
@@ -940,7 +1011,7 @@
         <div class="card">
           <p class="placeholder" style="margin-bottom:12px;">Gerencie quais seções cada usuário pode acessar.</p>
           <table>
-            <thead><tr><th>Usuário</th><th>Dashboard</th><th>Financeiro</th><th>Tarefas</th><th>Projetos</th><th>Config.</th><th>Criar usuários <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('gerenciarusuarios', event)"></i></th><th></th></tr></thead>
+            <thead><tr><th>Usuário</th><th>Dashboard</th><th>Financeiro</th><th>Tarefas</th><th>Projetos</th><th>Criativos</th><th>Config.</th><th>Criar usuários <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('gerenciarusuarios', event)"></i></th><th></th></tr></thead>
             <tbody id="usuarios-tbody"></tbody>
           </table>
         </div>
@@ -1112,13 +1183,26 @@
   </div>
 </div>
 
+<div id="criativo-texto-modal-overlay" onclick="if(event.target===this) fecharCriativoTextoModal()">
+  <div class="card fin-cat-modal-card" style="width:480px;">
+    <h3 style="margin-top:0;" id="criativo-texto-modal-titulo">Editar</h3>
+    <input type="hidden" id="criativo-texto-modal-id">
+    <input type="hidden" id="criativo-texto-modal-campo">
+    <textarea id="criativo-texto-modal-valor" rows="8" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;"></textarea>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+      <button type="button" class="secondary" onclick="fecharCriativoTextoModal()">Cancelar</button>
+      <button type="button" onclick="salvarCriativoTextoModal()">Salvar</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const SUPABASE_URL = "https://vqevcjuptlnfvzttzlme.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_Lr3EvmY6tMjhIdMVjNHtzg_u6qIzHMF";
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const MODULES = ["dashboard", "financeiro", "tarefas", "projetos", "configuracoes"];
-  const MODULE_LABELS = { dashboard: "Dashboard", financeiro: "Financeiro", tarefas: "Tarefas", projetos: "Projetos", configuracoes: "Configurações" };
+  const MODULES = ["dashboard", "financeiro", "tarefas", "projetos", "criativos", "configuracoes"];
+  const MODULE_LABELS = { dashboard: "Dashboard", financeiro: "Financeiro", tarefas: "Tarefas", projetos: "Projetos", criativos: "Criativos", configuracoes: "Configurações" };
   // Só o texto do menu lateral muda pra "Kanban" — o módulo continua se
   // chamando "tarefas" por baixo (permissões, título da tela, etc ficam
   // como estavam, só o rótulo do menu lateral é diferente).
@@ -1146,7 +1230,7 @@
   // empresa juntos) e Configurações — bate com a policy de RLS de
   // user_permissions (perm_insert_admin), que só libera esse insert pra
   // quem tem gerenciar_usuarios se o módulo for um desses 3.
-  const MODULOS_CONCESSAO_NAO_ADMIN = ['dashboard', 'tarefas', 'projetos'];
+  const MODULOS_CONCESSAO_NAO_ADMIN = ['dashboard', 'tarefas', 'projetos', 'criativos'];
 
   // ---- Checklist de permissões usado nos dois lugares que criam usuário
   // (Configurações > Criar usuário, e Compartilhar projeto > Criar e dar
@@ -1330,7 +1414,7 @@
       carregarFinCategoriasConfig();
     }
 
-    if (currentPermissions.has('dashboard') || currentPermissions.has('financeiro')) {
+    if (currentPermissions.has('dashboard') || currentPermissions.has('financeiro') || currentPermissions.has('criativos')) {
       await carregarProjetosSelects();
       await carregarCategorias();
       if (currentPermissions.has('dashboard')) carregarDashboard();
@@ -1338,7 +1422,7 @@
     }
   }
 
-  const MODULE_ICONS = { dashboard: 'ti-layout-dashboard', financeiro: 'ti-currency-dollar', tarefas: 'ti-checklist', projetos: 'ti-folder', configuracoes: 'ti-settings' };
+  const MODULE_ICONS = { dashboard: 'ti-layout-dashboard', financeiro: 'ti-currency-dollar', tarefas: 'ti-checklist', projetos: 'ti-folder', criativos: 'ti-movie', configuracoes: 'ti-settings' };
 
   function renderNav() {
     const nav = document.getElementById('nav');
@@ -1379,6 +1463,7 @@
     if (modulo === 'dashboard') carregarDashboard();
     if (modulo === 'financeiro' && document.getElementById('fin-projeto').value) carregarFinanceiro();
     if (modulo === 'tarefas') carregarTarefas();
+    if (modulo === 'criativos') carregarCriativos();
   }
 
   // ---- Projetos ----
@@ -5485,6 +5570,149 @@
 
   function escapeHtml(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---- Criativos: planilha horizontal por criativo, filtrável por
+  // projeto. Todo campo é digitado à mão por enquanto (Bruno pretende ligar
+  // isso ao Meta Ads no futuro, mas por ora entra manual) — os campos numéricos
+  // usam a mesma máscula BR (vírgula decimal) do resto do app. ----
+  let criativosCache = [];
+  const CRIATIVO_STATUS = [
+    { id: 'testando', label: 'Testando', cor: '#78b6f0' },
+    { id: 'escalando', label: 'Escalando', cor: '#34d399' },
+    { id: 'pausado', label: 'Pausado', cor: '#fbbf24' },
+    { id: 'reprovado', label: 'Reprovado', cor: '#f87171' },
+  ];
+
+  function preencherCriativosProjetoFiltro() {
+    const sel = document.getElementById('criativos-projeto-filtro');
+    if (!sel) return;
+    const atual = sel.value;
+    sel.innerHTML = '<option value="">Todos os projetos</option>' +
+      projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+    sel.value = atual;
+  }
+
+  async function carregarCriativos() {
+    if (!projectsCache.length) await carregarProjetosSelects();
+    preencherCriativosProjetoFiltro();
+    const projetoId = document.getElementById('criativos-projeto-filtro').value;
+    let query = sb.from('criativos').select('*').order('ordem').order('created_at');
+    if (projetoId) query = query.eq('project_id', projetoId);
+    const { data, error } = await query;
+    if (error) { alert('Erro ao carregar criativos: ' + error.message); return; }
+    criativosCache = data || [];
+    renderCriativosTabela();
+  }
+
+  function criativoMoedaInput(c, campo) {
+    return `<input type="text" inputmode="decimal" value="${formatValorBR(c[campo])}" placeholder="0,00" onblur="salvarCriativoCampo('${c.id}','${campo}','moeda',this.value)">`;
+  }
+  function criativoInteiroInput(c, campo) {
+    return `<input type="text" inputmode="numeric" value="${c[campo] ?? ''}" placeholder="0" onblur="salvarCriativoCampo('${c.id}','${campo}','inteiro',this.value)">`;
+  }
+  function criativoDecimalInput(c, campo) {
+    return `<input type="text" inputmode="decimal" value="${c[campo] != null ? formatValorBR(c[campo]) : ''}" placeholder="0,00" onblur="salvarCriativoCampo('${c.id}','${campo}','decimal',this.value)">`;
+  }
+
+  function renderCriativosTabela() {
+    const tbody = document.getElementById('criativos-tbody');
+    const empty = document.getElementById('criativos-empty');
+    if (!tbody) return;
+    if (!criativosCache.length) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+    empty.style.display = 'none';
+    tbody.innerHTML = criativosCache.map(c => {
+      const projeto = projectsCache.find(p => p.id === c.project_id);
+      const statusInfo = CRIATIVO_STATUS.find(s => s.id === c.status) || CRIATIVO_STATUS[0];
+      const statusOpcoes = CRIATIVO_STATUS.map(s => `<option value="${s.id}" ${s.id === c.status ? 'selected' : ''}>${s.label}</option>`).join('');
+      const lucroClasse = Number(c.lucro) > 0 ? 'criativos-num-pos' : (Number(c.lucro) < 0 ? 'criativos-num-neg' : '');
+      return `<tr>
+        <td class="criativos-td-fixa" title="${projeto ? escapeHtml(projeto.nome) : ''}">
+          <span class="fin-lanc-badge-projeto${projeto ? '' : ' vazio'}" style="${projeto ? `background:${corAvatar(projeto.id)};` : ''}">${projeto ? iniciaisResponsavel(projeto) : '<i class="ti ti-folder"></i>'}</span>
+        </td>
+        <td><span class="criativos-texto-truncada" data-vazio="Persona" onclick="abrirCriativoTextoModal('${c.id}','persona','Persona')">${escapeHtml(c.persona || '')}</span></td>
+        <td><input type="text" value="${escapeHtml(c.angulo || '')}" placeholder="Ângulo" onblur="salvarCriativoCampo('${c.id}','angulo','texto',this.value)"></td>
+        <td><input type="text" value="${escapeHtml(c.formato || '')}" placeholder="Formato" onblur="salvarCriativoCampo('${c.id}','formato','texto',this.value)"></td>
+        <td><span class="criativos-texto-truncada" data-vazio="Copy" onclick="abrirCriativoTextoModal('${c.id}','copy','Copy')">${escapeHtml(c.copy || '')}</span></td>
+        <td><select class="criativos-status-select" style="background:${statusInfo.cor}22;color:${statusInfo.cor};" onchange="salvarCriativoCampo('${c.id}','status','texto',this.value)">${statusOpcoes}</select></td>
+        <td>${criativoMoedaInput(c, 'investimento')}</td>
+        <td>${criativoMoedaInput(c, 'faturamento')}</td>
+        <td>${criativoInteiroInput(c, 'vendas')}</td>
+        <td>${criativoMoedaInput(c, 'cpa')}</td>
+        <td>${criativoDecimalInput(c, 'roi')}</td>
+        <td class="${lucroClasse}">${criativoMoedaInput(c, 'lucro')}</td>
+        <td>${criativoMoedaInput(c, 'ticket_medio')}</td>
+        <td>${criativoDecimalInput(c, 'conversao')}</td>
+        <td>${criativoInteiroInput(c, 'cliques')}</td>
+        <td>${criativoDecimalInput(c, 'ctr')}</td>
+        <td>${criativoMoedaInput(c, 'cpc')}</td>
+        <td>${criativoMoedaInput(c, 'cpm')}</td>
+        <td>${criativoDecimalInput(c, 'hook_rate')}</td>
+        <td>${criativoDecimalInput(c, 'retencao_body')}</td>
+        <td>${criativoInteiroInput(c, 'checkout')}</td>
+        <td>${criativoMoedaInput(c, 'custo_checkout')}</td>
+        <td><i class="ti ti-trash fin-lanc-excluir" onclick="excluirCriativo('${c.id}')"></i></td>
+      </tr>`;
+    }).join('');
+  }
+
+  async function salvarCriativoCampo(id, campo, tipo, valorStr) {
+    const c = criativosCache.find(x => x.id === id);
+    if (!c) return;
+    let valor = valorStr;
+    if (tipo === 'moeda' || tipo === 'decimal') valor = parseValorBR(valorStr);
+    else if (tipo === 'inteiro') valor = valorStr ? (parseInt(valorStr, 10) || 0) : 0;
+    const { error } = await sb.from('criativos').update({ [campo]: valor }).eq('id', id);
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    c[campo] = valor;
+    if (campo === 'lucro') renderCriativosTabela();
+  }
+
+  function abrirCriativoTextoModal(id, campo, titulo) {
+    const c = criativosCache.find(x => x.id === id);
+    if (!c) return;
+    document.getElementById('criativo-texto-modal-id').value = id;
+    document.getElementById('criativo-texto-modal-campo').value = campo;
+    document.getElementById('criativo-texto-modal-titulo').textContent = titulo;
+    document.getElementById('criativo-texto-modal-valor').value = c[campo] || '';
+    document.getElementById('criativo-texto-modal-overlay').classList.add('aberto');
+    document.getElementById('criativo-texto-modal-valor').focus();
+  }
+
+  function fecharCriativoTextoModal() {
+    document.getElementById('criativo-texto-modal-overlay').classList.remove('aberto');
+  }
+
+  async function salvarCriativoTextoModal() {
+    const id = document.getElementById('criativo-texto-modal-id').value;
+    const campo = document.getElementById('criativo-texto-modal-campo').value;
+    const valor = document.getElementById('criativo-texto-modal-valor').value;
+    const { error } = await sb.from('criativos').update({ [campo]: valor }).eq('id', id);
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    const c = criativosCache.find(x => x.id === id);
+    if (c) c[campo] = valor;
+    fecharCriativoTextoModal();
+    renderCriativosTabela();
+  }
+
+  async function adicionarCriativo() {
+    const projetoId = document.getElementById('criativos-projeto-filtro').value;
+    if (!projetoId) { alert('Escolha um projeto no filtro acima antes de criar um criativo — cada criativo pertence a um projeto.'); return; }
+    const ordem = criativosCache.length ? Math.max(...criativosCache.map(c => c.ordem || 0)) + 10 : 0;
+    const { error } = await sb.from('criativos').insert({ project_id: projetoId, status: 'testando', ordem });
+    if (error) { alert('Erro ao criar criativo: ' + error.message); return; }
+    await carregarCriativos();
+  }
+
+  async function excluirCriativo(id) {
+    if (!confirm('Excluir esse criativo? Essa ação não pode ser desfeita.')) return;
+    const { error } = await sb.from('criativos').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    await carregarCriativos();
   }
 
   init();
