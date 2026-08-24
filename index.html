@@ -5591,10 +5591,10 @@
   // usam a mesma máscula BR (vírgula decimal) do resto do app. ----
   let criativosCache = [];
   const CRIATIVO_STATUS = [
-    { id: 'testando', label: 'Testando', cor: '#78b6f0' },
-    { id: 'escalando', label: 'Escalando', cor: '#34d399' },
-    { id: 'pausado', label: 'Pausado', cor: '#fbbf24' },
-    { id: 'reprovado', label: 'Reprovado', cor: '#f87171' },
+    { id: 'em_teste', label: 'Em teste', cor: '#78b6f0' },
+    { id: 'pre_escala', label: 'Pré-escala', cor: '#a78bfa' },
+    { id: 'validado', label: 'Validado', cor: '#34d399' },
+    { id: 'nao_validado', label: 'Não validado', cor: '#f87171' },
   ];
 
   function preencherCriativosProjetoFiltro() {
@@ -5716,7 +5716,7 @@
     const projetoId = document.getElementById('criativos-projeto-filtro').value;
     if (!projetoId) { alert('Escolha um projeto no filtro acima antes de criar um criativo — cada criativo pertence a um projeto.'); return; }
     const ordem = criativosCache.length ? Math.max(...criativosCache.map(c => c.ordem || 0)) + 10 : 0;
-    const { error } = await sb.from('criativos').insert({ project_id: projetoId, status: 'testando', ordem });
+    const { error } = await sb.from('criativos').insert({ project_id: projetoId, status: 'em_teste', ordem });
     if (error) { alert('Erro ao criar criativo: ' + error.message); return; }
     await carregarCriativos();
   }
