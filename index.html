@@ -39,7 +39,9 @@
     background: rgba(56, 189, 248, 0.12);
     border: 1px solid rgba(56, 189, 248, 0.35);
     padding: 7px 14px; border-radius: 999px;
+    cursor: pointer;
   }
+  .fin-ultima-atualizacao:hover { background: rgba(56, 189, 248, 0.2); }
   input, select, button, textarea {
     font-family: inherit;
     font-size: 14px;
@@ -562,7 +564,12 @@
       <div id="view-financeiro" class="view">
         <div class="fin-titulo-row">
           <h2>Financeiro</h2>
-          <span id="fin-ultima-atualizacao" class="fin-ultima-atualizacao" style="display:none;"></span>
+          <span id="fin-ultima-atualizacao" class="fin-ultima-atualizacao" style="display:none;" onclick="abrirEditarUltimaAtualizacaoFinanceiro()" title="Clique para editar a data manualmente"></span>
+          <span id="fin-ultima-atualizacao-editor" style="display:none;align-items:center;gap:6px;">
+            <input type="datetime-local" id="fin-ultima-atualizacao-input" style="width:auto;">
+            <button type="button" onclick="salvarUltimaAtualizacaoFinanceiro()">Salvar</button>
+            <button type="button" class="secondary" onclick="fecharEditarUltimaAtualizacaoFinanceiro()">Cancelar</button>
+          </span>
         </div>
         <div class="card">
           <div class="form-row">
@@ -2018,22 +2025,49 @@
   let editingCostId = null;
   let editingRevenueId = null;
 
-  // ---- Badge "última atualização" no topo do Financeiro — data/hora do
-  // lançamento (entrada ou despesa) mais recente em fin_entries, seja ele
-  // recém-criado (created_at) ou só editado (updated_at, Fase 72). Sempre
-  // visível ali em cima, independente do projeto selecionado no filtro
-  // logo abaixo. ----
+  // ---- Badge "última atualização" no topo do Financeiro — antes pegava
+  // sozinho o updated_at mais recente de fin_entries (mudava toda vez que
+  // qualquer lançamento era editado). Bruno pediu pra virar manual: agora
+  // fica guardado em fin_config (linha fixa 'ultima_atualizacao') e só
+  // muda quando ele mesmo clica na badge e escolhe a data/hora. ----
+  let finUltimaAtualizacaoValor = null;
+
   async function atualizarBadgeUltimaAtualizacaoFinanceiro() {
     const el = document.getElementById('fin-ultima-atualizacao');
     if (!el) return;
-    const { data } = await sb.from('fin_entries').select('updated_at').order('updated_at', { ascending: false }).limit(1);
-    const registro = data && data[0];
-    if (!registro || !registro.updated_at) { el.style.display = 'none'; return; }
-    const d = new Date(registro.updated_at);
+    const { data } = await sb.from('fin_config').select('valor').eq('chave', 'ultima_atualizacao').maybeSingle();
+    finUltimaAtualizacaoValor = data ? data.valor : null;
+    if (!finUltimaAtualizacaoValor) { el.style.display = 'none'; return; }
+    const d = new Date(finUltimaAtualizacaoValor);
     const dataFmt = d.toLocaleDateString('pt-BR');
     const horaFmt = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    el.innerHTML = `<i class="ti ti-clock"></i> Última atualização: ${dataFmt} às ${horaFmt}`;
+    el.innerHTML = `<i class="ti ti-clock"></i> Última atualização: ${dataFmt} às ${horaFmt} <i class="ti ti-pencil" style="font-size:12px;"></i>`;
     el.style.display = 'inline-flex';
+  }
+
+  function abrirEditarUltimaAtualizacaoFinanceiro() {
+    const input = document.getElementById('fin-ultima-atualizacao-input');
+    const base = finUltimaAtualizacaoValor ? new Date(finUltimaAtualizacaoValor) : new Date();
+    const pad = n => String(n).padStart(2, '0');
+    input.value = `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`;
+    document.getElementById('fin-ultima-atualizacao').style.display = 'none';
+    document.getElementById('fin-ultima-atualizacao-editor').style.display = 'inline-flex';
+    input.focus();
+  }
+
+  function fecharEditarUltimaAtualizacaoFinanceiro() {
+    document.getElementById('fin-ultima-atualizacao-editor').style.display = 'none';
+    document.getElementById('fin-ultima-atualizacao').style.display = 'inline-flex';
+  }
+
+  async function salvarUltimaAtualizacaoFinanceiro() {
+    const input = document.getElementById('fin-ultima-atualizacao-input');
+    if (!input.value) { alert('Escolha uma data e hora.'); return; }
+    const valor = new Date(input.value).toISOString();
+    const { error } = await sb.from('fin_config').upsert({ chave: 'ultima_atualizacao', valor, atualizado_por: currentUser.id, atualizado_em: new Date().toISOString() });
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    fecharEditarUltimaAtualizacaoFinanceiro();
+    await atualizarBadgeUltimaAtualizacaoFinanceiro();
   }
 
   async function carregarFinanceiro() {
