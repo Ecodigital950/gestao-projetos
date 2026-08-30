@@ -2822,9 +2822,22 @@
     carregarTarefas();
   }
 
+  // carregarTarefas() é chamado (sem await, "dispara e esquece") de vários
+  // lugares — toda vez que marca um checklist, arrasta um cartão, duplica
+  // uma atividade etc. Se o usuário fizer duas ações rápido, duas chamadas
+  // ficam rodando ao mesmo tempo; como carregarChecklistDeTarefas() e
+  // carregarAtividadesGrupos() zeram o cache e reconstroem via push(), a
+  // chamada mais lenta terminando DEPOIS da mais rápida duplicava tudo
+  // (zera, empilha os itens da mais rápida por cima dos que a mais lenta já
+  // tinha empilhado). Esse token garante que só a chamada mais recente
+  // termina de rodar — qualquer uma que ficou pra trás aborta assim que
+  // percebe que já tem uma mais nova em andamento.
+  let cargaTarefasToken = 0;
   async function carregarTarefas() {
+    const meuToken = ++cargaTarefasToken;
     await carregarTarefasSelects();
     await carregarTaskLabels();
+    if (meuToken !== cargaTarefasToken) return;
     let query = sb.from('tasks').select('*').order('ordem', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
     if (tarefaFiltroAtivo === 'hoje') {
       const hoje = formatDateLocal(new Date());
@@ -2849,12 +2862,18 @@
       query = query.eq('project_id', tarefaFiltroAtivo);
     }
     const { data } = await query;
+    if (meuToken !== cargaTarefasToken) return;
     tasksCache = data || [];
     await carregarChecklistDeTarefas(tasksCache.map(t => t.id));
+    if (meuToken !== cargaTarefasToken) return;
     await carregarTaskLabelLinks(tasksCache.map(t => t.id));
+    if (meuToken !== cargaTarefasToken) return;
     await carregarTaskAssignees(tasksCache.map(t => t.id));
+    if (meuToken !== cargaTarefasToken) return;
     await carregarAtividadesGrupos(tasksCache.map(t => t.id));
+    if (meuToken !== cargaTarefasToken) return;
     await carregarNotasGerais();
+    if (meuToken !== cargaTarefasToken) return;
     atualizarNotaRapida();
     renderKanban();
     aplicarFundoQuadro();
