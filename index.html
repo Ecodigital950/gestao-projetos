@@ -382,7 +382,10 @@
   .criativos-texto-truncada { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--text); padding: 6px 4px; border-radius: 4px; }
   .criativos-texto-truncada:hover { background: rgba(255,255,255,0.05); }
   .criativos-texto-truncada:empty::before { content: attr(data-vazio); color: var(--muted); }
-  .criativos-status-select { border: none; font-size: 12px; font-weight: 500; padding: 7px 10px; border-radius: 12px; cursor: pointer; min-width: 110px; }
+  .criativos-status-pill { border: none; font-size: 12px; font-weight: 500; padding: 7px 10px; border-radius: 12px; cursor: pointer; min-width: 110px; display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .criativo-status-dropdown-popover { position: fixed; display: none; background: var(--card); border: 1px solid var(--card-border); border-radius: 8px; padding: 4px; z-index: 2000; min-width: 150px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+  .criativo-status-dropdown-opcao { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 5px; cursor: pointer; font-size: 12.5px; font-weight: 500; gap: 8px; }
+  .criativo-status-dropdown-opcao:hover { background: rgba(255,255,255,0.07); }
   .criativos-num-pos { color: var(--pos); font-weight: 500; }
   .criativos-num-neg { color: var(--neg); font-weight: 500; }
   .fin-lanc-row input { font-size: 11.5px; padding: 5px 6px; }
@@ -1215,6 +1218,8 @@
     </div>
   </div>
 </div>
+
+<div id="criativo-status-dropdown-popover" class="criativo-status-dropdown-popover"></div>
 
 <script>
   const SUPABASE_URL = "https://vqevcjuptlnfvzttzlme.supabase.co";
@@ -5694,7 +5699,6 @@
     tbody.innerHTML = criativosCache.map(c => {
       const projeto = projectsCache.find(p => p.id === c.project_id);
       const statusInfo = CRIATIVO_STATUS.find(s => s.id === c.status) || CRIATIVO_STATUS[0];
-      const statusOpcoes = CRIATIVO_STATUS.map(s => `<option value="${s.id}" ${s.id === c.status ? 'selected' : ''} style="color:${s.cor};background:#141a2c;">${s.label}</option>`).join('');
       const lucroClasse = Number(c.lucro) > 0 ? 'criativos-num-pos' : (Number(c.lucro) < 0 ? 'criativos-num-neg' : '');
       return `<tr>
         <td class="criativos-td-fixa" title="${projeto ? escapeHtml(projeto.nome) : ''}">
@@ -5704,7 +5708,7 @@
         <td><input type="text" value="${escapeHtml(c.angulo || '')}" placeholder="Ângulo" onblur="salvarCriativoCampo('${c.id}','angulo','texto',this.value)"></td>
         <td><input type="text" value="${escapeHtml(c.formato || '')}" placeholder="Formato" onblur="salvarCriativoCampo('${c.id}','formato','texto',this.value)"></td>
         <td><span class="criativos-texto-truncada" data-vazio="Copy" onclick="abrirCriativoTextoModal('${c.id}','copy','Copy')">${escapeHtml(c.copy || '')}</span></td>
-        <td><select class="criativos-status-select" style="background:${statusInfo.cor}22;color:${statusInfo.cor};" onchange="salvarCriativoCampo('${c.id}','status','texto',this.value)">${statusOpcoes}</select></td>
+        <td><button type="button" class="criativos-status-pill" style="background:${statusInfo.cor}22;color:${statusInfo.cor};" onclick="abrirCriativoStatusDropdown(event,'${c.id}')">${statusInfo.label}<i class="ti ti-chevron-down" style="font-size:11px;"></i></button></td>
         <td>${criativoMoedaInput(c, 'investimento')}</td>
         <td>${criativoMoedaInput(c, 'faturamento')}</td>
         <td>${criativoInteiroInput(c, 'vendas')}</td>
@@ -5780,6 +5784,42 @@
     if (error) { alert('Erro ao excluir: ' + error.message); return; }
     await carregarCriativos();
   }
+
+  // ---- Dropdown de status colorido, feito na mão em vez de <select>
+  // nativo — o menu nativo do <select> é desenhado pelo sistema
+  // operacional (principalmente no Mac), que ignora cor de fundo por
+  // opção, então todas as opções apareciam com a mesma cor no menu
+  // aberto. Um popover próprio (position:fixed, escapa do scroll da
+  // tabela) resolve isso e garante que cada status mantém sua cor tanto
+  // fechado quanto na lista. ----
+  function abrirCriativoStatusDropdown(ev, id) {
+    ev.stopPropagation();
+    const pop = document.getElementById('criativo-status-dropdown-popover');
+    const c = criativosCache.find(x => x.id === id);
+    if (!c || !pop) return;
+    pop.innerHTML = CRIATIVO_STATUS.map(s => `<div class="criativo-status-dropdown-opcao" style="color:${s.cor};" onclick="escolherCriativoStatus('${id}','${s.id}')">${s.label}${s.id === c.status ? '<i class="ti ti-check"></i>' : ''}</div>`).join('');
+    const rect = ev.currentTarget.getBoundingClientRect();
+    pop.style.left = Math.round(rect.left) + 'px';
+    pop.style.top = Math.round(rect.bottom + 4) + 'px';
+    pop.style.display = 'block';
+  }
+
+  function fecharCriativoStatusDropdown() {
+    const pop = document.getElementById('criativo-status-dropdown-popover');
+    if (pop) pop.style.display = 'none';
+  }
+
+  async function escolherCriativoStatus(id, statusId) {
+    fecharCriativoStatusDropdown();
+    await salvarCriativoCampo(id, 'status', 'texto', statusId);
+    renderCriativosTabela();
+  }
+
+  document.addEventListener('click', ev => {
+    const pop = document.getElementById('criativo-status-dropdown-popover');
+    if (pop && pop.style.display === 'block' && !pop.contains(ev.target)) fecharCriativoStatusDropdown();
+  });
+  document.addEventListener('scroll', fecharCriativoStatusDropdown, true);
 
   init();
 </script>
