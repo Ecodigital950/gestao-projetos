@@ -5694,7 +5694,7 @@
     tbody.innerHTML = criativosCache.map(c => {
       const projeto = projectsCache.find(p => p.id === c.project_id);
       const statusInfo = CRIATIVO_STATUS.find(s => s.id === c.status) || CRIATIVO_STATUS[0];
-      const statusOpcoes = CRIATIVO_STATUS.map(s => `<option value="${s.id}" ${s.id === c.status ? 'selected' : ''}>${s.label}</option>`).join('');
+      const statusOpcoes = CRIATIVO_STATUS.map(s => `<option value="${s.id}" ${s.id === c.status ? 'selected' : ''} style="color:${s.cor};background:#141a2c;">${s.label}</option>`).join('');
       const lucroClasse = Number(c.lucro) > 0 ? 'criativos-num-pos' : (Number(c.lucro) < 0 ? 'criativos-num-neg' : '');
       return `<tr>
         <td class="criativos-td-fixa" title="${projeto ? escapeHtml(projeto.nome) : ''}">
