@@ -4969,7 +4969,7 @@
       document.getElementById('fin-cat-modal-titulo').textContent = 'Editar categoria';
       document.getElementById('fincat-modal-nome').value = cat.nome;
       document.getElementById('fincat-modal-expansivel').checked = !!cat.expansivel;
-      selecionarFinTagModal(cat.tag_id || (finTagsCache[0] && finTagsCache[0].id) || null);
+      selecionarFinTagModal(cat.tag_id || null);
       document.getElementById('fincat-modal-eh-meta').checked = !!cat.eh_meta;
       document.getElementById('fincat-modal-meta-valor').value = cat.meta_valor ? formatValorBR(cat.meta_valor) : '';
       document.getElementById('fincat-modal-meta-data').value = cat.meta_data || '';
@@ -5005,11 +5005,18 @@
   function renderFinTagOpcoesModal() {
     const wrap = document.getElementById('fincat-modal-tag-opcoes');
     if (!wrap) return;
-    wrap.innerHTML = finTagsCache.map(t => {
+    // "Sem tag" é uma opção fixa (não vem de fin_tags) — categoria fica
+    // sem tag_id (null). Ela ainda entra no cálculo do Total do mês (cai
+    // no bucket "despesa" por padrão), só não é somada como Custo nem
+    // aparece com nenhuma etiqueta colorida nos cards.
+    const semTagSel = finTagModalSelecionada == null;
+    const semTagEstilo = semTagSel ? `background:${hexToRgba('#8a94a6', 0.15)}; color:#8a94a6; border-color:#8a94a6;` : '';
+    const semTagHtml = `<div class="fin-tag-opcao" data-tag-id="" style="${semTagEstilo}" onclick="selecionarFinTagModal(null)">Sem tag</div>`;
+    wrap.innerHTML = semTagHtml + finTagsCache.map(t => {
       const sel = t.id === finTagModalSelecionada;
       const estilo = sel ? `background:${hexToRgba(t.cor, 0.15)}; color:${t.cor}; border-color:${t.cor};` : '';
       return `<div class="fin-tag-opcao" data-tag-id="${t.id}" style="${estilo}" onclick="selecionarFinTagModal('${t.id}')">${escapeHtml(t.nome)}</div>`;
-    }).join('') || '<p class="empty-note">Nenhuma tag cadastrada ainda.</p>';
+    }).join('');
   }
 
   function selecionarFinTagModal(tagId) {
