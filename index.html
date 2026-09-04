@@ -372,13 +372,14 @@
   .criativos-td-fixa { z-index: 2; }
   th.criativos-th-fixa { z-index: 4; }
   .criativos-tabela input, .criativos-tabela select { font-size: 13px; padding: 7px 9px; width: 100%; box-sizing: border-box; min-width: 70px; }
-  .criativos-tabela tbody td:nth-child(2), .criativos-tabela thead tr:last-child th:nth-child(2) { min-width: 190px; }
-  .criativos-tabela tbody td:nth-child(3), .criativos-tabela thead tr:last-child th:nth-child(3) { min-width: 140px; }
-  .criativos-tabela tbody td:nth-child(4), .criativos-tabela thead tr:last-child th:nth-child(4) { min-width: 130px; }
+  .criativos-tabela tbody td:nth-child(2), .criativos-tabela thead tr:last-child th:nth-child(2) { min-width: 150px; }
+  .criativos-tabela tbody td:nth-child(3), .criativos-tabela thead tr:last-child th:nth-child(3) { min-width: 190px; }
+  .criativos-tabela tbody td:nth-child(4), .criativos-tabela thead tr:last-child th:nth-child(4) { min-width: 190px; }
   .criativos-tabela tbody td:nth-child(5), .criativos-tabela thead tr:last-child th:nth-child(5) { min-width: 190px; }
-  .criativos-tabela tbody td:nth-child(6), .criativos-tabela thead tr:last-child th:nth-child(6) { min-width: 130px; }
-  .criativos-tabela tbody td:nth-child(n+7):nth-child(-n+14), .criativos-tabela thead tr:last-child th:nth-child(n+7):nth-child(-n+14) { min-width: 105px; }
-  .criativos-tabela tbody td:nth-child(n+15):nth-child(-n+22), .criativos-tabela thead tr:last-child th:nth-child(n+15):nth-child(-n+22) { min-width: 100px; }
+  .criativos-tabela tbody td:nth-child(6), .criativos-tabela thead tr:last-child th:nth-child(6) { min-width: 190px; }
+  .criativos-tabela tbody td:nth-child(7), .criativos-tabela thead tr:last-child th:nth-child(7) { min-width: 130px; }
+  .criativos-tabela tbody td:nth-child(n+8):nth-child(-n+15), .criativos-tabela thead tr:last-child th:nth-child(n+8):nth-child(-n+15) { min-width: 105px; }
+  .criativos-tabela tbody td:nth-child(n+16):nth-child(-n+23), .criativos-tabela thead tr:last-child th:nth-child(n+16):nth-child(-n+23) { min-width: 100px; }
   .criativos-texto-truncada { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--text); padding: 6px 4px; border-radius: 4px; }
   .criativos-texto-truncada:hover { background: rgba(255,255,255,0.05); }
   .criativos-texto-truncada:empty::before { content: attr(data-vazio); color: var(--muted); }
@@ -388,6 +389,10 @@
   .criativo-status-dropdown-opcao:hover { background: rgba(255,255,255,0.07); }
   .criativos-num-pos { color: var(--pos); font-weight: 500; }
   .criativos-num-neg { color: var(--neg); font-weight: 500; }
+  .criativos-valor-wrap { display: flex; align-items: center; background: #0f1526; border: 1px solid var(--card-border); border-radius: 8px; padding: 0 8px; gap: 3px; }
+  .criativos-valor-wrap input { background: transparent; border: none; padding: 7px 0; min-width: 30px; }
+  .criativos-valor-wrap input:focus { outline: none; }
+  .criativos-afixo { color: var(--muted); font-size: 11.5px; flex-shrink: 0; user-select: none; }
   .fin-lanc-row input { font-size: 11.5px; padding: 5px 6px; }
   .fin-lanc-row input:last-of-type { text-align: right; }
   .fin-lanc-excluir { font-size: 14px; color: var(--muted); cursor: pointer; }
@@ -809,13 +814,14 @@
               <thead>
                 <tr>
                   <th class="criativos-th-fixa"></th>
-                  <th colspan="4">Criativo</th>
+                  <th colspan="5">Criativo</th>
                   <th colspan="9" style="color:var(--pos-azul,#78b6f0);">Métricas primárias</th>
                   <th colspan="8" style="color:var(--muted);">Métricas secundárias</th>
                   <th></th>
                 </tr>
                 <tr>
                   <th class="criativos-th-fixa">Projeto</th>
+                  <th>Nome do criativo</th>
                   <th>Persona</th>
                   <th>Ângulo</th>
                   <th>Formato</th>
@@ -5676,8 +5682,14 @@
     renderCriativosTabela();
   }
 
+  // Cada métrica segue uma regra de formatação fixa: moeda (R$ na frente),
+  // percentual (% atrás), decimal solto (ex: 1,5 — usado em ROI/Conversão,
+  // que não são nem R$ nem %) ou inteiro puro (Vendas, Cliques, Checkout).
   function criativoMoedaInput(c, campo) {
-    return `<input type="text" inputmode="decimal" value="${formatValorBR(c[campo])}" placeholder="0,00" onblur="salvarCriativoCampo('${c.id}','${campo}','moeda',this.value)">`;
+    return `<div class="criativos-valor-wrap"><span class="criativos-afixo">R$</span><input type="text" inputmode="decimal" value="${formatValorBR(c[campo])}" placeholder="0,00" onblur="salvarCriativoCampo('${c.id}','${campo}','moeda',this.value)"></div>`;
+  }
+  function criativoPercentInput(c, campo) {
+    return `<div class="criativos-valor-wrap"><input type="text" inputmode="decimal" value="${c[campo] != null ? formatValorBR(c[campo]) : ''}" placeholder="0,00" onblur="salvarCriativoCampo('${c.id}','${campo}','decimal',this.value)"><span class="criativos-afixo">%</span></div>`;
   }
   function criativoInteiroInput(c, campo) {
     return `<input type="text" inputmode="numeric" value="${c[campo] ?? ''}" placeholder="0" onblur="salvarCriativoCampo('${c.id}','${campo}','inteiro',this.value)">`;
@@ -5704,6 +5716,7 @@
         <td class="criativos-td-fixa" title="${projeto ? escapeHtml(projeto.nome) : ''}">
           <span class="fin-lanc-badge-projeto${projeto ? '' : ' vazio'}" style="${projeto ? `background:${corAvatar(projeto.id)};` : ''}">${projeto ? iniciaisResponsavel(projeto) : '<i class="ti ti-folder"></i>'}</span>
         </td>
+        <td><input type="text" value="${escapeHtml(c.nome_criativo || '')}" placeholder="Nome" onblur="salvarCriativoCampo('${c.id}','nome_criativo','texto',this.value)"></td>
         <td><span class="criativos-texto-truncada" data-vazio="Persona" onclick="abrirCriativoTextoModal('${c.id}','persona','Persona')">${escapeHtml(c.persona || '')}</span></td>
         <td><input type="text" value="${escapeHtml(c.angulo || '')}" placeholder="Ângulo" onblur="salvarCriativoCampo('${c.id}','angulo','texto',this.value)"></td>
         <td><input type="text" value="${escapeHtml(c.formato || '')}" placeholder="Formato" onblur="salvarCriativoCampo('${c.id}','formato','texto',this.value)"></td>
@@ -5718,11 +5731,11 @@
         <td>${criativoMoedaInput(c, 'ticket_medio')}</td>
         <td>${criativoDecimalInput(c, 'conversao')}</td>
         <td>${criativoInteiroInput(c, 'cliques')}</td>
-        <td>${criativoDecimalInput(c, 'ctr')}</td>
+        <td>${criativoPercentInput(c, 'ctr')}</td>
         <td>${criativoMoedaInput(c, 'cpc')}</td>
         <td>${criativoMoedaInput(c, 'cpm')}</td>
-        <td>${criativoDecimalInput(c, 'hook_rate')}</td>
-        <td>${criativoDecimalInput(c, 'retencao_body')}</td>
+        <td>${criativoPercentInput(c, 'hook_rate')}</td>
+        <td>${criativoPercentInput(c, 'retencao_body')}</td>
         <td>${criativoInteiroInput(c, 'checkout')}</td>
         <td>${criativoMoedaInput(c, 'custo_checkout')}</td>
         <td><i class="ti ti-trash fin-lanc-excluir" onclick="excluirCriativo('${c.id}')"></i></td>
