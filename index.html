@@ -393,6 +393,7 @@
   .criativos-valor-wrap input { background: transparent; border: none; padding: 7px 0; min-width: 30px; }
   .criativos-valor-wrap input:focus { outline: none; }
   .criativos-afixo { color: var(--muted); font-size: 11.5px; flex-shrink: 0; user-select: none; }
+  .criativos-periodo-input, .criativos-periodo-input ~ input { cursor: pointer; }
   .fin-lanc-row input { font-size: 11.5px; padding: 5px 6px; }
   .fin-lanc-row input:last-of-type { text-align: right; }
   .fin-lanc-excluir { font-size: 14px; color: var(--muted); cursor: pointer; }
@@ -835,6 +836,7 @@
                 <col style="width:105px;">
                 <col style="width:105px;">
                 <col style="width:105px;">
+                <col style="width:190px;">
                 <col style="width:48px;">
               </colgroup>
               <thead>
@@ -842,7 +844,7 @@
                   <th class="criativos-th-fixa"></th>
                   <th colspan="5">Criativo</th>
                   <th colspan="9" style="color:var(--pos-azul,#78b6f0);">Métricas primárias</th>
-                  <th colspan="8" style="color:var(--muted);">Métricas secundárias</th>
+                  <th colspan="9" style="color:var(--muted);">Métricas secundárias</th>
                   <th></th>
                 </tr>
                 <tr>
@@ -869,6 +871,7 @@
                   <th>Retenção body</th>
                   <th>Checkout</th>
                   <th>Custo/checkout</th>
+                  <th>Período</th>
                   <th></th>
                 </tr>
               </thead>
@@ -5687,6 +5690,13 @@
   // isso ao Meta Ads no futuro, mas por ora entra manual) — os campos numéricos
   // usam a mesma máscula BR (vírgula decimal) do resto do app. ----
   let criativosCache = [];
+  // Um flatpickr por linha (campo Período) — como a tabela inteira é
+  // recriada via innerHTML a cada render, as instâncias antigas ficam
+  // "órfãs" presas a nós de DOM que não existem mais. Por isso guardamos
+  // as instâncias aqui e destruímos todas antes de recriar, sempre que
+  // renderCriativosTabela() rodar de novo (mesmo padrão do Sortable do
+  // Kanban, que tem o mesmo problema).
+  let criativosPeriodoPickers = {};
   const CRIATIVO_STATUS = [
     { id: 'em_teste', label: 'Em teste', cor: '#78b6f0' },
     { id: 'pre_escala', label: 'Pré-escala', cor: '#fbbf24' },
@@ -5736,6 +5746,8 @@
     const empty = document.getElementById('criativos-empty');
     if (!tbody) return;
     if (!criativosCache.length) {
+      Object.values(criativosPeriodoPickers).forEach(p => p.destroy());
+      criativosPeriodoPickers = {};
       tbody.innerHTML = '';
       empty.style.display = 'block';
       return;
@@ -5771,9 +5783,47 @@
         <td>${criativoPercentInput(c, 'retencao_body')}</td>
         <td>${criativoInteiroInput(c, 'checkout')}</td>
         <td>${criativoMoedaInput(c, 'custo_checkout')}</td>
+        <td><input type="text" id="crit-periodo-${c.id}" class="criativos-periodo-input" placeholder="Selecionar período" readonly></td>
         <td><i class="ti ti-trash fin-lanc-excluir" onclick="excluirCriativo('${c.id}')"></i></td>
       </tr>`;
     }).join('');
+    initCriativosPeriodoPickers();
+  }
+
+  // Um flatpickr em modo "range" por linha, no campo Período (última
+  // métrica secundária). Como a tabela inteira é recriada via innerHTML
+  // a cada render, sempre destruímos as instâncias antigas e recriamos
+  // todas — senão elas ficam presas a nós de DOM que não existem mais.
+  function initCriativosPeriodoPickers() {
+    Object.values(criativosPeriodoPickers).forEach(p => p.destroy());
+    criativosPeriodoPickers = {};
+    if (typeof flatpickr !== 'function') return;
+    criativosCache.forEach(c => {
+      const el = document.getElementById('crit-periodo-' + c.id);
+      if (!el) return;
+      const datasIniciais = c.periodo_inicio ? [c.periodo_inicio, c.periodo_fim || c.periodo_inicio] : [];
+      criativosPeriodoPickers[c.id] = flatpickr(el, {
+        mode: 'range',
+        dateFormat: 'Y-m-d',
+        altInput: true,
+        altFormat: 'd/m/Y',
+        locale: 'pt',
+        defaultDate: datasIniciais,
+        onClose: datas => salvarCriativoPeriodo(c.id, datas)
+      });
+    });
+  }
+
+  async function salvarCriativoPeriodo(id, datas) {
+    const c = criativosCache.find(x => x.id === id);
+    if (!c) return;
+    const inicio = datas[0] ? formatDateLocal(datas[0]) : null;
+    const fim = datas[1] ? formatDateLocal(datas[1]) : (inicio || null);
+    if (c.periodo_inicio === inicio && c.periodo_fim === fim) return;
+    const { error } = await sb.from('criativos').update({ periodo_inicio: inicio, periodo_fim: fim }).eq('id', id);
+    if (error) { alert('Erro ao salvar período: ' + error.message); return; }
+    c.periodo_inicio = inicio;
+    c.periodo_fim = fim;
   }
 
   async function salvarCriativoCampo(id, campo, tipo, valorStr) {
