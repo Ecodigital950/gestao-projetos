@@ -5751,7 +5751,7 @@
         </td>
         <td><input type="text" value="${escapeHtml(c.nome_criativo || '')}" placeholder="Nome" onblur="salvarCriativoCampo('${c.id}','nome_criativo','texto',this.value)"></td>
         <td><span class="criativos-texto-truncada" data-vazio="Persona" onclick="abrirCriativoTextoModal('${c.id}','persona','Persona')">${escapeHtml(c.persona || '')}</span></td>
-        <td><input type="text" value="${escapeHtml(c.angulo || '')}" placeholder="Ângulo" onblur="salvarCriativoCampo('${c.id}','angulo','texto',this.value)"></td>
+        <td><span class="criativos-texto-truncada" data-vazio="Ângulo" onclick="abrirCriativoTextoModal('${c.id}','angulo','Ângulo')">${escapeHtml(c.angulo || '')}</span></td>
         <td><input type="text" value="${escapeHtml(c.formato || '')}" placeholder="Formato" onblur="salvarCriativoCampo('${c.id}','formato','texto',this.value)"></td>
         <td><span class="criativos-texto-truncada" data-vazio="Copy" onclick="abrirCriativoTextoModal('${c.id}','copy','Copy')">${escapeHtml(c.copy || '')}</span></td>
         <td><button type="button" class="criativos-status-pill" style="background:${statusInfo.cor}22;color:${statusInfo.cor};" onclick="abrirCriativoStatusDropdown(event,'${c.id}')">${statusInfo.label}<i class="ti ti-chevron-down" style="font-size:11px;"></i></button></td>
