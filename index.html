@@ -227,6 +227,9 @@
   #fin-tags-modal-overlay.aberto { display: flex; }
   #proj-acesso-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
   #proj-acesso-modal-overlay.aberto { display: flex; }
+  #senha-menu-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  #senha-menu-modal-overlay.aberto { display: flex; }
+  .senha-menu-modal-card { width: 340px; max-width: 100%; margin: 0; }
   .fin-tags-modal-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--card-border); }
   .fin-tags-modal-row:last-child { border-bottom: none; }
   .fin-tags-modal-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
@@ -1200,6 +1203,20 @@
 
 <div id="criativo-status-dropdown-popover" class="criativo-status-dropdown-popover"></div>
 
+<div id="senha-menu-modal-overlay" onclick="if(event.target===this) fecharModalSenhaMenu()">
+  <div class="card senha-menu-modal-card">
+    <h3 style="margin-top:0;">Área protegida</h3>
+    <p class="empty-note" style="margin-top:-8px;">Digite a senha para acessar o Dashboard e o Financeiro.</p>
+    <label>Senha</label>
+    <input type="password" id="senha-menu-input" onkeydown="if(event.key==='Enter') confirmarSenhaMenu()">
+    <p id="senha-menu-erro" style="color:var(--neg);display:none;font-size:13px;margin-bottom:0;">Senha incorreta.</p>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">
+      <button type="button" class="secondary" onclick="fecharModalSenhaMenu()">Cancelar</button>
+      <button type="button" onclick="confirmarSenhaMenu()">Entrar</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const SUPABASE_URL = "https://vqevcjuptlnfvzttzlme.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_Lr3EvmY6tMjhIdMVjNHtzg_u6qIzHMF";
@@ -1456,7 +1473,29 @@
     }
   }
 
+  // ---- Trava extra de senha pro Dashboard e Financeiro — além do login
+  // normal do Supabase, Bruno quer uma segunda senha só pra essas duas
+  // telas (ex: pra alguém que já tem conta no app, mas não deveria ver
+  // os números). A senha em si nunca fica no código nem trafega em texto
+  // puro: fica hasheada (sha256) numa tabela sem SELECT liberado pra
+  // ninguém, e é conferida só dentro de uma função SECURITY DEFINER
+  // (verificar_senha_menu) que devolve true/false. O desbloqueio vale
+  // pra aba/sessão do navegador (sessionStorage) — fechar a aba exige
+  // digitar de novo. ----
+  const MODULOS_PROTEGIDOS_SENHA = ['dashboard', 'financeiro'];
+  let menuProtegidoDesbloqueado = sessionStorage.getItem('menuProtegidoDesbloqueado') === '1';
+  let showViewModuloPendente = null;
+
   function showView(modulo) {
+    if (MODULOS_PROTEGIDOS_SENHA.includes(modulo) && !menuProtegidoDesbloqueado) {
+      showViewModuloPendente = modulo;
+      abrirModalSenhaMenu();
+      return;
+    }
+    showViewReal(modulo);
+  }
+
+  function showViewReal(modulo) {
     document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     const view = document.getElementById('view-' + modulo);
@@ -1468,6 +1507,34 @@
     if (modulo === 'financeiro' && document.getElementById('fin-projeto').value) carregarFinanceiro();
     if (modulo === 'tarefas') carregarTarefas();
     if (modulo === 'criativos') carregarCriativos();
+  }
+
+  function abrirModalSenhaMenu() {
+    document.getElementById('senha-menu-erro').style.display = 'none';
+    document.getElementById('senha-menu-input').value = '';
+    document.getElementById('senha-menu-modal-overlay').classList.add('aberto');
+    setTimeout(() => document.getElementById('senha-menu-input').focus(), 50);
+  }
+
+  function fecharModalSenhaMenu() {
+    document.getElementById('senha-menu-modal-overlay').classList.remove('aberto');
+    showViewModuloPendente = null;
+  }
+
+  async function confirmarSenhaMenu() {
+    const senha = document.getElementById('senha-menu-input').value;
+    if (!senha) return;
+    const { data, error } = await sb.rpc('verificar_senha_menu', { p_chave: 'financeiro_dashboard', p_senha: senha });
+    if (error || !data) {
+      document.getElementById('senha-menu-erro').style.display = 'block';
+      return;
+    }
+    menuProtegidoDesbloqueado = true;
+    sessionStorage.setItem('menuProtegidoDesbloqueado', '1');
+    document.getElementById('senha-menu-modal-overlay').classList.remove('aberto');
+    const modulo = showViewModuloPendente;
+    showViewModuloPendente = null;
+    if (modulo) showViewReal(modulo);
   }
 
   // ---- Projetos ----
