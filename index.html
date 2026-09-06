@@ -362,7 +362,14 @@
   .fin-lanc-badge-pago { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; font-size: 11px; }
   .criativos-tabela-card { padding: 0; overflow: hidden; }
   .criativos-tabela-scroll { overflow: auto; max-height: 72vh; }
-  .criativos-tabela { border-collapse: separate; border-spacing: 0; font-size: 13px; white-space: nowrap; width: 100%; }
+  /* table-layout:fixed + <colgroup> (em vez de min-width por :nth-child)
+     porque com layout automático o navegador reparte a largura conforme
+     o conteúdo de cada célula — como Persona/Copy são <span> de texto
+     curto e Ângulo/Formato são <input>, colunas com o mesmo min-width
+     acabavam renderizando com larguras visivelmente diferentes. Com
+     largura fixa por coluna, todas ficam exatamente do tamanho definido
+     no colgroup, não importa o tipo de conteúdo. */
+  .criativos-tabela { border-collapse: separate; border-spacing: 0; font-size: 13px; white-space: nowrap; width: 100%; table-layout: fixed; }
   .criativos-tabela th { text-align: left; padding: 10px 12px; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--card-border); border-right: 1px solid var(--card-border); position: sticky; top: 0; z-index: 3; background: var(--card); }
   .criativos-tabela thead tr:first-child th { top: 0; z-index: 3; }
   .criativos-tabela thead tr:last-child th { top: 37px; }
@@ -371,15 +378,8 @@
   .criativos-th-fixa, .criativos-td-fixa { position: sticky; left: 0; background: var(--card); }
   .criativos-td-fixa { z-index: 2; }
   th.criativos-th-fixa { z-index: 4; }
-  .criativos-tabela input, .criativos-tabela select { font-size: 13px; padding: 7px 9px; width: 100%; box-sizing: border-box; min-width: 70px; }
-  .criativos-tabela tbody td:nth-child(2), .criativos-tabela thead tr:last-child th:nth-child(2) { min-width: 150px; }
-  .criativos-tabela tbody td:nth-child(3), .criativos-tabela thead tr:last-child th:nth-child(3) { min-width: 190px; }
-  .criativos-tabela tbody td:nth-child(4), .criativos-tabela thead tr:last-child th:nth-child(4) { min-width: 190px; }
-  .criativos-tabela tbody td:nth-child(5), .criativos-tabela thead tr:last-child th:nth-child(5) { min-width: 190px; }
-  .criativos-tabela tbody td:nth-child(6), .criativos-tabela thead tr:last-child th:nth-child(6) { min-width: 190px; }
-  .criativos-tabela tbody td:nth-child(7), .criativos-tabela thead tr:last-child th:nth-child(7) { min-width: 130px; }
-  .criativos-tabela tbody td:nth-child(n+8):nth-child(-n+15), .criativos-tabela thead tr:last-child th:nth-child(n+8):nth-child(-n+15) { min-width: 105px; }
-  .criativos-tabela tbody td:nth-child(n+16):nth-child(-n+23), .criativos-tabela thead tr:last-child th:nth-child(n+16):nth-child(-n+23) { min-width: 100px; }
+  .criativos-tabela input, .criativos-tabela select { font-size: 13px; padding: 7px 9px; width: 100%; box-sizing: border-box; min-width: 0; }
+  .criativos-tabela td, .criativos-tabela th { overflow: hidden; }
   .criativos-texto-truncada { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; color: var(--text); padding: 6px 4px; border-radius: 4px; }
   .criativos-texto-truncada:hover { background: rgba(255,255,255,0.05); }
   .criativos-texto-truncada:empty::before { content: attr(data-vazio); color: var(--muted); }
@@ -811,6 +811,32 @@
         <div class="card criativos-tabela-card">
           <div class="criativos-tabela-scroll">
             <table class="criativos-tabela">
+              <colgroup>
+                <col style="width:56px;">
+                <col style="width:160px;">
+                <col style="width:200px;">
+                <col style="width:200px;">
+                <col style="width:200px;">
+                <col style="width:200px;">
+                <col style="width:140px;">
+                <col style="width:110px;">
+                <col style="width:110px;">
+                <col style="width:110px;">
+                <col style="width:110px;">
+                <col style="width:110px;">
+                <col style="width:110px;">
+                <col style="width:110px;">
+                <col style="width:110px;">
+                <col style="width:105px;">
+                <col style="width:105px;">
+                <col style="width:105px;">
+                <col style="width:105px;">
+                <col style="width:105px;">
+                <col style="width:105px;">
+                <col style="width:105px;">
+                <col style="width:105px;">
+                <col style="width:48px;">
+              </colgroup>
               <thead>
                 <tr>
                   <th class="criativos-th-fixa"></th>
