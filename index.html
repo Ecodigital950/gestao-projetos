@@ -394,6 +394,11 @@
   .criativos-valor-wrap input:focus { outline: none; }
   .criativos-afixo { color: var(--muted); font-size: 11.5px; flex-shrink: 0; user-select: none; }
   .criativos-periodo-input, .criativos-periodo-input ~ input { cursor: pointer; }
+  .criativos-th-arrastavel { cursor: grab; user-select: none; }
+  .criativos-th-arrastavel:active { cursor: grabbing; }
+  .criativos-th-arrastavel .ti-grip-vertical { color: var(--muted); margin-right: 5px; font-size: 12px; }
+  .criativos-tabela .sortable-ghost { opacity: 0.35; }
+  .criativos-tabela .sortable-chosen { background: rgba(56,189,248,0.15) !important; }
   .fin-lanc-row input { font-size: 11.5px; padding: 5px 6px; }
   .fin-lanc-row input:last-of-type { text-align: right; }
   .fin-lanc-excluir { font-size: 14px; color: var(--muted); cursor: pointer; }
@@ -812,69 +817,8 @@
         <div class="card criativos-tabela-card">
           <div class="criativos-tabela-scroll">
             <table class="criativos-tabela">
-              <colgroup>
-                <col style="width:56px;">
-                <col style="width:160px;">
-                <col style="width:200px;">
-                <col style="width:200px;">
-                <col style="width:200px;">
-                <col style="width:200px;">
-                <col style="width:140px;">
-                <col style="width:110px;">
-                <col style="width:110px;">
-                <col style="width:110px;">
-                <col style="width:110px;">
-                <col style="width:110px;">
-                <col style="width:110px;">
-                <col style="width:110px;">
-                <col style="width:110px;">
-                <col style="width:105px;">
-                <col style="width:105px;">
-                <col style="width:105px;">
-                <col style="width:105px;">
-                <col style="width:105px;">
-                <col style="width:105px;">
-                <col style="width:105px;">
-                <col style="width:105px;">
-                <col style="width:190px;">
-                <col style="width:48px;">
-              </colgroup>
-              <thead>
-                <tr>
-                  <th class="criativos-th-fixa"></th>
-                  <th colspan="5">Criativo</th>
-                  <th colspan="9" style="color:var(--pos-azul,#78b6f0);">Métricas primárias</th>
-                  <th colspan="9" style="color:var(--muted);">Métricas secundárias</th>
-                  <th></th>
-                </tr>
-                <tr>
-                  <th class="criativos-th-fixa">Projeto</th>
-                  <th>Nome do criativo</th>
-                  <th>Persona</th>
-                  <th>Ângulo</th>
-                  <th>Formato</th>
-                  <th>Copy</th>
-                  <th>Status</th>
-                  <th>Investim.</th>
-                  <th>Faturam.</th>
-                  <th>Vendas</th>
-                  <th>CPA</th>
-                  <th>ROI</th>
-                  <th>Lucro</th>
-                  <th>Ticket méd.</th>
-                  <th>Convers.</th>
-                  <th>Cliques</th>
-                  <th>CTR</th>
-                  <th>CPC</th>
-                  <th>CPM</th>
-                  <th>Hook rate</th>
-                  <th>Retenção body</th>
-                  <th>Checkout</th>
-                  <th>Custo/checkout</th>
-                  <th>Período</th>
-                  <th></th>
-                </tr>
-              </thead>
+              <colgroup id="criativos-colgroup"></colgroup>
+              <thead id="criativos-thead"></thead>
               <tbody id="criativos-tbody"></tbody>
             </table>
           </div>
@@ -5741,10 +5685,139 @@
     return `<input type="text" inputmode="decimal" value="${c[campo] != null ? formatValorBR(c[campo]) : ''}" placeholder="0,00" onblur="salvarCriativoCampo('${c.id}','${campo}','decimal',this.value)">`;
   }
 
+  // ---- Modelo de colunas de Criativos: cada campo de dados vira um
+  // objeto { key, label, grupo, largura, render, tdClass } em vez de
+  // ficar espalhado como HTML fixo no thead/tbody. Isso é o que permite
+  // arrastar qualquer coluna pra reordenar — a ordem vira um array de
+  // "keys" (criativosColunaOrdem), guardado no navegador, e tanto o
+  // cabeçalho quanto cada linha são remontados nessa ordem. Só a coluna
+  // fixa do Projeto (sempre primeira, sticky) e a de excluir (sempre
+  // última) ficam fora desse array — não fazem sentido arrastáveis. ----
+  const CRIATIVOS_COLUNAS = [
+    { key: 'nome_criativo', label: 'Nome do criativo', grupo: 'criativo', largura: 160,
+      render: c => `<input type="text" value="${escapeHtml(c.nome_criativo || '')}" placeholder="Nome" onblur="salvarCriativoCampo('${c.id}','nome_criativo','texto',this.value)">` },
+    { key: 'persona', label: 'Persona', grupo: 'criativo', largura: 200,
+      render: c => `<span class="criativos-texto-truncada" data-vazio="Persona" onclick="abrirCriativoTextoModal('${c.id}','persona','Persona')">${escapeHtml(c.persona || '')}</span>` },
+    { key: 'angulo', label: 'Ângulo', grupo: 'criativo', largura: 200,
+      render: c => `<span class="criativos-texto-truncada" data-vazio="Ângulo" onclick="abrirCriativoTextoModal('${c.id}','angulo','Ângulo')">${escapeHtml(c.angulo || '')}</span>` },
+    { key: 'formato', label: 'Formato', grupo: 'criativo', largura: 200,
+      render: c => `<input type="text" value="${escapeHtml(c.formato || '')}" placeholder="Formato" onblur="salvarCriativoCampo('${c.id}','formato','texto',this.value)">` },
+    { key: 'copy', label: 'Copy', grupo: 'criativo', largura: 200,
+      render: c => `<span class="criativos-texto-truncada" data-vazio="Copy" onclick="abrirCriativoTextoModal('${c.id}','copy','Copy')">${escapeHtml(c.copy || '')}</span>` },
+    { key: 'status', label: 'Status', grupo: 'primarias', largura: 140,
+      render: c => { const s = CRIATIVO_STATUS.find(x => x.id === c.status) || CRIATIVO_STATUS[0]; return `<button type="button" class="criativos-status-pill" style="background:${s.cor}22;color:${s.cor};" onclick="abrirCriativoStatusDropdown(event,'${c.id}')">${s.label}<i class="ti ti-chevron-down" style="font-size:11px;"></i></button>`; } },
+    { key: 'investimento', label: 'Investim.', grupo: 'primarias', largura: 110, render: c => criativoMoedaInput(c, 'investimento') },
+    { key: 'faturamento', label: 'Faturam.', grupo: 'primarias', largura: 110, render: c => criativoMoedaInput(c, 'faturamento') },
+    { key: 'vendas', label: 'Vendas', grupo: 'primarias', largura: 110, render: c => criativoInteiroInput(c, 'vendas') },
+    { key: 'cpa', label: 'CPA', grupo: 'primarias', largura: 110, render: c => criativoMoedaInput(c, 'cpa') },
+    { key: 'roi', label: 'ROI', grupo: 'primarias', largura: 110, render: c => criativoDecimalInput(c, 'roi') },
+    { key: 'lucro', label: 'Lucro', grupo: 'primarias', largura: 110, render: c => criativoMoedaInput(c, 'lucro'),
+      tdClass: c => Number(c.lucro) > 0 ? 'criativos-num-pos' : (Number(c.lucro) < 0 ? 'criativos-num-neg' : '') },
+    { key: 'ticket_medio', label: 'Ticket méd.', grupo: 'primarias', largura: 110, render: c => criativoMoedaInput(c, 'ticket_medio') },
+    { key: 'conversao', label: 'Convers.', grupo: 'primarias', largura: 110, render: c => criativoDecimalInput(c, 'conversao') },
+    { key: 'cliques', label: 'Cliques', grupo: 'secundarias', largura: 105, render: c => criativoInteiroInput(c, 'cliques') },
+    { key: 'ctr', label: 'CTR', grupo: 'secundarias', largura: 105, render: c => criativoPercentInput(c, 'ctr') },
+    { key: 'cpc', label: 'CPC', grupo: 'secundarias', largura: 105, render: c => criativoMoedaInput(c, 'cpc') },
+    { key: 'cpm', label: 'CPM', grupo: 'secundarias', largura: 105, render: c => criativoMoedaInput(c, 'cpm') },
+    { key: 'hook_rate', label: 'Hook rate', grupo: 'secundarias', largura: 105, render: c => criativoPercentInput(c, 'hook_rate') },
+    { key: 'retencao_body', label: 'Retenção body', grupo: 'secundarias', largura: 105, render: c => criativoPercentInput(c, 'retencao_body') },
+    { key: 'checkout', label: 'Checkout', grupo: 'secundarias', largura: 105, render: c => criativoInteiroInput(c, 'checkout') },
+    { key: 'custo_checkout', label: 'Custo/checkout', grupo: 'secundarias', largura: 105, render: c => criativoMoedaInput(c, 'custo_checkout') },
+    { key: 'periodo', label: 'Período', grupo: 'secundarias', largura: 190,
+      render: c => `<input type="text" id="crit-periodo-${c.id}" class="criativos-periodo-input" placeholder="Selecionar período" readonly>` },
+  ];
+  const CRIATIVOS_GRUPO_INFO = {
+    criativo: { label: 'Criativo', estilo: '' },
+    primarias: { label: 'Métricas primárias', estilo: 'color:var(--pos-azul,#78b6f0);' },
+    secundarias: { label: 'Métricas secundárias', estilo: 'color:var(--muted);' },
+  };
+
+  // Ordem atual das colunas — guardada no navegador (é uma preferência
+  // pessoal de visualização, não um dado do projeto). Se o app ganhar
+  // campos novos depois, eles entram no fim; se algum campo salvo não
+  // existir mais, é ignorado — assim uma versão antiga salva não quebra.
+  function carregarCriativosColunaOrdem() {
+    const chavesPadrao = CRIATIVOS_COLUNAS.map(c => c.key);
+    try {
+      const salvo = JSON.parse(localStorage.getItem('criativosColunaOrdem') || 'null');
+      if (Array.isArray(salvo)) {
+        const validas = salvo.filter(k => chavesPadrao.includes(k));
+        const faltando = chavesPadrao.filter(k => !validas.includes(k));
+        return [...validas, ...faltando];
+      }
+    } catch (e) {}
+    return chavesPadrao;
+  }
+  let criativosColunaOrdem = carregarCriativosColunaOrdem();
+  function salvarCriativosColunaOrdem() {
+    try { localStorage.setItem('criativosColunaOrdem', JSON.stringify(criativosColunaOrdem)); } catch (e) {}
+  }
+  function criativosColunasOrdenadas() {
+    return criativosColunaOrdem.map(k => CRIATIVOS_COLUNAS.find(c => c.key === k)).filter(Boolean);
+  }
+
+  let criativosColunaSortable = null;
+  function initCriativosColunaDrag() {
+    if (typeof Sortable !== 'function') return;
+    const linha = document.getElementById('criativos-thead-colunas');
+    if (!linha) return;
+    if (criativosColunaSortable) { criativosColunaSortable.destroy(); criativosColunaSortable = null; }
+    criativosColunaSortable = Sortable.create(linha, {
+      animation: 150,
+      direction: 'horizontal',
+      filter: '.criativos-th-fixa, .criativos-th-acao',
+      preventOnFilter: true,
+      // trava as duas pontas: nada pode ser largado antes do Projeto
+      // nem depois da coluna de excluir — só reordena o meio.
+      onMove: evt => !evt.related.classList.contains('criativos-th-fixa') && !evt.related.classList.contains('criativos-th-acao'),
+      onEnd: () => {
+        criativosColunaOrdem = Array.from(linha.querySelectorAll('th[data-col-key]')).map(th => th.dataset.colKey);
+        salvarCriativosColunaOrdem();
+        renderCriativosTabela();
+      }
+    });
+  }
+
+  // Monta o <colgroup> e as duas linhas do <thead> (grupo + coluna) na
+  // ordem atual. O cabeçalho de grupo mescla (colspan) colunas vizinhas
+  // do mesmo grupo — se o usuário arrastar uma métrica pra o meio de
+  // outro grupo, ela vira seu próprio bloco de 1 coluna ali, em vez de
+  // quebrar o cabeçalho.
+  function renderCriativosCabecalho() {
+    const colgroupEl = document.getElementById('criativos-colgroup');
+    const theadEl = document.getElementById('criativos-thead');
+    if (!colgroupEl || !theadEl) return;
+    const colunas = criativosColunasOrdenadas();
+
+    colgroupEl.innerHTML = `<col style="width:56px;">` +
+      colunas.map(c => `<col style="width:${c.largura}px;">`).join('') +
+      `<col style="width:48px;">`;
+
+    const segmentos = [];
+    colunas.forEach(c => {
+      const ultimo = segmentos[segmentos.length - 1];
+      if (ultimo && ultimo.grupo === c.grupo) ultimo.count++;
+      else segmentos.push({ grupo: c.grupo, count: 1 });
+    });
+    const linhaGrupos = `<tr>
+      <th class="criativos-th-fixa"></th>
+      ${segmentos.map(s => `<th colspan="${s.count}" style="${CRIATIVOS_GRUPO_INFO[s.grupo].estilo}">${CRIATIVOS_GRUPO_INFO[s.grupo].label}</th>`).join('')}
+      <th class="criativos-th-acao"></th>
+    </tr>`;
+    const linhaColunas = `<tr id="criativos-thead-colunas">
+      <th class="criativos-th-fixa">Projeto</th>
+      ${colunas.map(c => `<th class="criativos-th-arrastavel" data-col-key="${c.key}" title="Arraste para reordenar"><i class="ti ti-grip-vertical"></i>${escapeHtml(c.label)}</th>`).join('')}
+      <th class="criativos-th-acao"></th>
+    </tr>`;
+    theadEl.innerHTML = linhaGrupos + linhaColunas;
+    initCriativosColunaDrag();
+  }
+
   function renderCriativosTabela() {
     const tbody = document.getElementById('criativos-tbody');
     const empty = document.getElementById('criativos-empty');
     if (!tbody) return;
+    renderCriativosCabecalho();
     if (!criativosCache.length) {
       Object.values(criativosPeriodoPickers).forEach(p => p.destroy());
       criativosPeriodoPickers = {};
@@ -5753,37 +5826,14 @@
       return;
     }
     empty.style.display = 'none';
+    const colunas = criativosColunasOrdenadas();
     tbody.innerHTML = criativosCache.map(c => {
       const projeto = projectsCache.find(p => p.id === c.project_id);
-      const statusInfo = CRIATIVO_STATUS.find(s => s.id === c.status) || CRIATIVO_STATUS[0];
-      const lucroClasse = Number(c.lucro) > 0 ? 'criativos-num-pos' : (Number(c.lucro) < 0 ? 'criativos-num-neg' : '');
       return `<tr>
         <td class="criativos-td-fixa" title="${projeto ? escapeHtml(projeto.nome) : ''}">
           <span class="fin-lanc-badge-projeto${projeto ? '' : ' vazio'}" style="${projeto ? `background:${corAvatar(projeto.id)};` : ''}">${projeto ? iniciaisResponsavel(projeto) : '<i class="ti ti-folder"></i>'}</span>
         </td>
-        <td><input type="text" value="${escapeHtml(c.nome_criativo || '')}" placeholder="Nome" onblur="salvarCriativoCampo('${c.id}','nome_criativo','texto',this.value)"></td>
-        <td><span class="criativos-texto-truncada" data-vazio="Persona" onclick="abrirCriativoTextoModal('${c.id}','persona','Persona')">${escapeHtml(c.persona || '')}</span></td>
-        <td><span class="criativos-texto-truncada" data-vazio="Ângulo" onclick="abrirCriativoTextoModal('${c.id}','angulo','Ângulo')">${escapeHtml(c.angulo || '')}</span></td>
-        <td><input type="text" value="${escapeHtml(c.formato || '')}" placeholder="Formato" onblur="salvarCriativoCampo('${c.id}','formato','texto',this.value)"></td>
-        <td><span class="criativos-texto-truncada" data-vazio="Copy" onclick="abrirCriativoTextoModal('${c.id}','copy','Copy')">${escapeHtml(c.copy || '')}</span></td>
-        <td><button type="button" class="criativos-status-pill" style="background:${statusInfo.cor}22;color:${statusInfo.cor};" onclick="abrirCriativoStatusDropdown(event,'${c.id}')">${statusInfo.label}<i class="ti ti-chevron-down" style="font-size:11px;"></i></button></td>
-        <td>${criativoMoedaInput(c, 'investimento')}</td>
-        <td>${criativoMoedaInput(c, 'faturamento')}</td>
-        <td>${criativoInteiroInput(c, 'vendas')}</td>
-        <td>${criativoMoedaInput(c, 'cpa')}</td>
-        <td>${criativoDecimalInput(c, 'roi')}</td>
-        <td class="${lucroClasse}">${criativoMoedaInput(c, 'lucro')}</td>
-        <td>${criativoMoedaInput(c, 'ticket_medio')}</td>
-        <td>${criativoDecimalInput(c, 'conversao')}</td>
-        <td>${criativoInteiroInput(c, 'cliques')}</td>
-        <td>${criativoPercentInput(c, 'ctr')}</td>
-        <td>${criativoMoedaInput(c, 'cpc')}</td>
-        <td>${criativoMoedaInput(c, 'cpm')}</td>
-        <td>${criativoPercentInput(c, 'hook_rate')}</td>
-        <td>${criativoPercentInput(c, 'retencao_body')}</td>
-        <td>${criativoInteiroInput(c, 'checkout')}</td>
-        <td>${criativoMoedaInput(c, 'custo_checkout')}</td>
-        <td><input type="text" id="crit-periodo-${c.id}" class="criativos-periodo-input" placeholder="Selecionar período" readonly></td>
+        ${colunas.map(col => `<td${col.tdClass ? ` class="${col.tdClass(c)}"` : ''}>${col.render(c)}</td>`).join('')}
         <td><i class="ti ti-trash fin-lanc-excluir" onclick="excluirCriativo('${c.id}')"></i></td>
       </tr>`;
     }).join('');
