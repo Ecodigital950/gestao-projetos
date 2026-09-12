@@ -5768,7 +5768,7 @@
     { key: 'angulo', label: 'Ângulo', grupo: 'criativo', largura: 200,
       render: c => `<span class="criativos-texto-truncada" data-vazio="Ângulo" onclick="abrirCriativoTextoModal('${c.id}','angulo','Ângulo')">${escapeHtml(c.angulo || '')}</span>` },
     { key: 'formato', label: 'Formato', grupo: 'criativo', largura: 200,
-      render: c => `<input type="text" value="${escapeHtml(c.formato || '')}" placeholder="Formato" onblur="salvarCriativoCampo('${c.id}','formato','texto',this.value)">` },
+      render: c => `<span class="criativos-texto-truncada" data-vazio="Formato" onclick="abrirCriativoTextoModal('${c.id}','formato','Formato')">${escapeHtml(c.formato || '')}</span>` },
     { key: 'copy', label: 'Copy', grupo: 'criativo', largura: 200,
       render: c => `<span class="criativos-texto-truncada" data-vazio="Copy" onclick="abrirCriativoTextoModal('${c.id}','copy','Copy')">${escapeHtml(c.copy || '')}</span>` },
     { key: 'status', label: 'Status', grupo: 'primarias', largura: 140,
