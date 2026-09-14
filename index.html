@@ -1122,7 +1122,7 @@
       <input type="checkbox" id="fincat-modal-eh-assinatura" style="width:auto;"> <i class="ti ti-refresh"></i> É uma categoria de assinaturas (mostra a tag Pago/Pendente em todo item)
     </label>
     <label style="display:flex;align-items:center;gap:8px;margin-top:10px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
-      <input type="checkbox" id="fincat-modal-eh-gabarito" style="width:auto;"> <i class="ti ti-copy"></i> Repete a descrição todo mês, sem valor (ideal pra Parcelado/Imposto)
+      <input type="checkbox" id="fincat-modal-eh-gabarito" style="width:auto;"> <i class="ti ti-copy"></i> Repete a descrição todo mês, sem valor (desmarque se for gasto variável, tipo Extras/Lazer)
     </label>
     <div id="fincat-modal-meta-campos" style="display:none;">
       <div class="form-row" style="margin-top:8px;">
@@ -5029,7 +5029,10 @@
       document.getElementById('fincat-modal-meta-valor').value = '';
       document.getElementById('fincat-modal-meta-data').value = '';
       document.getElementById('fincat-modal-eh-assinatura').checked = false;
-      document.getElementById('fincat-modal-eh-gabarito').checked = false;
+      // Vem marcado por padrão numa categoria nova — a regra geral do
+      // app é "recorrente repete sozinho"; quem cadastra uma categoria
+      // de gasto variável (tipo Extras/Lazer) é que desmarca.
+      document.getElementById('fincat-modal-eh-gabarito').checked = true;
       excluirEl.style.display = 'none';
     }
     toggleFinMetaCamposModal();
