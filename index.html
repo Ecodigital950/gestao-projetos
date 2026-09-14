@@ -5601,19 +5601,27 @@
   // Imposto): copia os NOMES dos lançamentos do mês anterior mais
   // recente que tiver algo, criando de novo no mês atual sem valor
   // (fica 0) e pago=false, só pra não ter que redigitar a descrição
-  // todo mês. Só mexe se o mês atual ainda não tiver nada nessa
-  // categoria — não sobrescreve o que já foi lançado.
+  // todo mês.
+  // Importante: antes a gente checava "o mês já tem ALGUMA linha?" e
+  // pulava a categoria inteira se sim — mas uma linha em branco (ex: o
+  // usuário clicou em "+ Adicionar lançamento" e não preencheu nada)
+  // já contava como "já tem", e travava o gabarito pra sempre naquele
+  // mês (e, em cascata, nos meses seguintes, que copiam desse mês
+  // incompleto). Agora a checagem é por NOME: só pula os nomes que já
+  // existem nesse mês, e completa o resto — nunca sobrescreve o que já
+  // foi lançado de verdade.
   async function repetirGabaritoDoMes(mes) {
     const categorias = finCategoriasCache.filter(c => c.eh_gabarito);
     if (!categorias.length) return;
     for (const cat of categorias) {
-      const { data: jaTem } = await sb.from('fin_entries').select('id').eq('categoria_id', cat.id).eq('mes', mes).limit(1);
-      if (jaTem && jaTem.length) continue;
+      const { data: doMes } = await sb.from('fin_entries').select('nome').eq('categoria_id', cat.id).eq('mes', mes);
+      const nomesExistentes = new Set((doMes || []).map(e => (e.nome || '').trim()).filter(Boolean));
       const { data: anteriores } = await sb.from('fin_entries').select('nome, mes').eq('categoria_id', cat.id).lt('mes', mes).order('mes', { ascending: false }).limit(50);
       if (!anteriores || !anteriores.length) continue;
       const mesMaisRecente = anteriores[0].mes;
-      const nomes = [...new Set(anteriores.filter(e => e.mes === mesMaisRecente && e.nome).map(e => e.nome))];
+      const nomes = [...new Set(anteriores.filter(e => e.mes === mesMaisRecente && e.nome && e.nome.trim()).map(e => e.nome.trim()))];
       for (const nome of nomes) {
+        if (nomesExistentes.has(nome)) continue;
         await sb.from('fin_entries').insert({ contexto: cat.contexto, tipo: cat.tipo, nome, valor: 0, mes, categoria_id: cat.id, pago: false });
       }
     }
