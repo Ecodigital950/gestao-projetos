@@ -1121,6 +1121,9 @@
     <label style="display:flex;align-items:center;gap:8px;margin-top:10px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
       <input type="checkbox" id="fincat-modal-eh-assinatura" style="width:auto;"> <i class="ti ti-refresh"></i> É uma categoria de assinaturas (mostra a tag Pago/Pendente em todo item)
     </label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
+      <input type="checkbox" id="fincat-modal-eh-gabarito" style="width:auto;"> <i class="ti ti-copy"></i> Repete a descrição todo mês, sem valor (ideal pra Parcelado/Imposto)
+    </label>
     <div id="fincat-modal-meta-campos" style="display:none;">
       <div class="form-row" style="margin-top:8px;">
         <div><label>Valor da meta (R$)</label><input type="text" inputmode="decimal" id="fincat-modal-meta-valor" placeholder="0,00"></div>
@@ -4413,6 +4416,7 @@
     } else {
       const mes = finMesStr();
       await preencherAssinaturasDoMes(mes);
+      await repetirGabaritoDoMes(mes);
       const { data } = await sb.from('fin_entries').select('*').eq('mes', mes).order('ordem').order('created_at');
       entries = data;
       const { data: pl } = await sb.from('fin_prolabore').select('*').eq('mes', mes).maybeSingle();
@@ -5014,6 +5018,7 @@
       document.getElementById('fincat-modal-meta-valor').value = cat.meta_valor ? formatValorBR(cat.meta_valor) : '';
       document.getElementById('fincat-modal-meta-data').value = cat.meta_data || '';
       document.getElementById('fincat-modal-eh-assinatura').checked = !!cat.eh_assinatura;
+      document.getElementById('fincat-modal-eh-gabarito').checked = !!cat.eh_gabarito;
       excluirEl.style.display = 'inline';
     } else {
       document.getElementById('fin-cat-modal-titulo').textContent = `Nova categoria (${contexto === 'eco' ? 'Eco' : 'Pessoal'})`;
@@ -5024,6 +5029,7 @@
       document.getElementById('fincat-modal-meta-valor').value = '';
       document.getElementById('fincat-modal-meta-data').value = '';
       document.getElementById('fincat-modal-eh-assinatura').checked = false;
+      document.getElementById('fincat-modal-eh-gabarito').checked = false;
       excluirEl.style.display = 'none';
     }
     toggleFinMetaCamposModal();
@@ -5075,14 +5081,15 @@
     const meta_valor = eh_meta ? parseValorBR(document.getElementById('fincat-modal-meta-valor').value) : null;
     const meta_data = eh_meta ? (document.getElementById('fincat-modal-meta-data').value || null) : null;
     const eh_assinatura = document.getElementById('fincat-modal-eh-assinatura').checked;
+    const eh_gabarito = document.getElementById('fincat-modal-eh-gabarito').checked;
 
     if (id) {
-      const { error } = await sb.from('fin_categories').update({ nome, tag_id, expansivel, eh_meta, meta_valor, meta_data, eh_assinatura }).eq('id', id);
+      const { error } = await sb.from('fin_categories').update({ nome, tag_id, expansivel, eh_meta, meta_valor, meta_data, eh_assinatura, eh_gabarito }).eq('id', id);
       if (error) { alert('Erro ao salvar categoria: ' + error.message); return; }
     } else {
       const doContexto = finCategoriasCache.filter(c => c.contexto === contexto && c.tipo === 'despesa');
       const ordem = doContexto.length ? Math.max(...doContexto.map(c => c.ordem || 0)) + 10 : 0;
-      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag_id, expansivel, ordem, eh_meta, meta_valor, meta_data, eh_assinatura });
+      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag_id, expansivel, ordem, eh_meta, meta_valor, meta_data, eh_assinatura, eh_gabarito });
       if (error) { alert('Erro ao criar categoria: ' + error.message); return; }
     }
     fecharFinCategoriaModal();
@@ -5566,6 +5573,29 @@
         // que pagou de verdade marcando a tag Pago (aí sim entra na conta
         // do Total/KPIs do mês).
         await sb.from('fin_entries').insert({ contexto: sub.contexto, tipo: 'despesa', nome: sub.nome, valor: 0, mes, assinatura_id: sub.id, categoria_id: sub.categoria_id, pago: false });
+      }
+    }
+  }
+
+  // "Gabarito" de categoria — igual ao das assinaturas, mas pra qualquer
+  // categoria expansível marcada como eh_gabarito (ex: Parcelado,
+  // Imposto): copia os NOMES dos lançamentos do mês anterior mais
+  // recente que tiver algo, criando de novo no mês atual sem valor
+  // (fica 0) e pago=false, só pra não ter que redigitar a descrição
+  // todo mês. Só mexe se o mês atual ainda não tiver nada nessa
+  // categoria — não sobrescreve o que já foi lançado.
+  async function repetirGabaritoDoMes(mes) {
+    const categorias = finCategoriasCache.filter(c => c.eh_gabarito);
+    if (!categorias.length) return;
+    for (const cat of categorias) {
+      const { data: jaTem } = await sb.from('fin_entries').select('id').eq('categoria_id', cat.id).eq('mes', mes).limit(1);
+      if (jaTem && jaTem.length) continue;
+      const { data: anteriores } = await sb.from('fin_entries').select('nome, mes').eq('categoria_id', cat.id).lt('mes', mes).order('mes', { ascending: false }).limit(50);
+      if (!anteriores || !anteriores.length) continue;
+      const mesMaisRecente = anteriores[0].mes;
+      const nomes = [...new Set(anteriores.filter(e => e.mes === mesMaisRecente && e.nome).map(e => e.nome))];
+      for (const nome of nomes) {
+        await sb.from('fin_entries').insert({ contexto: cat.contexto, tipo: cat.tipo, nome, valor: 0, mes, categoria_id: cat.id, pago: false });
       }
     }
   }
