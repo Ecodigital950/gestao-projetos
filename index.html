@@ -5622,7 +5622,17 @@
       const nomes = [...new Set(anteriores.filter(e => e.mes === mesMaisRecente && e.nome && e.nome.trim()).map(e => e.nome.trim()))];
       for (const nome of nomes) {
         if (nomesExistentes.has(nome)) continue;
-        await sb.from('fin_entries').insert({ contexto: cat.contexto, tipo: cat.tipo, nome, valor: 0, mes, categoria_id: cat.id, pago: false });
+        // Categoria de assinatura (eh_assinatura) também carrega o valor —
+        // pega o último valor real lançado com esse nome (mesma lógica do
+        // preencherAssinaturasDoMes, cobre os itens digitados direto no
+        // card em vez de cadastrados como assinatura formal). Toda outra
+        // categoria (Receita, Parcelado etc.) continua nascendo com 0.
+        let valorRepetido = 0;
+        if (cat.eh_assinatura) {
+          const { data: ultimoReal } = await sb.from('fin_entries').select('valor').eq('categoria_id', cat.id).ilike('nome', nome).gt('valor', 0).lt('mes', mes).order('mes', { ascending: false }).limit(1);
+          if (ultimoReal && ultimoReal.length) valorRepetido = ultimoReal[0].valor;
+        }
+        await sb.from('fin_entries').insert({ contexto: cat.contexto, tipo: cat.tipo, nome, valor: valorRepetido, mes, categoria_id: cat.id, pago: false });
       }
     }
   }
