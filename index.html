@@ -5570,8 +5570,14 @@
     const { data: subs } = await sb.from('fin_subscriptions').select('*').eq('ativo', true);
     if (!subs || !subs.length) return;
     for (const sub of subs) {
-      const { data: existente } = await sb.from('fin_entries').select('id').eq('assinatura_id', sub.id).eq('mes', mes).maybeSingle();
-      if (!existente) {
+      // .limit(1) em vez de .maybeSingle(): se por qualquer motivo já
+      // existir mais de uma linha (ex: duas abas abertas rodando isso ao
+      // mesmo tempo), .maybeSingle() dá erro e some com o "data" —
+      // aí o "if (!existente)" lia como "não existe" e inseria de novo,
+      // duplicando a cada vez que a página carregava. Com .limit(1) só
+      // interessa saber se tem ALGUMA linha, então nunca duplica.
+      const { data: existente } = await sb.from('fin_entries').select('id').eq('assinatura_id', sub.id).eq('mes', mes).limit(1);
+      if (!existente || !existente.length) {
         // Nasce como "não pago" — é só uma previsão até o Bruno confirmar
         // que pagou de verdade marcando a tag Pago (aí sim entra na conta
         // do Total/KPIs do mês).
