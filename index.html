@@ -5578,10 +5578,16 @@
       // interessa saber se tem ALGUMA linha, então nunca duplica.
       const { data: existente } = await sb.from('fin_entries').select('id').eq('assinatura_id', sub.id).eq('mes', mes).limit(1);
       if (!existente || !existente.length) {
-        // Nasce como "não pago" — é só uma previsão até o Bruno confirmar
-        // que pagou de verdade marcando a tag Pago (aí sim entra na conta
-        // do Total/KPIs do mês).
-        await sb.from('fin_entries').insert({ contexto: sub.contexto, tipo: 'despesa', nome: sub.nome, valor: 0, mes, assinatura_id: sub.id, categoria_id: sub.categoria_id, pago: false });
+        // Assinatura já vem com o valor preenchido (Bruno normalmente já
+        // sabe quanto vai pagar) — pega o último valor REAL lançado pra essa
+        // assinatura (mais confiável que valor_padrao, que pode estar
+        // desatualizado), e só cai pro valor_padrao se nunca teve lançamento
+        // com valor. Nasce como "não pago": é só uma previsão até o Bruno
+        // confirmar que pagou de verdade marcando a tag Pago (aí sim entra
+        // na conta do Total/KPIs do mês).
+        const { data: ultimoReal } = await sb.from('fin_entries').select('valor').eq('assinatura_id', sub.id).gt('valor', 0).lt('mes', mes).order('mes', { ascending: false }).limit(1);
+        const valorPreenchido = (ultimoReal && ultimoReal.length) ? ultimoReal[0].valor : (Number(sub.valor_padrao) || 0);
+        await sb.from('fin_entries').insert({ contexto: sub.contexto, tipo: 'despesa', nome: sub.nome, valor: valorPreenchido, mes, assinatura_id: sub.id, categoria_id: sub.categoria_id, pago: false });
       }
     }
   }
