@@ -4835,7 +4835,11 @@
     // fim da lista em vez de pular pro topo — só entra na ordenação por
     // dia depois que o dia for de fato digitado
     const itens = finEntriesCache.filter(e => e.categoria_id === cat.id).sort((a, b) => (a.dia ?? 9999) - (b.dia ?? 9999));
-    const total = itens.filter(finItemConta).reduce((s, i) => s + Number(i.valor || 0), 0);
+    // Total do CARD soma tudo que está preenchido, pago ou não — é só um
+    // espelho da lista logo abaixo (senão o cabeçalho mostra 0,00 mesmo com
+    // as linhas cheias de valor, o que confunde). O filtro de "só conta se
+    // pago" (finItemConta) continua valendo pros KPIs/dashboard lá em cima.
+    const total = itens.reduce((s, i) => s + Number(i.valor || 0), 0);
     const tagInfo = finTagInfo(cat);
     const icone = iconeCategoria(cat.nome);
     const usaLista = cat.expansivel || itens.length > 1;
