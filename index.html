@@ -202,9 +202,13 @@
   .cal-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
   .cal-mais { font-size: 9.5px; color: var(--muted); }
 
-  .kanban-board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; height: 100%; }
+  .kanban-board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; align-items: flex-start; height: 100%; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent; }
+  .kanban-board::-webkit-scrollbar { height: 6px; }
+  .kanban-board::-webkit-scrollbar-track { background: transparent; }
+  .kanban-board::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+  .kanban-board::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
   .kanban-board-wrap { border-radius: 14px; padding: 16px; background-size: cover; background-position: center; background-color: rgba(255,255,255,0.025); transition: background 0.2s; overflow: hidden; }
-  .kanban-col { background: transparent; border: none; border-radius: 8px; padding: 0 4px 8px 4px; min-width: 300px; max-width: 300px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; }
+  .kanban-col { background: transparent; border: none; border-radius: 8px; padding: 0 4px 8px 4px; min-width: 340px; max-width: 340px; flex-shrink: 0; height: 100%; display: flex; flex-direction: column; }
   .kanban-col-header { margin: 0 0 12px 0; padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-shrink: 0; color: #fff; }
   .kanban-col-header .kanban-col-title { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kanban-col-header .count { color: rgba(255,255,255,0.75); font-weight: 600; font-size: 12.5px; flex-shrink: 0; }
@@ -283,7 +287,11 @@
   .task-card.dragging { opacity: 0.6; cursor: grabbing; }
   .task-card-ghost { opacity: 0.5; background: rgba(56,189,248,0.10) !important; border: 1.5px dashed var(--info) !important; box-shadow: none !important; }
   .task-card-ghost * { opacity: 0; }
-  .kanban-col-body { min-height: 0; flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; }
+  .kanban-col-body { min-height: 0; flex: 1 1 auto; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.12) transparent; }
+  .kanban-col-body::-webkit-scrollbar { width: 6px; }
+  .kanban-col-body::-webkit-scrollbar-track { background: transparent; }
+  .kanban-col-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 3px; }
+  .kanban-col-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
   .quick-add { flex-shrink: 0; }
   .quick-add input { width: 100%; background: transparent; border: 1px dashed var(--card-border); font-size: 12.5px; margin-top: 4px; }
   .checklist-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; }
