@@ -209,9 +209,13 @@
   .kanban-col-header { margin: 0 0 12px 0; padding: 8px 12px; border-radius: 8px; font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-shrink: 0; color: #fff; }
   .kanban-col-header .kanban-col-title { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kanban-col-header .count { color: rgba(255,255,255,0.75); font-weight: 600; font-size: 12.5px; flex-shrink: 0; }
-  .kanban-col-header .col-move { flex-shrink: 0; display: flex; }
+  .kanban-col-header .col-move { flex-shrink: 0; display: flex; align-items: center; gap: 6px; }
   .kanban-col-header .col-move .row-action { color: rgba(255,255,255,0.75); }
   .kanban-col-header .col-move .row-action:hover:not(:disabled) { color: #fff; }
+  .kanban-col-nome { outline: none; border-radius: 3px; padding: 1px 4px; margin: -1px -4px; cursor: text; }
+  .kanban-col-nome:hover, .kanban-col-nome:focus { background: rgba(255,255,255,0.14); }
+  .kanban-col-cor-dot { position: relative; width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.35); cursor: pointer; flex-shrink: 0; }
+  .kanban-col-cor-dot input[type=color] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; border: none; }
   .col-move { display: flex; gap: 2px; flex-shrink: 0; }
   .col-move .row-action { padding: 1px 5px; font-size: 11px; }
   .task-card { background: #22272b; border: none; border-radius: 8px; padding: 8px 8px 8px 12px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.35); transition: box-shadow 0.12s, background 0.12s; }
@@ -2652,6 +2656,23 @@
     if (kc) { kc.cor = cor; renderKanban(); }
   }
 
+  // Renomear direto no cabeçalho colorido da coluna, no próprio quadro
+  // (contenteditable) — salva ao sair do campo ou apertar Enter. Mantém a
+  // tabela de Configurações em sincronia sem precisar recarregá-la.
+  async function salvarNomeColunaInline(el) {
+    const id = el.dataset.colunaId;
+    const col = kanbanColumnsCache.find(c => c.id === id);
+    if (!col) return;
+    const novoNome = el.textContent.trim();
+    if (!novoNome) { el.textContent = col.nome; return; }
+    if (novoNome === col.nome) return;
+    const { error } = await sb.from('kanban_columns').update({ nome: novoNome }).eq('id', id);
+    if (error) { alert('Erro ao renomear coluna: ' + error.message); el.textContent = col.nome; return; }
+    col.nome = novoNome;
+    const cc = colunasConfigCache.find(c => c.id === id);
+    if (cc) cc.nome = novoNome;
+  }
+
   async function criarColunaConfig() {
     const nome = document.getElementById('col-nome').value.trim();
     if (!nome) return;
@@ -3177,9 +3198,15 @@
       const corCol = col.cor || FIN_PALETTE[idx % FIN_PALETTE.length];
       return `
         <div class="kanban-col">
-          <div class="kanban-col-header" style="background:${corCol};" title="Cor da coluna">
-            <span class="kanban-col-title"><span>${escapeHtml(col.nome)}</span> <span class="count">${tarefasDaColuna.length}</span></span>
+          <div class="kanban-col-header" style="background:${corCol};">
+            <span class="kanban-col-title">
+              <span class="kanban-col-nome" contenteditable="true" spellcheck="false" data-coluna-id="${col.id}" onblur="salvarNomeColunaInline(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${escapeHtml(col.nome)}</span>
+              <span class="count">${tarefasDaColuna.length}</span>
+            </span>
             <span class="col-move">
+              <span class="kanban-col-cor-dot" title="Cor da coluna">
+                <input type="color" value="${corCol}" onchange="salvarCorColuna('${col.id}', this.value)">
+              </span>
               <button class="row-action" ${idx === 0 ? 'disabled' : ''} onclick="moverColuna('${col.id}', -1)" title="Mover coluna para a esquerda">◀</button>
               <button class="row-action" ${idx === kanbanColumnsCache.length - 1 ? 'disabled' : ''} onclick="moverColuna('${col.id}', 1)" title="Mover coluna para a direita">▶</button>
             </span>
