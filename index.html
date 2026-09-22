@@ -1002,6 +1002,15 @@
       <div id="view-configuracoes" class="view">
         <h2>Configurações</h2>
         <div class="card">
+          <h3 style="margin-top:0;">Aparência</h3>
+          <p class="placeholder" style="margin-bottom:12px;">Cor de fundo geral do sistema. Só afeta o que você vê — é salvo na sua conta, o resto da equipe não é afetado.</p>
+          <div class="form-row" style="align-items:flex-end;">
+            <div><label>Cor de fundo</label><input type="color" id="aparencia-cor-fundo" value="#0c1120" style="height:38px; padding:2px; width:70px;"></div>
+            <div><button onclick="salvarCorFundoApp()">Salvar</button></div>
+            <div><button class="secondary" onclick="restaurarCorFundoApp()">Restaurar padrão</button></div>
+          </div>
+        </div>
+        <div class="card">
           <h3 style="margin-top:0;">Usuários</h3>
           <p class="placeholder" style="margin-bottom:12px;">Crie um acesso pra alguém da equipe. A senha padrão é <strong>Suasenha.321</strong> — combine com a pessoa pra trocar depois de entrar.</p>
           <div class="form-row" style="align-items:flex-end;">
@@ -1406,6 +1415,9 @@
       return;
     }
     currentProfile = profile;
+    aplicarCorFundoApp(profile.cor_fundo_app);
+    const inputCorFundo = document.getElementById('aparencia-cor-fundo');
+    if (inputCorFundo) inputCorFundo.value = profile.cor_fundo_app || '#0c1120';
 
     if (profile.is_admin) {
       currentPermissions = new Set(MODULES);
@@ -2395,6 +2407,28 @@
     if (error) { alert('Erro ao excluir: ' + error.message); return; }
     if (editingRevenueId === id) cancelarEdicaoReceita();
     carregarFinanceiro();
+  }
+
+  // ---- Configurações: aparência (cor de fundo geral, por usuário) ----
+  function aplicarCorFundoApp(cor) {
+    if (cor) document.documentElement.style.setProperty('--bg', cor);
+    else document.documentElement.style.removeProperty('--bg');
+  }
+
+  async function salvarCorFundoApp() {
+    const cor = document.getElementById('aparencia-cor-fundo').value;
+    const { error } = await sb.from('profiles').update({ cor_fundo_app: cor }).eq('id', currentUser.id);
+    if (error) { alert('Erro ao salvar cor: ' + error.message); return; }
+    if (currentProfile) currentProfile.cor_fundo_app = cor;
+    aplicarCorFundoApp(cor);
+  }
+
+  async function restaurarCorFundoApp() {
+    const { error } = await sb.from('profiles').update({ cor_fundo_app: null }).eq('id', currentUser.id);
+    if (error) { alert('Erro ao restaurar cor: ' + error.message); return; }
+    if (currentProfile) currentProfile.cor_fundo_app = null;
+    document.getElementById('aparencia-cor-fundo').value = '#0c1120';
+    aplicarCorFundoApp(null);
   }
 
   // ---- Configurações: usuários e permissões ----
