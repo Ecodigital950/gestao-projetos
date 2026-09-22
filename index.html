@@ -3606,7 +3606,13 @@
     if (!t) return;
     tarefaModalId = id;
     document.getElementById('tm-titulo').textContent = t.titulo || '';
-    document.getElementById('tm-descricao').value = t.descricao || '';
+    // O textarea de descrição é um único elemento reaproveitado por todos
+    // os cartões — sem resetar, o tamanho que o usuário arrasta numa
+    // tarefa ("redimensionar") ficava grudado nela e vazava pras próximas
+    // tarefas abertas, como se o tamanho fosse global em vez de individual.
+    const tmDescEl = document.getElementById('tm-descricao');
+    tmDescEl.style.height = '';
+    tmDescEl.value = t.descricao || '';
     document.getElementById('tm-prioridade').value = t.prioridade;
     if (tmVencimentoPicker) tmVencimentoPicker.setDate(t.data_vencimento || null, false);
     else document.getElementById('tm-vencimento').value = t.data_vencimento || '';
