@@ -3337,12 +3337,25 @@
     const novaData = proximaDataRecorrencia(t.data_vencimento, t.repeticao);
     const primeiraColuna = kanbanColumnsCache[0];
     const colunaDestinoId = primeiraColuna ? primeiraColuna.id : null;
-    await sb.from('tasks').insert({
+    // criado_por precisa vir preenchido aqui: a policy de SELECT de tasks
+    // usa has_task_access(id), que só libera a linha pra quem criou ou foi
+    // marcado como responsável — sem isso a cópia recorrente nasceria
+    // invisível até pra quem gerou ela. Também copiamos os responsáveis da
+    // tarefa original, senão quem estava marcado perde a próxima ocorrência.
+    const novoId = crypto.randomUUID();
+    const { error } = await sb.from('tasks').insert({
+      id: novoId,
       titulo: t.titulo, descricao: t.descricao, prioridade: t.prioridade,
       project_id: t.project_id, coluna_id: colunaDestinoId,
       data_vencimento: novaData, repeticao: t.repeticao,
-      ordem: colunaDestinoId ? proximaOrdemNaColuna(colunaDestinoId) : null
+      ordem: colunaDestinoId ? proximaOrdemNaColuna(colunaDestinoId) : null,
+      criado_por: t.criado_por || currentUser.id
     });
+    if (error) { console.error('Erro ao criar recorrência da tarefa:', error); return false; }
+    const responsaveisOriginais = taskAssigneeLinksCache[taskId] || [];
+    if (responsaveisOriginais.length) {
+      await sb.from('task_assignees').insert(responsaveisOriginais.map(pid => ({ task_id: novoId, profile_id: pid })));
+    }
     return true;
   }
 
@@ -3555,7 +3568,7 @@
     // isso derrubava o .select().single() com erro de RLS mesmo o INSERT
     // sendo válido. Gerando o id no cliente e sem RETURNING, evita o gatilho.
     const novoId = crypto.randomUUID();
-    const { error } = await sb.from('tasks').insert({ id: novoId, titulo, coluna_id: colunaId, project_id: projetoFiltro, prioridade: 'media', ordem: proximaOrdemNaColuna(colunaId) });
+    const { error } = await sb.from('tasks').insert({ id: novoId, titulo, coluna_id: colunaId, project_id: projetoFiltro, prioridade: 'media', ordem: proximaOrdemNaColuna(colunaId), criado_por: currentUser.id });
     if (error) { alert('Erro ao criar tarefa: ' + error.message); return; }
     // se tem um filtro de etiqueta ativo, o cartão novo já nasce com essa
     // etiqueta — senão ele sumiria na hora, escondido pelo próprio filtro
