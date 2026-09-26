@@ -1799,6 +1799,7 @@
       saldo_pos: { bg: 'rgba(52,211,153,0.12)', texto: 'var(--pos)' },
       saldo_neg: { bg: 'rgba(248,113,113,0.12)', texto: 'var(--neg)' },
       custo: { bg: 'rgba(56,189,248,0.12)', texto: 'var(--info)' },
+      investimento: { bg: 'rgba(167,139,250,0.12)', texto: '#a78bfa' },
       neutro: { bg: 'var(--card)', texto: 'var(--text, #e8ebf5)' }
     };
     const c = cores[tipo] || cores.neutro;
@@ -5167,21 +5168,36 @@
       const cat = finCategoriasCache.find(c => c.id === e.categoria_id);
       return cat && finTagInfo(cat).natureza === 'despesa' ? s + Number(e.valor || 0) : s;
     }, 0);
+    // Investimento (aporte real em poupança/investimento lançado como
+    // fin_entries normal, ex: "Investimento de segurança") + tudo que já
+    // era descontado do Total via os cards de valor único (Caixa de giro,
+    // Empréstimos, Patrimônio). Pedido do Bruno: nada disso pode aparecer
+    // como "despesa" no resumo — é dinheiro que virou patrimônio/reserva,
+    // não uma perda — mas também não pode ficar invisível: precisa
+    // desconta do Total E aparecer num bloco próprio "Investimento".
+    const investimentoLancado = finEntriesCache.reduce((s, e) => {
+      if (!finItemConta(e)) return s;
+      const cat = finCategoriasCache.find(c => c.id === e.categoria_id);
+      return cat && finTagInfo(cat).natureza === 'poupanca' && cat.tipo !== 'entrada' ? s + Number(e.valor || 0) : s;
+    }, 0);
     const reservaCaixaGiro = finCaixaGiroImpactoNoTotal();
     const reservaEmprestimo = finEmprestimoImpactoNoTotal();
     const reservaPatrimonio = finPatrimonioImpactoNoTotal();
-    const total = receita - custoTotal - despesaTotal - reservaCaixaGiro - reservaEmprestimo - reservaPatrimonio;
-    const totalSubPartes = [];
-    if (reservaCaixaGiro) totalSubPartes.push(`${reservaCaixaGiro > 0 ? '−' : '+'} ${brl(Math.abs(reservaCaixaGiro))} no caixa de giro`);
-    if (reservaEmprestimo) totalSubPartes.push(`${reservaEmprestimo > 0 ? '−' : '+'} ${brl(Math.abs(reservaEmprestimo))} em empréstimo`);
-    if (reservaPatrimonio) totalSubPartes.push(`${reservaPatrimonio > 0 ? '−' : '+'} ${brl(Math.abs(reservaPatrimonio))} em patrimônio`);
-    const totalSub = totalSubPartes.length ? totalSubPartes.join(' · ') : null;
+    const investimentoTotal = investimentoLancado + reservaCaixaGiro + reservaEmprestimo + reservaPatrimonio;
+    const total = receita - custoTotal - despesaTotal - investimentoTotal;
+    const investimentoSubPartes = [];
+    if (investimentoLancado) investimentoSubPartes.push(`${brl(investimentoLancado)} em aportes`);
+    if (reservaCaixaGiro) investimentoSubPartes.push(`${brl(reservaCaixaGiro)} no caixa de giro`);
+    if (reservaEmprestimo) investimentoSubPartes.push(`${brl(reservaEmprestimo)} em empréstimo`);
+    if (reservaPatrimonio) investimentoSubPartes.push(`${brl(reservaPatrimonio)} em patrimônio`);
+    const investimentoSub = investimentoSubPartes.length ? investimentoSubPartes.join(' · ') : null;
 
     kpisEl.innerHTML = [
       finKpiCard('Receita', brl(receita), null, 'entrada'),
       finKpiCard('Custo total', brl(custoTotal), null, 'custo'),
       finKpiCard('Despesa total', brl(despesaTotal), null, 'despesa'),
-      finKpiCard('Total', brl(total), totalSub, total >= 0 ? 'saldo_pos' : 'saldo_neg'),
+      finKpiCard('Investimento', brl(investimentoTotal), investimentoSub, 'investimento'),
+      finKpiCard('Total', brl(total), null, total >= 0 ? 'saldo_pos' : 'saldo_neg'),
     ].join('');
 
     renderFinMetasResumo();
