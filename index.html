@@ -362,6 +362,11 @@
   .fin-card-total-row { display: flex; justify-content: space-between; align-items: baseline; }
   .fin-card-total { font-size: 16px; font-weight: 700; }
   .fin-card-sub { font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+  .fin-limite-wrap { margin-top: 8px; }
+  .fin-limite-topo { display: flex; justify-content: space-between; align-items: baseline; font-size: 10.5px; color: var(--muted); margin-bottom: 4px; }
+  .fin-limite-track { height: 6px; border-radius: 3px; background: var(--card-border); overflow: hidden; }
+  .fin-limite-fill { height: 6px; border-radius: 3px; transition: width 0.25s; }
+  .fin-limite-estourado { display: flex; align-items: center; gap: 4px; font-size: 10.5px; color: var(--neg); font-weight: 600; margin-top: 4px; }
   .fin-lanc-lista { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
   .fin-lanc-row { display: grid; grid-template-columns: 32px 1fr 62px 22px 20px 16px; gap: 4px; align-items: center; }
   .fin-lanc-badge-projeto-wrap { position: relative; width: 22px; height: 22px; flex-shrink: 0; }
@@ -1139,6 +1144,14 @@
     <label style="display:flex;align-items:center;gap:8px;margin-top:10px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
       <input type="checkbox" id="fincat-modal-eh-gabarito" style="width:auto;"> <i class="ti ti-copy"></i> Repete a descrição todo mês, sem valor (desmarque se for gasto variável, tipo Extras/Lazer)
     </label>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
+      <input type="checkbox" id="fincat-modal-eh-limite" style="width:auto;" onchange="toggleFinLimiteCamposModal()"> <i class="ti ti-gauge"></i> Definir limite de gasto mensal (mostra barra de progresso no card)
+    </label>
+    <div id="fincat-modal-limite-campos" style="display:none;">
+      <div class="form-row" style="margin-top:8px;">
+        <div><label>Limite mensal (R$)</label><input type="text" inputmode="decimal" id="fincat-modal-limite-valor" placeholder="0,00"></div>
+      </div>
+    </div>
     <div id="fincat-modal-meta-campos" style="display:none;">
       <div class="form-row" style="margin-top:8px;">
         <div><label>Valor da meta (R$)</label><input type="text" inputmode="decimal" id="fincat-modal-meta-valor" placeholder="0,00"></div>
@@ -4847,6 +4860,30 @@
       cardAddPessoal;
   }
 
+  // Barra de progresso do limite de gasto mensal — só aparece quando a
+  // categoria tem limite_gasto preenchido. Verde até 80%, amarelo de 80%
+  // a 100%, vermelho (com aviso) quando estoura. É só visual/gamificação:
+  // não bloqueia lançamento nenhum, só avisa.
+  function renderFinLimiteBarra(cat, total) {
+    if (cat.limite_gasto == null || cat.tipo === 'entrada') return '';
+    const limite = Number(cat.limite_gasto);
+    if (!(limite > 0)) return '';
+    const pctReal = (total / limite) * 100;
+    const pctBarra = Math.min(pctReal, 100);
+    const estourado = pctReal >= 100;
+    const perto = pctReal >= 80 && pctReal < 100;
+    const cor = estourado ? 'var(--neg)' : (perto ? '#fbbf24' : 'var(--pos)');
+    return `
+      <div class="fin-limite-wrap" onclick="event.stopPropagation();" title="Limite mensal: ${brl(limite)}">
+        <div class="fin-limite-topo">
+          <span>Limite</span>
+          <span style="color:${cor}; font-weight:700;">${brl(total)} / ${brl(limite)} · ${Math.round(pctReal)}%</span>
+        </div>
+        <div class="fin-limite-track"><div class="fin-limite-fill" style="width:${pctBarra}%; background:${cor};"></div></div>
+        ${estourado ? `<div class="fin-limite-estourado"><i class="ti ti-alert-triangle-filled"></i> Limite estourado</div>` : ''}
+      </div>`;
+  }
+
   function renderFinCategoriaCard(cat) {
     if (!cat) return '';
     // lançamento sem "dia" preenchido ainda (acabou de ser criado) fica no
@@ -4882,6 +4919,7 @@
             <span class="fin-tag" style="background:${tagInfo.cor.startsWith('#') ? hexToRgba(tagInfo.cor, 0.15) : 'rgba(137,146,171,0.15)'}; color:${tagInfo.cor};">${escapeHtml(tagInfo.label)}</span>${editIcone}
           </div>
           ${valorCampo}
+          ${renderFinLimiteBarra(cat, total)}
         </div>`;
     }
 
@@ -4896,6 +4934,7 @@
             <span class="fin-card-total">${brl(total)}</span>
             <span class="fin-card-sub"><i class="ti ti-list"></i> ${itens.length} lançamento${itens.length === 1 ? '' : 's'}</span>
           </div>
+          ${renderFinLimiteBarra(cat, total)}
         </div>`;
     }
 
@@ -4906,6 +4945,7 @@
           <span class="fin-tag" style="background:${tagInfo.cor.startsWith('#') ? hexToRgba(tagInfo.cor, 0.15) : 'rgba(137,146,171,0.15)'}; color:${tagInfo.cor};">${escapeHtml(tagInfo.label)}</span>${editIcone}
         </div>
         <div class="fin-card-total" style="margin-bottom:8px;">${brl(total)}</div>
+        ${renderFinLimiteBarra(cat, total)}
         <div class="fin-lanc-lista">
           ${itens.map(i => {
             const projetoAtual = projectsCache.find(p => p.id === i.project_id);
@@ -5041,6 +5081,8 @@
       document.getElementById('fincat-modal-meta-data').value = cat.meta_data || '';
       document.getElementById('fincat-modal-eh-assinatura').checked = !!cat.eh_assinatura;
       document.getElementById('fincat-modal-eh-gabarito').checked = !!cat.eh_gabarito;
+      document.getElementById('fincat-modal-eh-limite').checked = cat.limite_gasto != null;
+      document.getElementById('fincat-modal-limite-valor').value = cat.limite_gasto != null ? formatValorBR(cat.limite_gasto) : '';
       excluirEl.style.display = 'inline';
     } else {
       document.getElementById('fin-cat-modal-titulo').textContent = `Nova categoria (${contexto === 'eco' ? 'Eco' : 'Pessoal'})`;
@@ -5055,9 +5097,12 @@
       // app é "recorrente repete sozinho"; quem cadastra uma categoria
       // de gasto variável (tipo Extras/Lazer) é que desmarca.
       document.getElementById('fincat-modal-eh-gabarito').checked = true;
+      document.getElementById('fincat-modal-eh-limite').checked = false;
+      document.getElementById('fincat-modal-limite-valor').value = '';
       excluirEl.style.display = 'none';
     }
     toggleFinMetaCamposModal();
+    toggleFinLimiteCamposModal();
     document.getElementById('fin-cat-modal-overlay').classList.add('aberto');
     document.getElementById('fincat-modal-nome').focus();
   }
@@ -5067,6 +5112,13 @@
   function toggleFinMetaCamposModal() {
     const marcado = document.getElementById('fincat-modal-eh-meta').checked;
     document.getElementById('fincat-modal-meta-campos').style.display = marcado ? 'block' : 'none';
+  }
+
+  // Mesma lógica da meta, só que pro limite de gasto mensal — só mostra o
+  // campo de valor quando a caixinha está marcada.
+  function toggleFinLimiteCamposModal() {
+    const marcado = document.getElementById('fincat-modal-eh-limite').checked;
+    document.getElementById('fincat-modal-limite-campos').style.display = marcado ? 'block' : 'none';
   }
 
   function fecharFinCategoriaModal() {
@@ -5107,14 +5159,16 @@
     const meta_data = eh_meta ? (document.getElementById('fincat-modal-meta-data').value || null) : null;
     const eh_assinatura = document.getElementById('fincat-modal-eh-assinatura').checked;
     const eh_gabarito = document.getElementById('fincat-modal-eh-gabarito').checked;
+    const eh_limite = document.getElementById('fincat-modal-eh-limite').checked;
+    const limite_gasto = eh_limite ? parseValorBR(document.getElementById('fincat-modal-limite-valor').value) : null;
 
     if (id) {
-      const { error } = await sb.from('fin_categories').update({ nome, tag_id, expansivel, eh_meta, meta_valor, meta_data, eh_assinatura, eh_gabarito }).eq('id', id);
+      const { error } = await sb.from('fin_categories').update({ nome, tag_id, expansivel, eh_meta, meta_valor, meta_data, eh_assinatura, eh_gabarito, limite_gasto }).eq('id', id);
       if (error) { alert('Erro ao salvar categoria: ' + error.message); return; }
     } else {
       const doContexto = finCategoriasCache.filter(c => c.contexto === contexto && c.tipo === 'despesa');
       const ordem = doContexto.length ? Math.max(...doContexto.map(c => c.ordem || 0)) + 10 : 0;
-      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag_id, expansivel, ordem, eh_meta, meta_valor, meta_data, eh_assinatura, eh_gabarito });
+      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag_id, expansivel, ordem, eh_meta, meta_valor, meta_data, eh_assinatura, eh_gabarito, limite_gasto });
       if (error) { alert('Erro ao criar categoria: ' + error.message); return; }
     }
     fecharFinCategoriaModal();
