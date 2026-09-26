@@ -757,6 +757,36 @@
             <div id="fin-caixa-giro-historico" style="display:none;"></div>
           </div>
 
+          <div class="card fin-caixa-giro-card">
+            <div class="fin-caixa-giro-topo">
+              <div>
+                <div class="fin-metas-resumo-label"><i class="ti ti-cash"></i> Empréstimos a receber</div>
+                <div class="fin-metas-resumo-valor" id="fin-emprestimo-valor">R$ 0,00</div>
+                <div class="fin-card-sub" id="fin-emprestimo-data-label">nenhum valor lançado ainda</div>
+              </div>
+              <div class="fin-caixa-giro-acoes">
+                <i class="ti ti-pencil fin-card-editar" title="Atualizar valor" onclick="abrirFinEmprestimoForm()"></i>
+                <span class="row-action" style="cursor:pointer;" onclick="toggleFinEmprestimoHistorico()">histórico</span>
+              </div>
+            </div>
+            <div id="fin-emprestimo-form" style="display:none;">
+              <div class="form-row">
+                <div><label>Novo valor (R$)</label><input type="text" inputmode="decimal" id="fin-emprestimo-input-valor" placeholder="0,00"></div>
+                <div><label>Data</label><input type="date" id="fin-emprestimo-input-data"></div>
+                <div><label>Observação (opcional)</label><input type="text" id="fin-emprestimo-input-obs" placeholder="Ex: emprestado pro Fulano"></div>
+              </div>
+              <div class="form-row">
+                <div><label>Saiu do resultado deste mês? (opcional, R$)</label><input type="text" inputmode="decimal" id="fin-emprestimo-input-valor-mes" placeholder="0,00"></div>
+              </div>
+              <p class="placeholder" style="margin:4px 0 0;">Se esse valor saiu do resultado do mês (dinheiro que você tinha e emprestou), preencha aqui — ele é descontado do "Total" desse mês. Deixe em branco se não tem relação com o resultado mensal.</p>
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button type="button" onclick="salvarFinEmprestimo()">Salvar</button>
+                <button type="button" class="secondary" onclick="fecharFinEmprestimoForm()">Cancelar</button>
+              </div>
+            </div>
+            <div id="fin-emprestimo-historico" style="display:none;"></div>
+          </div>
+
           <div class="card fin-metas-resumo" id="fin-metas-resumo-card" style="display:none;">
             <div class="fin-metas-resumo-topo">
               <div class="fin-metas-resumo-label"><i class="ti ti-target-arrow"></i> Adicionado às metas em <span id="fin-metas-resumo-mes-label"></span></div>
@@ -2103,6 +2133,7 @@
       document.getElementById('fin-mensal-view').style.display = 'block';
       initFinFiltroMes();
       await carregarFinCaixaGiro();
+      await carregarFinEmprestimos();
       await carregarFinanceiroMensal();
       return;
     }
@@ -4693,6 +4724,105 @@
     renderFinCardsV2();
   }
 
+  // ---- Empréstimos a receber: MESMO padrão do Caixa de giro (valor
+  // "atual" + histórico de ajustes, cada edição insere linha nova em vez
+  // de sobrescrever) — pedido do Bruno pra acompanhar dinheiro emprestado
+  // que vai voltar em algum momento, igual uma aplicação: fica visível
+  // todo mês, sem depender do mês/período em exibição. ----
+  let finEmprestimoCache = [];
+
+  async function carregarFinEmprestimos() {
+    const { data } = await sb.from('fin_emprestimos').select('*').order('data', { ascending: false }).order('created_at', { ascending: false });
+    finEmprestimoCache = data || [];
+    renderFinEmprestimo();
+  }
+
+  function renderFinEmprestimo() {
+    const valorEl = document.getElementById('fin-emprestimo-valor');
+    if (!valorEl) return;
+    const atual = finEmprestimoCache[0];
+    valorEl.textContent = atual ? brl(atual.valor) : 'R$ 0,00';
+    const impactoAtual = atual ? Number(atual.valor_do_mes || 0) : 0;
+    const impactoTxt = impactoAtual ? ` · ${impactoAtual > 0 ? '−' : '+'} ${brl(Math.abs(impactoAtual))} no Total do mês` : '';
+    document.getElementById('fin-emprestimo-data-label').textContent = atual ? `atualizado em ${formatDateBR(atual.data)}${impactoTxt}` : 'nenhum valor lançado ainda';
+    renderFinEmprestimoHistorico();
+  }
+
+  function renderFinEmprestimoHistorico() {
+    const wrap = document.getElementById('fin-emprestimo-historico');
+    if (!wrap) return;
+    wrap.innerHTML = finEmprestimoCache.map(r => `
+      <div class="fin-caixa-giro-hist-row">
+        <input type="date" value="${r.data}" onblur="salvarFinEmprestimoCampo('${r.id}','data',this.value)">
+        <input type="text" inputmode="decimal" value="${formatValorBR(r.valor)}" onblur="salvarFinEmprestimoCampo('${r.id}','valor',this.value)">
+        <input type="text" placeholder="observação" value="${escapeHtml(r.observacao || '')}" onblur="salvarFinEmprestimoCampo('${r.id}','observacao',this.value)">
+        <input type="text" inputmode="decimal" placeholder="desconto no mês" value="${r.valor_do_mes ? formatValorBR(r.valor_do_mes) : ''}" onblur="salvarFinEmprestimoCampo('${r.id}','valor_do_mes',this.value)">
+        <i class="ti ti-trash fin-lanc-excluir" title="Excluir esse registro" onclick="excluirFinEmprestimo('${r.id}')"></i>
+      </div>`).join('') || '<p class="empty-note">Nenhum valor lançado ainda.</p>';
+  }
+
+  async function salvarFinEmprestimoCampo(id, campo, valor) {
+    const payload = {};
+    if (campo === 'valor' || campo === 'valor_do_mes') payload[campo] = parseValorBR(valor);
+    else if (campo === 'observacao') payload[campo] = valor.trim() || null;
+    else payload[campo] = valor || formatDateLocal(new Date());
+    const { error } = await sb.from('fin_emprestimos').update(payload).eq('id', id);
+    if (error) { alert('Erro ao salvar empréstimo: ' + error.message); return; }
+    await carregarFinEmprestimos();
+    renderFinCardsV2();
+  }
+
+  function toggleFinEmprestimoHistorico() {
+    const el = document.getElementById('fin-emprestimo-historico');
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function abrirFinEmprestimoForm() {
+    document.getElementById('fin-emprestimo-form').style.display = 'block';
+    document.getElementById('fin-emprestimo-input-valor').value = '';
+    document.getElementById('fin-emprestimo-input-data').value = formatDateLocal(new Date());
+    document.getElementById('fin-emprestimo-input-obs').value = '';
+    document.getElementById('fin-emprestimo-input-valor-mes').value = '';
+    document.getElementById('fin-emprestimo-input-valor').focus();
+  }
+
+  function fecharFinEmprestimoForm() {
+    document.getElementById('fin-emprestimo-form').style.display = 'none';
+  }
+
+  async function salvarFinEmprestimo() {
+    const valor = parseValorBR(document.getElementById('fin-emprestimo-input-valor').value);
+    if (!valor && valor !== 0) { alert('Digite o valor do empréstimo.'); return; }
+    const data = document.getElementById('fin-emprestimo-input-data').value || formatDateLocal(new Date());
+    const observacao = document.getElementById('fin-emprestimo-input-obs').value.trim() || null;
+    const valor_do_mes = parseValorBR(document.getElementById('fin-emprestimo-input-valor-mes').value);
+    const { error } = await sb.from('fin_emprestimos').insert({ valor, data, observacao, valor_do_mes });
+    if (error) { alert('Erro ao salvar empréstimo: ' + error.message); return; }
+    fecharFinEmprestimoForm();
+    await carregarFinEmprestimos();
+    renderFinCardsV2();
+  }
+
+  // Mesma lógica do finCaixaGiroImpactoNoTotal, pro card de empréstimos.
+  function finEmprestimoImpactoNoTotal() {
+    if (finFiltroModo === 'periodo') {
+      const { de, ate } = finPeriodoIntervalo();
+      const deYM = de.slice(0, 7), ateYM = ate.slice(0, 7);
+      return finEmprestimoCache.filter(r => { const ym = (r.data || '').slice(0, 7); return ym >= deYM && ym <= ateYM; }).reduce((s, r) => s + Number(r.valor_do_mes || 0), 0);
+    }
+    const mesYM = finMesStr().slice(0, 7);
+    return finEmprestimoCache.filter(r => (r.data || '').slice(0, 7) === mesYM).reduce((s, r) => s + Number(r.valor_do_mes || 0), 0);
+  }
+
+  async function excluirFinEmprestimo(id) {
+    if (!confirm('Excluir esse registro do histórico de empréstimos?')) return;
+    const { error } = await sb.from('fin_emprestimos').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    await carregarFinEmprestimos();
+    renderFinCardsV2();
+  }
+
   // ---- Metas/objetivos: categoria marcada com eh_meta acumula valor de
   // TODOS os meses (não só o mês selecionado no filtro) até bater o alvo
   // (meta_valor). Isso é separado do finEntriesCache, que só tem os
@@ -4836,8 +4966,12 @@
       return cat && finTagInfo(cat).natureza === 'despesa' ? s + Number(e.valor || 0) : s;
     }, 0);
     const reservaCaixaGiro = finCaixaGiroImpactoNoTotal();
-    const total = receita - custoTotal - despesaTotal - reservaCaixaGiro;
-    const totalSub = reservaCaixaGiro ? `${reservaCaixaGiro > 0 ? '−' : '+'} ${brl(Math.abs(reservaCaixaGiro))} no caixa de giro` : null;
+    const reservaEmprestimo = finEmprestimoImpactoNoTotal();
+    const total = receita - custoTotal - despesaTotal - reservaCaixaGiro - reservaEmprestimo;
+    const totalSubPartes = [];
+    if (reservaCaixaGiro) totalSubPartes.push(`${reservaCaixaGiro > 0 ? '−' : '+'} ${brl(Math.abs(reservaCaixaGiro))} no caixa de giro`);
+    if (reservaEmprestimo) totalSubPartes.push(`${reservaEmprestimo > 0 ? '−' : '+'} ${brl(Math.abs(reservaEmprestimo))} em empréstimo`);
+    const totalSub = totalSubPartes.length ? totalSubPartes.join(' · ') : null;
 
     kpisEl.innerHTML = [
       finKpiCard('Receita', brl(receita), null, 'entrada'),
