@@ -426,6 +426,13 @@
   #fin-caixa-giro-historico { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--card-border); display: flex; flex-direction: column; gap: 6px; }
   .fin-caixa-giro-hist-row { display: grid; grid-template-columns: 130px 90px 1fr 110px 20px; align-items: center; gap: 6px; margin-bottom: 6px; }
   .fin-caixa-giro-hist-row input { font-size: 11.5px; padding: 5px 6px; }
+  /* ---- Patrimônio (bens): igual Caixa de giro, mas com vários itens
+     (agrupados por nome) em vez de um único valor. ---- */
+  #fin-patrimonio-form { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--card-border); }
+  .fin-patrimonio-bem-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 0; border-top: 1px solid var(--card-border); }
+  .fin-patrimonio-bem-row:first-child { border-top: none; }
+  .fin-patrimonio-bem-acoes { display: flex; align-items: center; gap: 12px; font-size: 12.5px; }
+  .fin-patrimonio-historico { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--card-border); display: flex; flex-direction: column; gap: 6px; width: 100%; }
   /* ---- Metas/objetivos: resumo macro (mini) + aba dedicada (detalhe) ---- */
   .fin-metas-resumo { margin-bottom: 16px; }
   .fin-metas-resumo-topo { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
@@ -785,6 +792,36 @@
               </div>
             </div>
             <div id="fin-emprestimo-historico" style="display:none;"></div>
+          </div>
+
+          <div class="card fin-caixa-giro-card">
+            <div class="fin-caixa-giro-topo">
+              <div>
+                <div class="fin-metas-resumo-label"><i class="ti ti-home"></i> Patrimônio (bens)</div>
+                <div class="fin-metas-resumo-valor" id="fin-patrimonio-valor">R$ 0,00</div>
+                <div class="fin-card-sub" id="fin-patrimonio-sub">nenhum bem cadastrado ainda</div>
+              </div>
+              <div class="fin-caixa-giro-acoes">
+                <span class="row-action" style="cursor:pointer;" onclick="abrirFinPatrimonioForm()"><i class="ti ti-plus"></i> Novo bem</span>
+              </div>
+            </div>
+            <div id="fin-patrimonio-form" style="display:none;">
+              <div class="form-row">
+                <div id="fin-patrimonio-nome-wrap"><label>Nome do bem</label><input type="text" id="fin-patrimonio-input-nome" placeholder="Ex: Carro, Apartamento..."></div>
+                <div><label>Valor (R$)</label><input type="text" inputmode="decimal" id="fin-patrimonio-input-valor" placeholder="0,00"></div>
+                <div><label>Data</label><input type="date" id="fin-patrimonio-input-data"></div>
+              </div>
+              <div class="form-row">
+                <div><label>Observação (opcional)</label><input type="text" id="fin-patrimonio-input-obs" placeholder="Ex: comprado à vista"></div>
+                <div><label>Saiu do resultado deste mês? (opcional, R$)</label><input type="text" inputmode="decimal" id="fin-patrimonio-input-valor-mes" placeholder="0,00"></div>
+              </div>
+              <p class="placeholder" style="margin:4px 0 0;">Se esse valor saiu do caixa desse mês (ex: comprou o bem com dinheiro do resultado mensal), preencha aqui — ele é descontado do "Total" desse mês, sem entrar como despesa recorrente. Deixe em branco se não tem relação com o resultado mensal.</p>
+              <div style="display:flex; gap:8px; margin-top:8px;">
+                <button type="button" onclick="salvarFinPatrimonio()">Salvar</button>
+                <button type="button" class="secondary" onclick="fecharFinPatrimonioForm()">Cancelar</button>
+              </div>
+            </div>
+            <div id="fin-patrimonio-bens-lista" style="margin-top:10px;"></div>
           </div>
 
           <div class="card fin-metas-resumo" id="fin-metas-resumo-card" style="display:none;">
@@ -2134,6 +2171,7 @@
       initFinFiltroMes();
       await carregarFinCaixaGiro();
       await carregarFinEmprestimos();
+      await carregarFinPatrimonio();
       await carregarFinanceiroMensal();
       return;
     }
@@ -4823,6 +4861,170 @@
     renderFinCardsV2();
   }
 
+  // ---- Patrimônio (bens): mesmo padrão de Caixa de giro/Empréstimos
+  // (cada edição insere linha nova em vez de sobrescrever, valor atual é o
+  // mais recente por data), mas aqui pode ter VÁRIOS bens ao mesmo tempo
+  // (carro, imóvel...) — cada bem é identificado pelo campo "nome" e tem
+  // seu próprio valor atual + histórico. Pedido do Bruno: separar a compra
+  // de um bem (que é patrimônio, não despesa) das despesas recorrentes que
+  // esse bem gera (combustível, manutenção etc., que continuam em
+  // categorias normais de despesa). O campo valor_do_mes funciona igual
+  // aos outros dois cards: se preenchido, desconta do "Total" do mês em
+  // que o bem foi lançado/atualizado, pra refletir que o dinheiro realmente
+  // saiu do caixa daquele mês — sem virar despesa recorrente nos meses
+  // seguintes. ----
+  let finPatrimonioCache = [];
+  let finPatrimonioEditandoNome = null; // null = form de "novo bem"; string = atualizando valor de um bem existente
+
+  async function carregarFinPatrimonio() {
+    const { data } = await sb.from('fin_patrimonio').select('*').order('data', { ascending: false }).order('created_at', { ascending: false });
+    finPatrimonioCache = data || [];
+    renderFinPatrimonio();
+  }
+
+  function finPatrimonioSlug(nome) {
+    return String(nome).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'bem';
+  }
+
+  // Agrupa o cache (já ordenado do mais recente pro mais antigo) por nome
+  // do bem: o primeiro registro de cada nome é o valor "atual", o resto é
+  // histórico daquele bem.
+  function finPatrimonioBens() {
+    const porNome = new Map();
+    finPatrimonioCache.forEach(r => {
+      if (!porNome.has(r.nome)) porNome.set(r.nome, []);
+      porNome.get(r.nome).push(r);
+    });
+    return Array.from(porNome.entries()).map(([nome, registros]) => ({ nome, atual: registros[0], historico: registros }));
+  }
+
+  function renderFinPatrimonio() {
+    const listaEl = document.getElementById('fin-patrimonio-bens-lista');
+    const valorEl = document.getElementById('fin-patrimonio-valor');
+    const subEl = document.getElementById('fin-patrimonio-sub');
+    if (!listaEl || !valorEl) return;
+    const bens = finPatrimonioBens();
+    const totalPatrimonio = bens.reduce((s, b) => s + Number(b.atual.valor || 0), 0);
+    valorEl.textContent = brl(totalPatrimonio);
+    subEl.textContent = bens.length ? `${bens.length} bem${bens.length === 1 ? '' : 's'} cadastrado${bens.length === 1 ? '' : 's'}` : 'nenhum bem cadastrado ainda';
+
+    listaEl.innerHTML = bens.map(b => {
+      const slug = finPatrimonioSlug(b.nome);
+      const impactoAtual = Number(b.atual.valor_do_mes || 0);
+      const impactoTxt = impactoAtual ? ` · ${impactoAtual > 0 ? '−' : '+'} ${brl(Math.abs(impactoAtual))} no Total do mês` : '';
+      return `
+        <div class="fin-patrimonio-bem-row">
+          <div>
+            <strong>${escapeHtml(b.nome)}</strong>
+            <div class="fin-card-sub">${brl(b.atual.valor)} · atualizado em ${formatDateBR(b.atual.data)}${impactoTxt}</div>
+          </div>
+          <div class="fin-patrimonio-bem-acoes">
+            <i class="ti ti-pencil fin-card-editar" title="Atualizar valor" onclick="abrirFinPatrimonioForm('${escapeHtml(b.nome).replace(/'/g, "\\'")}')"></i>
+            <span class="row-action" style="cursor:pointer;" onclick="toggleFinPatrimonioHistorico('${slug}')">histórico</span>
+            <i class="ti ti-trash fin-lanc-excluir" title="Excluir esse bem" onclick="excluirFinPatrimonioBem('${escapeHtml(b.nome).replace(/'/g, "\\'")}')"></i>
+          </div>
+          <div id="fin-patrimonio-historico-${slug}" class="fin-patrimonio-historico" style="display:none;">
+            ${b.historico.map(r => `
+              <div class="fin-caixa-giro-hist-row">
+                <input type="date" value="${r.data}" onblur="salvarFinPatrimonioCampo('${r.id}','data',this.value)">
+                <input type="text" inputmode="decimal" value="${formatValorBR(r.valor)}" onblur="salvarFinPatrimonioCampo('${r.id}','valor',this.value)">
+                <input type="text" placeholder="observação" value="${escapeHtml(r.observacao || '')}" onblur="salvarFinPatrimonioCampo('${r.id}','observacao',this.value)">
+                <input type="text" inputmode="decimal" placeholder="desconto no mês" value="${r.valor_do_mes ? formatValorBR(r.valor_do_mes) : ''}" onblur="salvarFinPatrimonioCampo('${r.id}','valor_do_mes',this.value)">
+                <i class="ti ti-trash fin-lanc-excluir" title="Excluir esse registro" onclick="excluirFinPatrimonioRegistro('${r.id}')"></i>
+              </div>`).join('')}
+          </div>
+        </div>`;
+    }).join('') || '<p class="empty-note">Nenhum bem cadastrado ainda.</p>';
+  }
+
+  function toggleFinPatrimonioHistorico(slug) {
+    const el = document.getElementById('fin-patrimonio-historico-' + slug);
+    if (!el) return;
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
+
+  function abrirFinPatrimonioForm(nomeExistente) {
+    finPatrimonioEditandoNome = nomeExistente || null;
+    const nomeWrap = document.getElementById('fin-patrimonio-nome-wrap');
+    const nomeInput = document.getElementById('fin-patrimonio-input-nome');
+    if (nomeExistente) {
+      nomeInput.value = nomeExistente;
+      nomeInput.disabled = true;
+      nomeWrap.querySelector('label').textContent = 'Atualizando o valor de';
+    } else {
+      nomeInput.value = '';
+      nomeInput.disabled = false;
+      nomeWrap.querySelector('label').textContent = 'Nome do bem';
+    }
+    document.getElementById('fin-patrimonio-form').style.display = 'block';
+    document.getElementById('fin-patrimonio-input-valor').value = '';
+    document.getElementById('fin-patrimonio-input-data').value = formatDateLocal(new Date());
+    document.getElementById('fin-patrimonio-input-obs').value = '';
+    document.getElementById('fin-patrimonio-input-valor-mes').value = '';
+    (nomeExistente ? document.getElementById('fin-patrimonio-input-valor') : nomeInput).focus();
+  }
+
+  function fecharFinPatrimonioForm() {
+    document.getElementById('fin-patrimonio-form').style.display = 'none';
+    document.getElementById('fin-patrimonio-input-nome').disabled = false;
+    finPatrimonioEditandoNome = null;
+  }
+
+  async function salvarFinPatrimonio() {
+    const nome = (finPatrimonioEditandoNome || document.getElementById('fin-patrimonio-input-nome').value.trim());
+    if (!nome) { alert('Digite o nome do bem.'); return; }
+    const valor = parseValorBR(document.getElementById('fin-patrimonio-input-valor').value);
+    if (!valor && valor !== 0) { alert('Digite o valor do bem.'); return; }
+    const data = document.getElementById('fin-patrimonio-input-data').value || formatDateLocal(new Date());
+    const observacao = document.getElementById('fin-patrimonio-input-obs').value.trim() || null;
+    const valor_do_mes = parseValorBR(document.getElementById('fin-patrimonio-input-valor-mes').value);
+    const { error } = await sb.from('fin_patrimonio').insert({ nome, valor, data, observacao, valor_do_mes });
+    if (error) { alert('Erro ao salvar patrimônio: ' + error.message); return; }
+    fecharFinPatrimonioForm();
+    await carregarFinPatrimonio();
+    renderFinCardsV2();
+  }
+
+  async function salvarFinPatrimonioCampo(id, campo, valor) {
+    const payload = {};
+    if (campo === 'valor' || campo === 'valor_do_mes') payload[campo] = parseValorBR(valor);
+    else if (campo === 'observacao') payload[campo] = valor.trim() || null;
+    else payload[campo] = valor || formatDateLocal(new Date());
+    const { error } = await sb.from('fin_patrimonio').update(payload).eq('id', id);
+    if (error) { alert('Erro ao salvar patrimônio: ' + error.message); return; }
+    await carregarFinPatrimonio();
+    renderFinCardsV2();
+  }
+
+  async function excluirFinPatrimonioRegistro(id) {
+    if (!confirm('Excluir esse registro do histórico do bem?')) return;
+    const { error } = await sb.from('fin_patrimonio').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    await carregarFinPatrimonio();
+    renderFinCardsV2();
+  }
+
+  async function excluirFinPatrimonioBem(nome) {
+    if (!confirm(`Excluir o bem "${nome}" e todo o histórico dele?`)) return;
+    const { error } = await sb.from('fin_patrimonio').delete().eq('nome', nome);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    await carregarFinPatrimonio();
+    renderFinCardsV2();
+  }
+
+  // Igual finCaixaGiroImpactoNoTotal/finEmprestimoImpactoNoTotal, somando
+  // valor_do_mes de TODOS os bens (não só um) lançado no mês/período em
+  // exibição.
+  function finPatrimonioImpactoNoTotal() {
+    if (finFiltroModo === 'periodo') {
+      const { de, ate } = finPeriodoIntervalo();
+      const deYM = de.slice(0, 7), ateYM = ate.slice(0, 7);
+      return finPatrimonioCache.filter(r => { const ym = (r.data || '').slice(0, 7); return ym >= deYM && ym <= ateYM; }).reduce((s, r) => s + Number(r.valor_do_mes || 0), 0);
+    }
+    const mesYM = finMesStr().slice(0, 7);
+    return finPatrimonioCache.filter(r => (r.data || '').slice(0, 7) === mesYM).reduce((s, r) => s + Number(r.valor_do_mes || 0), 0);
+  }
+
   // ---- Metas/objetivos: categoria marcada com eh_meta acumula valor de
   // TODOS os meses (não só o mês selecionado no filtro) até bater o alvo
   // (meta_valor). Isso é separado do finEntriesCache, que só tem os
@@ -4967,10 +5169,12 @@
     }, 0);
     const reservaCaixaGiro = finCaixaGiroImpactoNoTotal();
     const reservaEmprestimo = finEmprestimoImpactoNoTotal();
-    const total = receita - custoTotal - despesaTotal - reservaCaixaGiro - reservaEmprestimo;
+    const reservaPatrimonio = finPatrimonioImpactoNoTotal();
+    const total = receita - custoTotal - despesaTotal - reservaCaixaGiro - reservaEmprestimo - reservaPatrimonio;
     const totalSubPartes = [];
     if (reservaCaixaGiro) totalSubPartes.push(`${reservaCaixaGiro > 0 ? '−' : '+'} ${brl(Math.abs(reservaCaixaGiro))} no caixa de giro`);
     if (reservaEmprestimo) totalSubPartes.push(`${reservaEmprestimo > 0 ? '−' : '+'} ${brl(Math.abs(reservaEmprestimo))} em empréstimo`);
+    if (reservaPatrimonio) totalSubPartes.push(`${reservaPatrimonio > 0 ? '−' : '+'} ${brl(Math.abs(reservaPatrimonio))} em patrimônio`);
     const totalSub = totalSubPartes.length ? totalSubPartes.join(' · ') : null;
 
     kpisEl.innerHTML = [
