@@ -4637,7 +4637,21 @@
   // lista, mas nunca entra em soma nenhuma — Total, KPIs, gráficos, metas.
   // pago === undefined também conta como pago (linhas antigas de antes
   // dessa coluna existir, ou qualquer linha que não seja de assinatura).
-  function finItemConta(e) { return e.pago !== false; }
+  // O toggle "Pago" só existe visualmente nas linhas de Assinatura (ver
+  // badgePagoHtml mais abaixo) — mas o repetirGabaritoDoMes cria as linhas
+  // de TODA categoria marcada eh_gabarito (Aluguel, Luz, Parcelado,
+  // Farmácia, Cuidados, Pet, Transporte, Carro, Imposto, Saídas eco,
+  // Alimentação...) já nascendo com pago:false, e como essas categorias
+  // não têm o toggle na tela, o Bruno não tinha como nunca marcar "pago"
+  // nelas — ficavam de fora do resumo pra sempre, mesmo já lançadas e
+  // reais. Pedido do Bruno: só Assinaturas deve respeitar esse campo;
+  // qualquer outra categoria conta assim que o valor é lançado.
+  function finItemConta(e) {
+    if (e.pago !== false) return true;
+    const cat = finCategoriasCache.find(c => c.id === e.categoria_id);
+    const ehAssinatura = !!(cat && cat.eh_assinatura) || !!e.assinatura_id;
+    return !ehAssinatura;
+  }
 
   function finTagInfo(catOuTagId) {
     if (catOuTagId && catOuTagId.tipo === 'entrada') return { label: 'receita', cor: '#34d399', natureza: 'poupanca' };
