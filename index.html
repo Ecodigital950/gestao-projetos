@@ -1061,10 +1061,14 @@
             <div><label>Início</label><input id="np-inicio" type="date"></div>
             <div><label>Fim</label><input id="np-fim" type="date"></div>
           </div>
+          <label style="display:flex;align-items:center;gap:8px;margin:4px 0 12px;text-transform:none;letter-spacing:0;font-size:13.5px;color:var(--text);font-weight:400;">
+            <input type="checkbox" id="np-centro-custo" style="width:auto;">
+            É só uma origem financeira (receita/despesa avulsa) — não aparece no Kanban nem nas tarefas
+          </label>
           <button onclick="criarProjeto()">Adicionar projeto</button>
         </div>
         <div class="card">
-          <p class="placeholder" style="margin-bottom:12px;">A cor e a imagem de fundo aparecem atrás do Kanban quando você filtra as Tarefas por esse projeto — igual o fundo de quadro do Trello.</p>
+          <p class="placeholder" style="margin-bottom:12px;">A cor e a imagem de fundo aparecem atrás do Kanban quando você filtra as Tarefas por esse projeto — igual o fundo de quadro do Trello. Itens marcados como "origem financeira" ficam de fora do Kanban e só servem pra identificar receitas/despesas no Financeiro.</p>
           <table>
             <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th><th>Cor de fundo <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('fundoquadro', event)"></i></th><th>Imagem de fundo (URL)</th><th>Acesso</th><th>Ações</th></tr></thead>
             <tbody id="projetos-tbody"></tbody>
@@ -1599,7 +1603,8 @@
       // exatamente quem tem o módulo Projetos liberado e acesso a esse
       // projeto (dono, quem foi compartilhado, ou admin). Não precisa de
       // checagem extra aqui no client, o banco já cobre.
-      tr.innerHTML = `<td><input type="text" value="${escapeHtml(p.nome)}" style="width:160px;" onblur="salvarNomeProjeto('${p.id}', this.value.trim(), this)"></td><td>${escapeHtml(p.status)}</td><td>${p.data_inicio || '-'}</td><td>${p.data_fim || '-'}</td>
+      const badgeCentroCusto = p.eh_centro_custo ? ' <span style="display:inline-block;margin-top:4px;padding:2px 7px;border-radius:20px;font-size:10.5px;background:rgba(167,139,250,0.15);color:#a78bfa;" title="Não aparece no Kanban nem nas tarefas — só serve pra identificar receitas/despesas no Financeiro">Origem financeira</span>' : '';
+      tr.innerHTML = `<td><input type="text" value="${escapeHtml(p.nome)}" style="width:160px;" onblur="salvarNomeProjeto('${p.id}', this.value.trim(), this)"><br>${badgeCentroCusto}</td><td>${escapeHtml(p.status)}</td><td>${p.data_inicio || '-'}</td><td>${p.data_fim || '-'}</td>
         <td><input type="color" value="${p.cor_fundo || '#0f1526'}" style="height:28px; padding:1px; width:44px;" onchange="salvarCorFundoProjeto('${p.id}', this.value)"></td>
         <td><input type="text" value="${escapeHtml(p.imagem_fundo_url || '')}" placeholder="https://..." style="width:160px;" onblur="salvarImagemFundoProjeto('${p.id}', this.value.trim())"></td>
         <td>${podeCompartilhar ? `<span class="row-action" style="cursor:pointer;" onclick="abrirProjAcessoModal('${p.id}')"><i class="ti ti-users"></i> Compartilhar</span>` : '<span class="fin-card-sub">—</span>'}</td>
@@ -1767,9 +1772,11 @@
     const status = document.getElementById('np-status').value;
     const data_inicio = document.getElementById('np-inicio').value || null;
     const data_fim = document.getElementById('np-fim').value || null;
-    const { error } = await sb.from('projects').insert({ nome, status, data_inicio, data_fim, responsavel_id: currentUser.id, ordem: proximaOrdemProjeto() });
+    const eh_centro_custo = document.getElementById('np-centro-custo').checked;
+    const { error } = await sb.from('projects').insert({ nome, status, data_inicio, data_fim, eh_centro_custo, responsavel_id: currentUser.id, ordem: proximaOrdemProjeto() });
     if (error) { alert('Erro ao criar projeto: ' + error.message); return; }
     document.getElementById('np-nome').value = '';
+    document.getElementById('np-centro-custo').checked = false;
     carregarProjetos();
     carregarProjetosSelects();
   }
@@ -1875,6 +1882,7 @@
 
   // ---- Dados compartilhados: projetos e categorias ----
   let projectsCache = [];
+  let projectsKanbanCache = []; // projectsCache sem os marcados eh_centro_custo
   let costCategoriesCache = [];
 
   // Projetos onde EU (o usuário logado) sou dono ou fui explicitamente
@@ -1888,8 +1896,16 @@
     // Traz cor_fundo/imagem_fundo_url/notas_financeiro também — não é só
     // pra popular selects, esse cache é reaproveitado pelo Kanban
     // (aplicarFundoQuadro) e agora pelo Financeiro (notas por projeto).
-    const { data } = await sb.from('projects').select('id,nome,cor_fundo,imagem_fundo_url,notas_financeiro,notas_tarefas,ordem,responsavel_id').order('ordem', { ascending: true, nullsFirst: false }).order('nome');
+    const { data } = await sb.from('projects').select('id,nome,cor_fundo,imagem_fundo_url,notas_financeiro,notas_tarefas,ordem,responsavel_id,eh_centro_custo').order('ordem', { ascending: true, nullsFirst: false }).order('nome');
     projectsCache = data || [];
+    // "Origem financeira" (eh_centro_custo) serve só pra marcar de onde
+    // veio uma receita/despesa avulsa no Financeiro — não é um projeto de
+    // verdade, então fica de fora de qualquer lugar que trate isso como
+    // projeto de Kanban/tarefas (chips, select de tarefa, filtro de
+    // criativos, tabela de acesso). Continua aparecendo no select
+    // Origem/Centro de custo dos lançamentos e no bloco "por projeto" do
+    // Dashboard, que usam projectsCache direto.
+    projectsKanbanCache = projectsCache.filter(p => !p.eh_centro_custo);
     if (currentUser) {
       const { data: acessos } = await sb.from('project_access').select('project_id').eq('user_id', currentUser.id);
       meusProjectAccessIds = new Set((acessos || []).map(a => a.project_id));
@@ -1897,12 +1913,12 @@
     const dashSel = document.getElementById('dash-projeto');
     const finSel = document.getElementById('fin-projeto');
     if (dashSel) {
-      dashSel.innerHTML = '<option value="">Todos</option>' + projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+      dashSel.innerHTML = '<option value="">Todos</option>' + projectsKanbanCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
     }
     if (finSel) {
       const anterior = finSel.value;
       finSel.innerHTML = '<option value="__financeiro__">📋 Financeiro (Pessoal + Eco)</option>' +
-        projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+        projectsKanbanCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
       finSel.value = anterior || '__financeiro__';
     }
   }
@@ -2518,12 +2534,12 @@
       return;
     }
     empty.style.display = 'none';
-    cabecalho.innerHTML = '<th>Usuário</th>' + projectsCache.map(p => `<th>${escapeHtml(p.nome)}</th>`).join('');
+    cabecalho.innerHTML = '<th>Usuário</th>' + projectsKanbanCache.map(p => `<th>${escapeHtml(p.nome)}</th>`).join('');
     const { data: acessos } = await sb.from('project_access').select('*');
     tbody.innerHTML = naoAdmins.map(u => {
       const idsLiberados = new Set((acessos || []).filter(a => a.user_id === u.id).map(a => a.project_id));
       const nomeExibido = u.nome && u.nome !== u.email ? u.nome : (u.nome || u.email);
-      const cols = projectsCache.map(p => {
+      const cols = projectsKanbanCache.map(p => {
         const checked = idsLiberados.has(p.id) ? 'checked' : '';
         return `<td><input type="checkbox" ${checked} onchange="toggleAcessoProjeto('${u.id}','${p.id}',this.checked)"></td>`;
       }).join('');
@@ -2800,7 +2816,7 @@
     if (!projectsCache.length) await carregarProjetosSelects();
     renderFiltroChips();
     const formSel = document.getElementById('tarefa-projeto');
-    const projOpts = '<option value="">Sem projeto</option>' + projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+    const projOpts = '<option value="">Sem projeto</option>' + projectsKanbanCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
     if (formSel) formSel.innerHTML = projOpts;
     const tmProjSel = document.getElementById('tm-projeto');
     if (tmProjSel) { const anterior = tmProjSel.value; tmProjSel.innerHTML = projOpts; tmProjSel.value = anterior; }
@@ -2910,7 +2926,7 @@
     // veria TODO projeto de todo mundo aqui (o RLS libera geral pra
     // admin, mas o filtro pessoal de tarefas não deve virar bagunça com
     // Kanban de gente que não participa).
-    const projetosMeus = projectsCache.filter(souParticipanteDoProjeto);
+    const projetosMeus = projectsKanbanCache.filter(souParticipanteDoProjeto);
     // Se o filtro ativo era um projeto que sumiu da lista (chip removido
     // por essa regra nova, ou acesso perdido), volta pra "Todos" em vez de
     // deixar preso num filtro que não existe mais.
@@ -6227,7 +6243,7 @@
     if (!sel) return;
     const atual = sel.value;
     sel.innerHTML = '<option value="">Todos os projetos</option>' +
-      projectsCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
+      projectsKanbanCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
     sel.value = atual;
   }
 
