@@ -581,6 +581,7 @@
             <button type="button" class="secondary" onclick="aplicarPresetPeriodo('mes_passado')">Mês passado</button>
           </div>
           <div class="form-row">
+            <div><label>Mês</label><input type="text" id="dash-mes" placeholder="Selecione o mês"></div>
             <div><label>Período</label><input type="text" id="dash-periodo" placeholder="Selecione o período"></div>
             <div><label>Projeto</label><select id="dash-projeto"><option value="">Todos</option></select></div>
             <div style="display:flex;align-items:flex-end;"><button onclick="carregarDashboard()">Filtrar</button></div>
@@ -1946,6 +1947,7 @@
   // ---- Dashboard consolidado (todos os projetos, com filtros) ----
   let dashPieChart, dashBarChart;
   let dashPeriodoPicker;
+  let dashMesPicker;
 
   function formatDateLocal(d) {
     const y = d.getFullYear();
@@ -1963,6 +1965,24 @@
       altFormat: 'd/m/Y',
       locale: 'pt',
       onClose: () => carregarDashboard()
+    });
+    // Selecionar por nome do mês (ex: "Setembro 2026") é só um atalho pra
+    // preencher o campo Período com o 1º e o último dia daquele mês — usa
+    // o mesmo monthSelectPlugin do seletor de mês do Financeiro. Continua
+    // sendo o campo Período que de fato filtra (dashPeriodoPicker), então
+    // escolher um mês aqui e depois ajustar o período manualmente também
+    // funciona normalmente.
+    const temPlugin = typeof monthSelectPlugin === 'function';
+    dashMesPicker = flatpickr('#dash-mes', {
+      plugins: temPlugin ? [new monthSelectPlugin({ shorthand: false, dateFormat: 'Y-m' })] : [],
+      locale: 'pt',
+      onChange: (selectedDates) => {
+        if (!selectedDates[0]) return;
+        const inicio = inicioDoMes(selectedDates[0]);
+        const fim = fimDoMes(selectedDates[0]);
+        if (dashPeriodoPicker) dashPeriodoPicker.setDate([inicio, fim], false);
+        carregarDashboard();
+      }
     });
   }
 
@@ -2075,26 +2095,37 @@
     const el = document.getElementById('dash-por-projeto');
     if (!el) return;
 
-    let query = sb.from('fin_entries').select('tipo,valor,project_id,pago,categoria_id,mes').not('project_id', 'is', null);
+    let query = sb.from('fin_entries').select('tipo,valor,project_id,pago,categoria_id,mes,assinatura_id').not('project_id', 'is', null);
     if (de) query = query.gte('mes', de);
     if (ate) query = query.lte('mes', ate);
 
     const [{ data: entries }, { data: categorias }, { data: tags }] = await Promise.all([
       query,
-      sb.from('fin_categories').select('id,tipo,tag_id'),
+      sb.from('fin_categories').select('id,tipo,tag_id,eh_assinatura'),
       sb.from('fin_tags').select('id,natureza'),
     ]);
 
     const catNatureza = {};
+    const catEhAssinatura = {};
     (categorias || []).forEach(c => {
+      catEhAssinatura[c.id] = !!c.eh_assinatura;
       if (c.tipo === 'entrada') { catNatureza[c.id] = 'entrada'; return; }
       const tag = (tags || []).find(t => t.id === c.tag_id);
       catNatureza[c.id] = tag ? tag.natureza : 'despesa';
     });
 
+    // Mesma regra do finItemConta: "não pago" só tira do total quando a
+    // categoria é de Assinatura (é a única que tem o toggle Pago na tela).
+    // Antes esse bloco excluía QUALQUER lançamento não pago — por isso
+    // receita de projeto (ex: Gestão de Tráfego), que nasce não-paga pelo
+    // gabarito mensal mas não tem esse toggle, sumia daqui mesmo já tendo
+    // sido recebida de verdade.
     const porProjeto = {};
     (entries || []).forEach(e => {
-      if (e.pago === false) return;
+      if (e.pago === false) {
+        const ehAssinatura = catEhAssinatura[e.categoria_id] || !!e.assinatura_id;
+        if (ehAssinatura) return;
+      }
       const nat = catNatureza[e.categoria_id] || (e.tipo === 'entrada' ? 'entrada' : 'despesa');
       if (nat === 'poupanca') return;
       if (!porProjeto[e.project_id]) porProjeto[e.project_id] = { entrada: 0, custo: 0, despesa: 0 };
