@@ -5355,9 +5355,10 @@
               <input type="text" inputmode="decimal" value="${formatValorBR(i.valor)}" placeholder="0,00" onblur="salvarFinLancamentoCampo('${i.id}','valor',this.value)">
               <div class="fin-lanc-badge-projeto-wrap" title="${tituloProjeto}">
                 ${badgeProjetoHtml}
-                <select class="fin-lanc-badge-projeto-select" onchange="salvarFinLancamentoCampo('${i.id}','project_id',this.value)">
+                <select class="fin-lanc-badge-projeto-select" onchange="onFinLancamentoProjetoChange(this,'${i.id}','${i.project_id || ''}')">
                   <option value="">Sem ${rotuloProjeto.toLowerCase()}</option>
                   ${projectsCache.map(p => `<option value="${p.id}" ${p.id === i.project_id ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`).join('')}
+                  <option value="__nova__">+ Nova ${rotuloProjeto.toLowerCase()}...</option>
                 </select>
               </div>
               ${badgePagoHtml}
@@ -5696,6 +5697,27 @@
       await carregarFinNomesFrequentes();
     }
     renderFinCardsV2();
+  }
+
+  // "+ Nova origem/centro de custo..." dentro do próprio select do
+  // lançamento — pedido do Bruno pra não precisar ir até a tela Projetos
+  // toda vez que uma receita pontual vier de um lugar novo. Cria a entrada
+  // como eh_centro_custo:true (mesma regra da tela Projetos: não aparece
+  // no Kanban/tarefas) e já vincula ao lançamento atual. Se cancelar o
+  // prompt, volta o select pro valor anterior sem salvar nada.
+  async function onFinLancamentoProjetoChange(selectEl, itemId, valorAnterior) {
+    if (selectEl.value !== '__nova__') {
+      await salvarFinLancamentoCampo(itemId, 'project_id', selectEl.value);
+      return;
+    }
+    const nome = prompt('Nome da nova origem/centro de custo:');
+    if (!nome || !nome.trim()) { selectEl.value = valorAnterior; return; }
+    const { data, error } = await sb.from('projects')
+      .insert({ nome: nome.trim(), eh_centro_custo: true, responsavel_id: currentUser.id, ordem: proximaOrdemProjeto() })
+      .select().single();
+    if (error) { alert('Erro ao criar: ' + error.message); selectEl.value = valorAnterior; return; }
+    projectsCache.push(data);
+    await salvarFinLancamentoCampo(itemId, 'project_id', data.id);
   }
 
   // Tag "Pago" — só existe pra lançamentos gerados por assinatura
