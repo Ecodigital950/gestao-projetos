@@ -6523,6 +6523,15 @@
   // direto no <col> do colgroup (é ele que manda na largura, já que a
   // tabela usa table-layout:fixed) durante o arraste, pra ficar fluido, e
   // só salva no localStorage quando solta o mouse.
+  // IMPORTANTE: o gatilho é 'pointerdown', não 'mousedown'. O Sortable (usado
+  // pro drag de reordenar coluna) escuta 'pointerdown' no cabeçalho inteiro e,
+  // como esse handle está na lista de exceção dele (filter/preventOnFilter),
+  // chama preventDefault() nesse pointerdown — e isso faz o navegador
+  // simplesmente não disparar o 'mousedown' equivalente depois (comportamento
+  // padrão de Pointer Events: preventDefault no pointerdown suprime os mouse
+  // events de compatibilidade). Por isso um 'mousedown' aqui nunca chega a
+  // rodar num clique de verdade, só em teste sintético via dispatchEvent.
+  // Ouvindo 'pointerdown' direto no handle a gente roda antes disso acontecer.
   let criativosResizeState = null;
   function iniciarResizeCriativoColuna(ev, key) {
     ev.preventDefault();
@@ -6531,8 +6540,8 @@
     if (!col) return;
     criativosResizeState = { key, startX: ev.clientX, startWidth: criativoColunaLargura(col) };
     document.body.classList.add('criativos-resizing');
-    document.addEventListener('mousemove', moverResizeCriativoColuna);
-    document.addEventListener('mouseup', finalizarResizeCriativoColuna);
+    document.addEventListener('pointermove', moverResizeCriativoColuna);
+    document.addEventListener('pointerup', finalizarResizeCriativoColuna);
   }
   function moverResizeCriativoColuna(ev) {
     if (!criativosResizeState) return;
@@ -6543,8 +6552,8 @@
     criativosResizeState.novaLargura = novaLargura;
   }
   function finalizarResizeCriativoColuna() {
-    document.removeEventListener('mousemove', moverResizeCriativoColuna);
-    document.removeEventListener('mouseup', finalizarResizeCriativoColuna);
+    document.removeEventListener('pointermove', moverResizeCriativoColuna);
+    document.removeEventListener('pointerup', finalizarResizeCriativoColuna);
     document.body.classList.remove('criativos-resizing');
     if (criativosResizeState && criativosResizeState.novaLargura) {
       criativosColunaLargura[criativosResizeState.key] = criativosResizeState.novaLargura;
@@ -6603,7 +6612,7 @@
     </tr>`;
     const linhaColunas = `<tr id="criativos-thead-colunas">
       <th class="criativos-th-fixa">Projeto</th>
-      ${colunas.map(c => `<th class="criativos-th-arrastavel" data-col-key="${c.key}" title="Arraste para reordenar"><i class="ti ti-grip-vertical"></i>${escapeHtml(c.label)}${c.tipoBadge ? criativoColunaBadge(c.tipoBadge) : ''}${c.custom ? `<i class="ti ti-trash" style="margin-left:5px;font-size:11px;opacity:.6;" title="Excluir categoria" onclick="event.stopPropagation();excluirCriativoColuna('${c.colId}')"></i>` : ''}<span class="criativos-th-resize" title="Arraste para redimensionar" onmousedown="iniciarResizeCriativoColuna(event,'${c.key}')"></span></th>`).join('')}
+      ${colunas.map(c => `<th class="criativos-th-arrastavel" data-col-key="${c.key}" title="Arraste para reordenar"><i class="ti ti-grip-vertical"></i>${escapeHtml(c.label)}${c.tipoBadge ? criativoColunaBadge(c.tipoBadge) : ''}${c.custom ? `<i class="ti ti-trash" style="margin-left:5px;font-size:11px;opacity:.6;" title="Excluir categoria" onclick="event.stopPropagation();excluirCriativoColuna('${c.colId}')"></i>` : ''}<span class="criativos-th-resize" title="Arraste para redimensionar" onpointerdown="iniciarResizeCriativoColuna(event,'${c.key}')"></span></th>`).join('')}
       <th class="criativos-th-acao"></th>
     </tr>`;
     theadEl.innerHTML = linhaGrupos + linhaColunas;
