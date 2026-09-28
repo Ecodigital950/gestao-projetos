@@ -426,8 +426,9 @@
   .criativos-periodo-input, .criativos-periodo-input ~ input { cursor: pointer; }
   .criativos-th-arrastavel { position: relative; cursor: grab; user-select: none; }
   .criativos-th-arrastavel:active { cursor: grabbing; }
-  .criativos-th-resize { position: absolute; top: 0; right: 0; width: 9px; height: 100%; cursor: col-resize; z-index: 5; }
-  .criativos-th-resize:hover { background: rgba(56,189,248,0.35); }
+  .criativos-th-resize { position: absolute; top: 0; right: 0; width: 14px; height: 100%; cursor: col-resize; z-index: 5; }
+  .criativos-th-resize::after { content: ''; position: absolute; top: 15%; right: 5px; width: 2px; height: 70%; background: rgba(255,255,255,0.18); border-radius: 2px; }
+  .criativos-th-resize:hover::after { background: var(--info); }
   body.criativos-resizing, body.criativos-resizing * { cursor: col-resize !important; user-select: none !important; }
   .criativos-th-arrastavel .ti-grip-vertical { color: var(--muted); margin-right: 5px; font-size: 12px; }
   .criativos-tabela .sortable-ghost { opacity: 0.35; }
@@ -6771,11 +6772,12 @@
   // Links não reconhecidos ainda mostram o botão "Abrir", só sem preview. ----
   function criativoVideoEmbedUrl(url) {
     if (!url) return null;
-    const drive = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-    if (drive) return { tipo: 'iframe', src: `https://drive.google.com/file/d/${drive[1]}/preview` };
+    // Drive aceita tanto /file/d/ID/... quanto /open?id=ID ou /uc?id=ID.
+    const drive = url.match(/drive\.google\.com\/file\/d\/([^/?#]+)/) || url.match(/drive\.google\.com\/(?:open|uc)\?[^#]*\bid=([^&#]+)/);
+    if (drive) return { tipo: 'iframe', servico: 'drive', src: `https://drive.google.com/file/d/${drive[1]}/preview` };
     const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
-    if (yt) return { tipo: 'iframe', src: `https://www.youtube.com/embed/${yt[1]}` };
-    if (/\.mp4(\?|$)/i.test(url)) return { tipo: 'video', src: url };
+    if (yt) return { tipo: 'iframe', servico: 'youtube', src: `https://www.youtube.com/embed/${yt[1]}` };
+    if (/\.mp4(\?|$)/i.test(url)) return { tipo: 'video', servico: 'mp4', src: url };
     return null;
   }
 
@@ -6818,7 +6820,14 @@
     pop.style.width = '220px';
     pop.style.height = '391px';
     if (embed.tipo === 'iframe') {
-      const src = embed.src + (embed.src.includes('?') ? '&' : '?') + 'autoplay=1';
+      // autoplay=1 só é um parâmetro suportado pelo embed do YouTube — no
+      // Google Drive esse parâmetro não existe e adicioná-lo faz o preview
+      // do Drive falhar ao carregar. Por isso só é acrescentado pro YouTube;
+      // no Drive o player abre normalmente e o próprio usuário clica no play
+      // dele (uma limitação do embed do Drive, não dá pra forçar autoplay ali).
+      const src = embed.servico === 'youtube'
+        ? embed.src + (embed.src.includes('?') ? '&' : '?') + 'autoplay=1'
+        : embed.src;
       pop.innerHTML = `<iframe src="${src}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
     } else {
       pop.innerHTML = `<video src="${embed.src}" autoplay controls playsinline></video>`;
