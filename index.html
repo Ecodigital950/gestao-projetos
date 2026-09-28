@@ -243,7 +243,9 @@
      "vaze" da célula. Por isso é um popover único, fora da tabela, com
      position:fixed e posicionado via JS no mouseenter (mesmo padrão do
      popover de Status logo acima) — assim ele fica por cima de tudo. */
-  .criativos-video-preview-popover { display: none; position: fixed; width: 280px; aspect-ratio: 16/9; background: #000; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; z-index: 3000; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  /* Sem aspect-ratio fixo: a largura/altura são setadas via JS (abrirCriativoVideoPreview),
+     no formato real do vídeo (vertical, quadrado ou horizontal), não numa caixa 16:9 forçada. */
+  .criativos-video-preview-popover { display: none; position: fixed; background: #000; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; z-index: 3000; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
   .criativos-video-preview-popover iframe, .criativos-video-preview-popover video { width: 100%; height: 100%; border: 0; display: block; }
   #fin-tags-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1001; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
   #fin-tags-modal-overlay.aberto { display: flex; }
@@ -422,8 +424,11 @@
   .criativos-valor-wrap input:focus { outline: none; }
   .criativos-afixo { color: var(--muted); font-size: 11.5px; flex-shrink: 0; user-select: none; }
   .criativos-periodo-input, .criativos-periodo-input ~ input { cursor: pointer; }
-  .criativos-th-arrastavel { cursor: grab; user-select: none; }
+  .criativos-th-arrastavel { position: relative; cursor: grab; user-select: none; }
   .criativos-th-arrastavel:active { cursor: grabbing; }
+  .criativos-th-resize { position: absolute; top: 0; right: 0; width: 9px; height: 100%; cursor: col-resize; z-index: 5; }
+  .criativos-th-resize:hover { background: rgba(56,189,248,0.35); }
+  body.criativos-resizing, body.criativos-resizing * { cursor: col-resize !important; user-select: none !important; }
   .criativos-th-arrastavel .ti-grip-vertical { color: var(--muted); margin-right: 5px; font-size: 12px; }
   .criativos-tabela .sortable-ghost { opacity: 0.35; }
   .criativos-tabela .sortable-chosen { background: rgba(56,189,248,0.15) !important; }
@@ -6499,6 +6504,54 @@
     salvarCriativosColunaOrdem();
   }
 
+  // Largura de cada coluna — igual à ordem, é preferência pessoal salva no
+  // navegador (não afeta outros usuários). Se não houver largura salva pra
+  // uma coluna, cai no valor padrão definido em CRIATIVOS_COLUNAS/montarColunaCustomizada.
+  function carregarCriativosColunaLargura() {
+    try { return JSON.parse(localStorage.getItem('criativosColunaLargura') || '{}') || {}; } catch (e) { return {}; }
+  }
+  let criativosColunaLargura = carregarCriativosColunaLargura();
+  function salvarCriativosColunaLargura() {
+    try { localStorage.setItem('criativosColunaLargura', JSON.stringify(criativosColunaLargura)); } catch (e) {}
+  }
+  function criativoColunaLargura(c) {
+    return criativosColunaLargura[c.key] || c.largura;
+  }
+
+  // Redimensionar coluna arrastando a borda direita do cabeçalho — mexe
+  // direto no <col> do colgroup (é ele que manda na largura, já que a
+  // tabela usa table-layout:fixed) durante o arraste, pra ficar fluido, e
+  // só salva no localStorage quando solta o mouse.
+  let criativosResizeState = null;
+  function iniciarResizeCriativoColuna(ev, key) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const col = todasColunasDef().find(c => c.key === key);
+    if (!col) return;
+    criativosResizeState = { key, startX: ev.clientX, startWidth: criativoColunaLargura(col) };
+    document.body.classList.add('criativos-resizing');
+    document.addEventListener('mousemove', moverResizeCriativoColuna);
+    document.addEventListener('mouseup', finalizarResizeCriativoColuna);
+  }
+  function moverResizeCriativoColuna(ev) {
+    if (!criativosResizeState) return;
+    const delta = ev.clientX - criativosResizeState.startX;
+    const novaLargura = Math.max(70, Math.round(criativosResizeState.startWidth + delta));
+    const colEl = document.querySelector(`#criativos-colgroup col[data-col-key="${criativosResizeState.key}"]`);
+    if (colEl) colEl.style.width = novaLargura + 'px';
+    criativosResizeState.novaLargura = novaLargura;
+  }
+  function finalizarResizeCriativoColuna() {
+    document.removeEventListener('mousemove', moverResizeCriativoColuna);
+    document.removeEventListener('mouseup', finalizarResizeCriativoColuna);
+    document.body.classList.remove('criativos-resizing');
+    if (criativosResizeState && criativosResizeState.novaLargura) {
+      criativosColunaLargura[criativosResizeState.key] = criativosResizeState.novaLargura;
+      salvarCriativosColunaLargura();
+    }
+    criativosResizeState = null;
+  }
+
   let criativosColunaSortable = null;
   function initCriativosColunaDrag() {
     if (typeof Sortable !== 'function') return;
@@ -6508,7 +6561,7 @@
     criativosColunaSortable = Sortable.create(linha, {
       animation: 150,
       direction: 'horizontal',
-      filter: '.criativos-th-fixa, .criativos-th-acao',
+      filter: '.criativos-th-fixa, .criativos-th-acao, .criativos-th-resize',
       preventOnFilter: true,
       // trava as duas pontas: nada pode ser largado antes do Projeto
       // nem depois da coluna de excluir — só reordena o meio.
@@ -6533,7 +6586,7 @@
     const colunas = criativosColunasOrdenadas();
 
     colgroupEl.innerHTML = `<col style="width:56px;">` +
-      colunas.map(c => `<col style="width:${c.largura}px;">`).join('') +
+      colunas.map(c => `<col data-col-key="${c.key}" style="width:${criativoColunaLargura(c)}px;">`).join('') +
       `<col style="width:48px;">`;
 
     const segmentos = [];
@@ -6549,7 +6602,7 @@
     </tr>`;
     const linhaColunas = `<tr id="criativos-thead-colunas">
       <th class="criativos-th-fixa">Projeto</th>
-      ${colunas.map(c => `<th class="criativos-th-arrastavel" data-col-key="${c.key}" title="Arraste para reordenar"><i class="ti ti-grip-vertical"></i>${escapeHtml(c.label)}${c.tipoBadge ? criativoColunaBadge(c.tipoBadge) : ''}${c.custom ? `<i class="ti ti-trash" style="margin-left:5px;font-size:11px;opacity:.6;" title="Excluir categoria" onclick="event.stopPropagation();excluirCriativoColuna('${c.colId}')"></i>` : ''}</th>`).join('')}
+      ${colunas.map(c => `<th class="criativos-th-arrastavel" data-col-key="${c.key}" title="Arraste para reordenar"><i class="ti ti-grip-vertical"></i>${escapeHtml(c.label)}${c.tipoBadge ? criativoColunaBadge(c.tipoBadge) : ''}${c.custom ? `<i class="ti ti-trash" style="margin-left:5px;font-size:11px;opacity:.6;" title="Excluir categoria" onclick="event.stopPropagation();excluirCriativoColuna('${c.colId}')"></i>` : ''}<span class="criativos-th-resize" title="Arraste para redimensionar" onmousedown="iniciarResizeCriativoColuna(event,'${c.key}')"></span></th>`).join('')}
       <th class="criativos-th-acao"></th>
     </tr>`;
     theadEl.innerHTML = linhaGrupos + linhaColunas;
@@ -6742,19 +6795,51 @@
 
   // Preview do vídeo em popover fixo (ver comentário no CSS de
   // .criativos-video-preview-popover sobre por que não pode ser filho da
-  // célula). Posicionado sob o mouse no mouseenter, com autoplay mudo pra
-  // dar a sensação de prévia instantânea; o botão "Abrir" continua sendo o
-  // jeito de assistir com som numa aba própria.
+  // célula). Posicionado sob o mouse no mouseenter, tocando com áudio (sem
+  // muted) — navegadores podem bloquear o autoplay com som até o usuário
+  // interagir uma vez com a página (política padrão de autoplay do Chrome/
+  // Safari; não é algo que dê pra contornar via código, só orientar o
+  // usuário a já ter clicado em algo na página antes). O botão "Abrir"
+  // continua sendo o jeito garantido de assistir com som numa aba própria.
+  //
+  // Formato real: pra vídeo .mp4 direto a gente lê width/height reais do
+  // arquivo assim que o navegador carrega os metadados e redimensiona o
+  // popover pra esse formato exato (vertical fica vertical, horizontal fica
+  // horizontal). Pra Google Drive/YouTube (iframe) não dá pra ler as
+  // dimensões reais do vídeo por JS (é conteúdo de outro domínio), então o
+  // popover abre no formato vertical (9:16) por padrão — o mais comum em
+  // criativo de anúncio (Reels/Stories/TikTok) — e o player interno do
+  // Drive/YouTube ajusta o vídeo dentro dessa caixa sem cortar nada.
   function abrirCriativoVideoPreview(ev, url) {
+    const anchorEl = ev.currentTarget;
     const pop = document.getElementById('criativo-video-preview-popover');
     const embed = criativoVideoEmbedUrl(url);
     if (!pop || !embed) return;
-    pop.innerHTML = embed.tipo === 'iframe'
-      ? `<iframe src="${embed.src}" allow="autoplay; fullscreen" allowfullscreen></iframe>`
-      : `<video src="${embed.src}" autoplay muted loop playsinline></video>`;
+    pop.style.width = '220px';
+    pop.style.height = '391px';
+    if (embed.tipo === 'iframe') {
+      const src = embed.src + (embed.src.includes('?') ? '&' : '?') + 'autoplay=1';
+      pop.innerHTML = `<iframe src="${src}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+    } else {
+      pop.innerHTML = `<video src="${embed.src}" autoplay controls playsinline></video>`;
+      const videoEl = pop.querySelector('video');
+      videoEl.addEventListener('loadedmetadata', () => {
+        if (!videoEl.videoWidth || !videoEl.videoHeight) return;
+        const escala = 320 / Math.max(videoEl.videoWidth, videoEl.videoHeight);
+        pop.style.width = Math.round(videoEl.videoWidth * escala) + 'px';
+        pop.style.height = Math.round(videoEl.videoHeight * escala) + 'px';
+        reposicionarCriativoVideoPreview(anchorEl);
+      });
+    }
     pop.style.display = 'block';
-    const largura = 280, altura = Math.round(280 * 9 / 16);
-    const rect = ev.currentTarget.getBoundingClientRect();
+    reposicionarCriativoVideoPreview(anchorEl);
+  }
+
+  function reposicionarCriativoVideoPreview(anchorEl) {
+    const pop = document.getElementById('criativo-video-preview-popover');
+    if (!pop || !anchorEl) return;
+    const largura = pop.offsetWidth || 220, altura = pop.offsetHeight || 391;
+    const rect = anchorEl.getBoundingClientRect();
     let left = Math.round(rect.left);
     let top = Math.round(rect.bottom + 6);
     if (left + largura > window.innerWidth - 8) left = Math.max(8, window.innerWidth - largura - 8);
