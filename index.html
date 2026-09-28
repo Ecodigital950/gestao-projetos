@@ -235,11 +235,16 @@
   #criativo-coluna-modal-overlay.aberto { display: flex; }
   .criativos-col-tipo-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 500; padding: 2px 7px; border-radius: 999px; margin-left: 6px; white-space: nowrap; }
   .criativos-col-tipo-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-  .criativos-video-wrap { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+  .criativos-video-wrap { display: inline-flex; align-items: center; gap: 6px; }
   .criativos-video-btn { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 5px 11px; font-size: 11.5px; text-decoration: none; cursor: pointer; }
-  .criativos-video-preview { display: none; position: absolute; top: 30px; left: 0; width: 220px; aspect-ratio: 16/9; background: #000; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; z-index: 30; }
-  .criativos-video-wrap:hover .criativos-video-preview { display: block; }
-  .criativos-video-preview iframe, .criativos-video-preview video { width: 100%; height: 100%; border: 0; }
+  /* O preview não pode ser filho da célula: a tabela usa overflow:hidden/auto
+     (.criativos-tabela-card e .criativos-tabela-scroll) pra sustentar o scroll
+     e o sticky da coluna Projeto, o que corta qualquer elemento absoluto que
+     "vaze" da célula. Por isso é um popover único, fora da tabela, com
+     position:fixed e posicionado via JS no mouseenter (mesmo padrão do
+     popover de Status logo acima) — assim ele fica por cima de tudo. */
+  .criativos-video-preview-popover { display: none; position: fixed; width: 280px; aspect-ratio: 16/9; background: #000; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; z-index: 3000; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+  .criativos-video-preview-popover iframe, .criativos-video-preview-popover video { width: 100%; height: 100%; border: 0; display: block; }
   #fin-tags-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1001; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
   #fin-tags-modal-overlay.aberto { display: flex; }
   #proj-acesso-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
@@ -1348,6 +1353,7 @@
 </div>
 
 <div id="criativo-status-dropdown-popover" class="criativo-status-dropdown-popover"></div>
+<div id="criativo-video-preview-popover" class="criativos-video-preview-popover"></div>
 
 
 <script>
@@ -6721,15 +6727,44 @@
     if (!valor) {
       return `<span class="criativos-texto-truncada" data-vazio="+ link" onclick="abrirCriativoTextoModal('${c.id}',null,'${escapeHtml(col.nome)}','${col.id}')"></span>`;
     }
-    const embed = criativoVideoEmbedUrl(valor);
-    const preview = embed
-      ? `<div class="criativos-video-preview">${embed.tipo === 'iframe' ? `<iframe src="${embed.src}" allow="autoplay" allowfullscreen></iframe>` : `<video src="${embed.src}" controls></video>`}</div>`
+    const temPreview = !!criativoVideoEmbedUrl(valor);
+    const hoverAttrs = temPreview
+      ? ` onmouseenter="abrirCriativoVideoPreview(event,'${escapeHtml(valor).replace(/'/g, "\\'")}')" onmouseleave="fecharCriativoVideoPreview()"`
       : '';
-    return `<div class="criativos-video-wrap">
+    return `<div class="criativos-video-wrap"${hoverAttrs}>
       <a class="criativos-video-btn" href="${escapeHtml(valor)}" target="_blank" rel="noopener" style="background:#f8717122;color:#f87171;"><i class="ti ti-player-play"></i> Abrir</a>
-      <i class="ti ti-pencil" style="cursor:pointer;color:var(--muted);font-size:13px;" title="Editar link" onclick="abrirCriativoTextoModal('${c.id}',null,'${escapeHtml(col.nome)}','${col.id}')"></i>
-      ${preview}
+      <i class="ti ti-pencil" style="cursor:pointer;color:var(--muted);font-size:13px;" title="Editar link" onclick="event.stopPropagation();abrirCriativoTextoModal('${c.id}',null,'${escapeHtml(col.nome)}','${col.id}')"></i>
     </div>`;
+  }
+
+  // Preview do vídeo em popover fixo (ver comentário no CSS de
+  // .criativos-video-preview-popover sobre por que não pode ser filho da
+  // célula). Posicionado sob o mouse no mouseenter, com autoplay mudo pra
+  // dar a sensação de prévia instantânea; o botão "Abrir" continua sendo o
+  // jeito de assistir com som numa aba própria.
+  function abrirCriativoVideoPreview(ev, url) {
+    const pop = document.getElementById('criativo-video-preview-popover');
+    const embed = criativoVideoEmbedUrl(url);
+    if (!pop || !embed) return;
+    pop.innerHTML = embed.tipo === 'iframe'
+      ? `<iframe src="${embed.src}" allow="autoplay; fullscreen" allowfullscreen></iframe>`
+      : `<video src="${embed.src}" autoplay muted loop playsinline></video>`;
+    pop.style.display = 'block';
+    const largura = 280, altura = Math.round(280 * 9 / 16);
+    const rect = ev.currentTarget.getBoundingClientRect();
+    let left = Math.round(rect.left);
+    let top = Math.round(rect.bottom + 6);
+    if (left + largura > window.innerWidth - 8) left = Math.max(8, window.innerWidth - largura - 8);
+    if (top + altura > window.innerHeight - 8) top = Math.max(8, Math.round(rect.top - altura - 6));
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+  }
+
+  function fecharCriativoVideoPreview() {
+    const pop = document.getElementById('criativo-video-preview-popover');
+    if (!pop) return;
+    pop.style.display = 'none';
+    pop.innerHTML = '';
   }
 
   // ---- Modal "Nova categoria": cria a definição em criativos_colunas
@@ -6821,6 +6856,7 @@
     if (pop && pop.style.display === 'block' && !pop.contains(ev.target)) fecharCriativoStatusDropdown();
   });
   document.addEventListener('scroll', fecharCriativoStatusDropdown, true);
+  document.addEventListener('scroll', fecharCriativoVideoPreview, true);
 
   init();
 </script>
