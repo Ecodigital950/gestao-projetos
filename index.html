@@ -913,15 +913,18 @@
       <div id="view-criativos" class="view">
         <h2>Criativos</h2>
         <div class="card">
-          <div class="form-row">
-            <div><label>Projeto</label>
+          <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;">
+            <div style="flex:0 1 220px;min-width:160px;">
+              <label>Projeto</label>
               <select id="criativos-projeto-filtro" onchange="carregarCriativos()">
                 <option value="">Todos os projetos</option>
               </select>
             </div>
-            <div style="display:flex;align-items:flex-end; gap:10px;">
-              <button type="button" onclick="adicionarCriativo()"><i class="ti ti-plus"></i> Novo criativo</button>
-              <button type="button" class="secondary" style="border:1px dashed var(--info); color:var(--info);" onclick="abrirNovaCriativoColunaModal()"><i class="ti ti-plus"></i> Nova categoria</button>
+            <button type="button" onclick="adicionarCriativo()"><i class="ti ti-plus"></i> Novo criativo</button>
+            <button type="button" class="secondary" style="border:1px dashed var(--info); color:var(--info);" onclick="abrirNovaCriativoColunaModal()"><i class="ti ti-plus"></i> Nova categoria</button>
+            <div style="display:flex;align-items:center;gap:4px;">
+              <button type="button" class="secondary" id="criativos-drive-btn" onclick="abrirCriativosDrive()" title="Abrir o Drive do projeto"><i class="ti ti-folder"></i> Drive</button>
+              <i class="ti ti-pencil" id="criativos-drive-editar" style="cursor:pointer;color:var(--muted);font-size:14px;display:none;" title="Editar link do Drive" onclick="editarCriativosDriveUrl(projetoAtualCriativos())"></i>
             </div>
           </div>
         </div>
@@ -1960,7 +1963,7 @@
     // Traz cor_fundo/imagem_fundo_url/notas_financeiro também — não é só
     // pra popular selects, esse cache é reaproveitado pelo Kanban
     // (aplicarFundoQuadro) e agora pelo Financeiro (notas por projeto).
-    const { data } = await sb.from('projects').select('id,nome,cor_fundo,imagem_fundo_url,notas_financeiro,notas_tarefas,ordem,responsavel_id,eh_centro_custo').order('ordem', { ascending: true, nullsFirst: false }).order('nome');
+    const { data } = await sb.from('projects').select('id,nome,cor_fundo,imagem_fundo_url,notas_financeiro,notas_tarefas,ordem,responsavel_id,eh_centro_custo,drive_url').order('ordem', { ascending: true, nullsFirst: false }).order('nome');
     projectsCache = data || [];
     // "Origem financeira" (eh_centro_custo) serve só pra marcar de onde
     // veio uma receita/despesa avulsa no Financeiro — não é um projeto de
@@ -6361,6 +6364,45 @@
     sel.innerHTML = '<option value="">Todos os projetos</option>' +
       projectsKanbanCache.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}</option>`).join('');
     sel.value = atual;
+    atualizarBotaoDriveCriativos();
+  }
+
+  // ---- Botão "Drive": abre a pasta do Google Drive do projeto selecionado
+  // no filtro. O link fica salvo em projects.drive_url (um por projeto, não
+  // por criativo). Sem link salvo ainda, clicar no botão principal já abre o
+  // prompt pra colar o link (e abre em seguida); o lápis ao lado serve só
+  // pra trocar um link que já existe. ----
+  function projetoAtualCriativos() {
+    const id = document.getElementById('criativos-projeto-filtro')?.value;
+    return id ? projectsCache.find(p => p.id === id) : null;
+  }
+
+  function atualizarBotaoDriveCriativos() {
+    const btn = document.getElementById('criativos-drive-btn');
+    const editar = document.getElementById('criativos-drive-editar');
+    if (!btn) return;
+    const projeto = projetoAtualCriativos();
+    btn.title = projeto && projeto.drive_url ? 'Abrir Drive do projeto' : 'Definir o link do Drive desse projeto';
+    if (editar) editar.style.display = projeto ? 'inline' : 'none';
+  }
+
+  async function abrirCriativosDrive() {
+    const projeto = projetoAtualCriativos();
+    if (!projeto) { alert('Escolha um projeto no filtro acima antes de abrir o Drive dele.'); return; }
+    if (projeto.drive_url) { window.open(projeto.drive_url, '_blank', 'noopener'); return; }
+    await editarCriativosDriveUrl(projeto);
+  }
+
+  async function editarCriativosDriveUrl(projeto) {
+    if (!projeto) { alert('Escolha um projeto no filtro acima antes de definir o link do Drive.'); return; }
+    const novo = prompt('Cole o link da pasta do Drive desse projeto:', projeto.drive_url || '');
+    if (novo === null) return;
+    const valor = novo.trim() || null;
+    const { error } = await sb.from('projects').update({ drive_url: valor }).eq('id', projeto.id);
+    if (error) { alert('Erro ao salvar o link do Drive: ' + error.message); return; }
+    projeto.drive_url = valor;
+    atualizarBotaoDriveCriativos();
+    if (valor) window.open(valor, '_blank', 'noopener');
   }
 
   async function carregarCriativos() {
