@@ -6387,36 +6387,36 @@
   // fixa do Projeto (sempre primeira, sticky) e a de excluir (sempre
   // última) ficam fora desse array — não fazem sentido arrastáveis. ----
   const CRIATIVOS_COLUNAS = [
-    { key: 'nome_criativo', label: 'Nome do criativo', grupo: 'criativo', largura: 160,
+    { key: 'nome_criativo', label: 'Nome do criativo', grupo: 'criativo', largura: 160, tipoBadge: 'texto_curto',
       render: c => `<input type="text" value="${escapeHtml(c.nome_criativo || '')}" placeholder="Nome" onblur="salvarCriativoCampo('${c.id}','nome_criativo','texto',this.value)">` },
-    { key: 'persona', label: 'Persona', grupo: 'criativo', largura: 200,
+    { key: 'persona', label: 'Persona', grupo: 'criativo', largura: 200, tipoBadge: 'texto_longo',
       render: c => `<span class="criativos-texto-truncada" data-vazio="Persona" onclick="abrirCriativoTextoModal('${c.id}','persona','Persona')">${escapeHtml(c.persona || '')}</span>` },
-    { key: 'angulo', label: 'Ângulo', grupo: 'criativo', largura: 200,
+    { key: 'angulo', label: 'Ângulo', grupo: 'criativo', largura: 200, tipoBadge: 'texto_longo',
       render: c => `<span class="criativos-texto-truncada" data-vazio="Ângulo" onclick="abrirCriativoTextoModal('${c.id}','angulo','Ângulo')">${escapeHtml(c.angulo || '')}</span>` },
-    { key: 'formato', label: 'Formato', grupo: 'criativo', largura: 200,
+    { key: 'formato', label: 'Formato', grupo: 'criativo', largura: 200, tipoBadge: 'texto_longo',
       render: c => `<span class="criativos-texto-truncada" data-vazio="Formato" onclick="abrirCriativoTextoModal('${c.id}','formato','Formato')">${escapeHtml(c.formato || '')}</span>` },
-    { key: 'copy', label: 'Copy', grupo: 'criativo', largura: 200,
+    { key: 'copy', label: 'Copy', grupo: 'criativo', largura: 200, tipoBadge: 'texto_longo',
       render: c => `<span class="criativos-texto-truncada" data-vazio="Copy" onclick="abrirCriativoTextoModal('${c.id}','copy','Copy')">${escapeHtml(c.copy || '')}</span>` },
-    { key: 'status', label: 'Status', grupo: 'primarias', largura: 140,
+    { key: 'status', label: 'Status', grupo: 'primarias', largura: 140, tipoBadge: 'status',
       render: c => { const s = CRIATIVO_STATUS.find(x => x.id === c.status) || CRIATIVO_STATUS[0]; return `<button type="button" class="criativos-status-pill" style="background:${s.cor}22;color:${s.cor};" onclick="abrirCriativoStatusDropdown(event,'${c.id}')">${s.label}<i class="ti ti-chevron-down" style="font-size:11px;"></i></button>`; } },
-    { key: 'investimento', label: 'Investim.', grupo: 'primarias', largura: 110, render: c => criativoMoedaInput(c, 'investimento') },
-    { key: 'faturamento', label: 'Faturam.', grupo: 'primarias', largura: 110, render: c => criativoMoedaInput(c, 'faturamento') },
-    { key: 'vendas', label: 'Vendas', grupo: 'primarias', largura: 110, render: c => criativoInteiroInput(c, 'vendas') },
-    { key: 'cpa', label: 'CPA', grupo: 'primarias', largura: 110, render: c => criativoMoedaInput(c, 'cpa') },
-    { key: 'roi', label: 'ROI', grupo: 'primarias', largura: 110, render: c => criativoDecimalInput(c, 'roi') },
-    { key: 'lucro', label: 'Lucro', grupo: 'primarias', largura: 110, render: c => criativoMoedaInput(c, 'lucro'),
+    { key: 'investimento', label: 'Investim.', grupo: 'primarias', largura: 110, tipoBadge: 'moeda', render: c => criativoMoedaInput(c, 'investimento') },
+    { key: 'faturamento', label: 'Faturam.', grupo: 'primarias', largura: 110, tipoBadge: 'moeda', render: c => criativoMoedaInput(c, 'faturamento') },
+    { key: 'vendas', label: 'Vendas', grupo: 'primarias', largura: 110, tipoBadge: 'numero', render: c => criativoInteiroInput(c, 'vendas') },
+    { key: 'cpa', label: 'CPA', grupo: 'primarias', largura: 110, tipoBadge: 'moeda', render: c => criativoMoedaInput(c, 'cpa') },
+    { key: 'roi', label: 'ROI', grupo: 'primarias', largura: 110, tipoBadge: 'decimal', render: c => criativoDecimalInput(c, 'roi') },
+    { key: 'lucro', label: 'Lucro', grupo: 'primarias', largura: 110, tipoBadge: 'moeda', render: c => criativoMoedaInput(c, 'lucro'),
       tdClass: c => Number(c.lucro) > 0 ? 'criativos-num-pos' : (Number(c.lucro) < 0 ? 'criativos-num-neg' : '') },
-    { key: 'ticket_medio', label: 'Ticket méd.', grupo: 'primarias', largura: 110, render: c => criativoMoedaInput(c, 'ticket_medio') },
-    { key: 'conversao', label: 'Convers.', grupo: 'primarias', largura: 110, render: c => criativoDecimalInput(c, 'conversao') },
-    { key: 'cliques', label: 'Cliques', grupo: 'secundarias', largura: 105, render: c => criativoInteiroInput(c, 'cliques') },
-    { key: 'ctr', label: 'CTR', grupo: 'secundarias', largura: 105, render: c => criativoPercentInput(c, 'ctr') },
-    { key: 'cpc', label: 'CPC', grupo: 'secundarias', largura: 105, render: c => criativoMoedaInput(c, 'cpc') },
-    { key: 'cpm', label: 'CPM', grupo: 'secundarias', largura: 105, render: c => criativoMoedaInput(c, 'cpm') },
-    { key: 'hook_rate', label: 'Hook rate', grupo: 'secundarias', largura: 105, render: c => criativoPercentInput(c, 'hook_rate') },
-    { key: 'retencao_body', label: 'Retenção body', grupo: 'secundarias', largura: 105, render: c => criativoPercentInput(c, 'retencao_body') },
-    { key: 'checkout', label: 'Checkout', grupo: 'secundarias', largura: 105, render: c => criativoInteiroInput(c, 'checkout') },
-    { key: 'custo_checkout', label: 'Custo/checkout', grupo: 'secundarias', largura: 105, render: c => criativoMoedaInput(c, 'custo_checkout') },
-    { key: 'periodo', label: 'Período', grupo: 'secundarias', largura: 190,
+    { key: 'ticket_medio', label: 'Ticket méd.', grupo: 'primarias', largura: 110, tipoBadge: 'moeda', render: c => criativoMoedaInput(c, 'ticket_medio') },
+    { key: 'conversao', label: 'Convers.', grupo: 'primarias', largura: 110, tipoBadge: 'decimal', render: c => criativoDecimalInput(c, 'conversao') },
+    { key: 'cliques', label: 'Cliques', grupo: 'secundarias', largura: 105, tipoBadge: 'numero', render: c => criativoInteiroInput(c, 'cliques') },
+    { key: 'ctr', label: 'CTR', grupo: 'secundarias', largura: 105, tipoBadge: 'percentual', render: c => criativoPercentInput(c, 'ctr') },
+    { key: 'cpc', label: 'CPC', grupo: 'secundarias', largura: 105, tipoBadge: 'moeda', render: c => criativoMoedaInput(c, 'cpc') },
+    { key: 'cpm', label: 'CPM', grupo: 'secundarias', largura: 105, tipoBadge: 'moeda', render: c => criativoMoedaInput(c, 'cpm') },
+    { key: 'hook_rate', label: 'Hook rate', grupo: 'secundarias', largura: 105, tipoBadge: 'percentual', render: c => criativoPercentInput(c, 'hook_rate') },
+    { key: 'retencao_body', label: 'Retenção body', grupo: 'secundarias', largura: 105, tipoBadge: 'percentual', render: c => criativoPercentInput(c, 'retencao_body') },
+    { key: 'checkout', label: 'Checkout', grupo: 'secundarias', largura: 105, tipoBadge: 'numero', render: c => criativoInteiroInput(c, 'checkout') },
+    { key: 'custo_checkout', label: 'Custo/checkout', grupo: 'secundarias', largura: 105, tipoBadge: 'moeda', render: c => criativoMoedaInput(c, 'custo_checkout') },
+    { key: 'periodo', label: 'Período', grupo: 'secundarias', largura: 190, tipoBadge: 'periodo',
       render: c => `<input type="text" id="crit-periodo-${c.id}" class="criativos-periodo-input" placeholder="Selecionar período" readonly>` },
   ];
   const CRIATIVOS_GRUPO_INFO = {
@@ -6431,12 +6431,15 @@
   // ficam em criativos.campos_extra (jsonb), indexado pelo id da coluna —
   // as 23 colunas fixas acima não são tocadas por nada disso. ----
   const CRIATIVOS_TIPO_INFO = {
-    texto_curto: { label: 'Texto', cor: '#8992ab' },
-    texto_longo: { label: 'Texto longo', cor: '#8992ab' },
+    texto_curto: { label: 'Texto curto', cor: '#8992ab' },
+    texto_longo: { label: 'Texto longo', cor: '#f472b6' },
     numero: { label: 'Número', cor: '#38bdf8' },
     percentual: { label: '%', cor: '#a78bfa' },
     moeda: { label: 'R$', cor: '#34d399' },
-    link_video: { label: 'Vídeo', cor: '#f87171' },
+    link_video: { label: 'Link de vídeo', cor: '#f87171' },
+    decimal: { label: 'Decimal', cor: '#fbbf24' },
+    periodo: { label: 'Período', cor: '#38bdf8' },
+    status: { label: 'Status', cor: '#78b6f0' },
   };
   let criativosColunasCustom = [];
 
@@ -6451,7 +6454,7 @@
     const largura = col.tipo === 'texto_longo' ? 200 : (col.tipo === 'link_video' ? 160 : 120);
     return {
       key: 'custom:' + col.id, label: col.nome, grupo: col.grupo, largura,
-      custom: true, tipoCustom: col.tipo, colId: col.id,
+      custom: true, tipoBadge: col.tipo, colId: col.id,
       render: c => renderCriativoCampoCustom(c, col)
     };
   }
@@ -6546,7 +6549,7 @@
     </tr>`;
     const linhaColunas = `<tr id="criativos-thead-colunas">
       <th class="criativos-th-fixa">Projeto</th>
-      ${colunas.map(c => `<th class="criativos-th-arrastavel" data-col-key="${c.key}" title="Arraste para reordenar"><i class="ti ti-grip-vertical"></i>${escapeHtml(c.label)}${c.custom ? criativoColunaBadge(c.tipoCustom) : ''}${c.custom ? `<i class="ti ti-trash" style="margin-left:5px;font-size:11px;opacity:.6;" title="Excluir categoria" onclick="event.stopPropagation();excluirCriativoColuna('${c.colId}')"></i>` : ''}</th>`).join('')}
+      ${colunas.map(c => `<th class="criativos-th-arrastavel" data-col-key="${c.key}" title="Arraste para reordenar"><i class="ti ti-grip-vertical"></i>${escapeHtml(c.label)}${c.tipoBadge ? criativoColunaBadge(c.tipoBadge) : ''}${c.custom ? `<i class="ti ti-trash" style="margin-left:5px;font-size:11px;opacity:.6;" title="Excluir categoria" onclick="event.stopPropagation();excluirCriativoColuna('${c.colId}')"></i>` : ''}</th>`).join('')}
       <th class="criativos-th-acao"></th>
     </tr>`;
     theadEl.innerHTML = linhaGrupos + linhaColunas;
