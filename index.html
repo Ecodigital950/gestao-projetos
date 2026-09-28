@@ -231,6 +231,15 @@
   #fin-cat-modal-overlay.aberto { display: flex; }
   #criativo-texto-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
   #criativo-texto-modal-overlay.aberto { display: flex; }
+  #criativo-coluna-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  #criativo-coluna-modal-overlay.aberto { display: flex; }
+  .criativos-col-tipo-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 9.5px; font-weight: 500; padding: 2px 7px; border-radius: 999px; margin-left: 6px; white-space: nowrap; }
+  .criativos-col-tipo-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .criativos-video-wrap { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+  .criativos-video-btn { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 5px 11px; font-size: 11.5px; text-decoration: none; cursor: pointer; }
+  .criativos-video-preview { display: none; position: absolute; top: 30px; left: 0; width: 220px; aspect-ratio: 16/9; background: #000; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; z-index: 30; }
+  .criativos-video-wrap:hover .criativos-video-preview { display: block; }
+  .criativos-video-preview iframe, .criativos-video-preview video { width: 100%; height: 100%; border: 0; }
   #fin-tags-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1001; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
   #fin-tags-modal-overlay.aberto { display: flex; }
   #proj-acesso-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1000; align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
@@ -891,8 +900,9 @@
                 <option value="">Todos os projetos</option>
               </select>
             </div>
-            <div style="display:flex;align-items:flex-end;">
+            <div style="display:flex;align-items:flex-end; gap:10px;">
               <button type="button" onclick="adicionarCriativo()"><i class="ti ti-plus"></i> Novo criativo</button>
+              <button type="button" class="secondary" style="border:1px dashed var(--info); color:var(--info);" onclick="abrirNovaCriativoColunaModal()"><i class="ti ti-plus"></i> Nova categoria</button>
             </div>
           </div>
         </div>
@@ -1296,10 +1306,43 @@
     <h3 style="margin-top:0;" id="criativo-texto-modal-titulo">Editar</h3>
     <input type="hidden" id="criativo-texto-modal-id">
     <input type="hidden" id="criativo-texto-modal-campo">
+    <input type="hidden" id="criativo-texto-modal-colid">
     <textarea id="criativo-texto-modal-valor" rows="8" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13px;"></textarea>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
       <button type="button" class="secondary" onclick="fecharCriativoTextoModal()">Cancelar</button>
       <button type="button" onclick="salvarCriativoTextoModal()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div id="criativo-coluna-modal-overlay" onclick="if(event.target===this) fecharNovaCriativoColunaModal()">
+  <div class="card fin-cat-modal-card" style="width:420px;">
+    <h3 style="margin-top:0;">Nova categoria</h3>
+    <div class="form-row">
+      <div><label>Nome</label><input type="text" id="criativo-coluna-nome" placeholder="Ex: Link do vídeo"></div>
+    </div>
+    <div class="form-row">
+      <div><label>Como essa informação deve aparecer</label>
+        <select id="criativo-coluna-tipo">
+          <option value="texto_curto">Texto curto</option>
+          <option value="texto_longo">Texto longo</option>
+          <option value="numero">Número</option>
+          <option value="percentual">Percentual (%)</option>
+          <option value="moeda">Moeda (R$)</option>
+          <option value="link_video">Link de vídeo (botão + preview)</option>
+        </select>
+      </div>
+      <div><label>Grupo</label>
+        <select id="criativo-coluna-grupo">
+          <option value="criativo">Criativo</option>
+          <option value="primarias">Métricas primárias</option>
+          <option value="secundarias">Métricas secundárias</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+      <button type="button" class="secondary" onclick="fecharNovaCriativoColunaModal()">Cancelar</button>
+      <button type="button" onclick="salvarNovaCriativoColuna()">Criar categoria</button>
     </div>
   </div>
 </div>
@@ -6302,6 +6345,7 @@
 
   async function carregarCriativos() {
     if (!projectsCache.length) await carregarProjetosSelects();
+    await carregarCriativosColunas();
     preencherCriativosProjetoFiltro();
     const projetoId = document.getElementById('criativos-projeto-filtro').value;
     let query = sb.from('criativos').select('*').order('ordem').order('created_at');
@@ -6375,10 +6419,46 @@
     secundarias: { label: 'Métricas secundárias', estilo: 'color:var(--muted);' },
   };
 
+  // ---- Categorias customizáveis (criativos_colunas): o usuário pode criar
+  // novas "colunas" escolhendo nome, tipo (define como o valor é exibido/
+  // editado) e grupo (em qual bloco do cabeçalho ela entra). Os valores
+  // ficam em criativos.campos_extra (jsonb), indexado pelo id da coluna —
+  // as 23 colunas fixas acima não são tocadas por nada disso. ----
+  const CRIATIVOS_TIPO_INFO = {
+    texto_curto: { label: 'Texto', cor: '#8992ab' },
+    texto_longo: { label: 'Texto longo', cor: '#8992ab' },
+    numero: { label: 'Número', cor: '#38bdf8' },
+    percentual: { label: '%', cor: '#a78bfa' },
+    moeda: { label: 'R$', cor: '#34d399' },
+    link_video: { label: 'Vídeo', cor: '#f87171' },
+  };
+  let criativosColunasCustom = [];
+
+  async function carregarCriativosColunas() {
+    const { data, error } = await sb.from('criativos_colunas').select('*').order('ordem').order('created_at');
+    if (error) { console.error('Erro ao carregar categorias customizadas:', error); return; }
+    criativosColunasCustom = data || [];
+    sincronizarCriativosColunaOrdem();
+  }
+
+  function montarColunaCustomizada(col) {
+    const largura = col.tipo === 'texto_longo' ? 200 : (col.tipo === 'link_video' ? 160 : 120);
+    return {
+      key: 'custom:' + col.id, label: col.nome, grupo: col.grupo, largura,
+      custom: true, tipoCustom: col.tipo, colId: col.id,
+      render: c => renderCriativoCampoCustom(c, col)
+    };
+  }
+
+  function todasColunasDef() {
+    return CRIATIVOS_COLUNAS.concat(criativosColunasCustom.map(montarColunaCustomizada));
+  }
+
   // Ordem atual das colunas — guardada no navegador (é uma preferência
   // pessoal de visualização, não um dado do projeto). Se o app ganhar
-  // campos novos depois, eles entram no fim; se algum campo salvo não
-  // existir mais, é ignorado — assim uma versão antiga salva não quebra.
+  // campos novos depois (fixos ou categorias criadas pelo usuário), eles
+  // entram no fim; se algum campo salvo não existir mais, é ignorado —
+  // assim uma versão antiga salva não quebra.
   function carregarCriativosColunaOrdem() {
     const chavesPadrao = CRIATIVOS_COLUNAS.map(c => c.key);
     try {
@@ -6396,7 +6476,18 @@
     try { localStorage.setItem('criativosColunaOrdem', JSON.stringify(criativosColunaOrdem)); } catch (e) {}
   }
   function criativosColunasOrdenadas() {
-    return criativosColunaOrdem.map(k => CRIATIVOS_COLUNAS.find(c => c.key === k)).filter(Boolean);
+    const defs = todasColunasDef();
+    return criativosColunaOrdem.map(k => defs.find(c => c.key === k)).filter(Boolean);
+  }
+  // Roda depois que criativosColunasCustom é (re)carregado do banco: acrescenta
+  // categorias novas no fim da ordem e remove do array de ordem qualquer chave
+  // (fixa ou custom) que não exista mais — mesma lógica de carregarCriativosColunaOrdem,
+  // só que reaplicada em runtime porque colunas customizadas só existem após o fetch.
+  function sincronizarCriativosColunaOrdem() {
+    const chavesValidas = todasColunasDef().map(c => c.key);
+    criativosColunaOrdem = criativosColunaOrdem.filter(k => chavesValidas.includes(k));
+    chavesValidas.forEach(k => { if (!criativosColunaOrdem.includes(k)) criativosColunaOrdem.push(k); });
+    salvarCriativosColunaOrdem();
   }
 
   let criativosColunaSortable = null;
@@ -6449,11 +6540,16 @@
     </tr>`;
     const linhaColunas = `<tr id="criativos-thead-colunas">
       <th class="criativos-th-fixa">Projeto</th>
-      ${colunas.map(c => `<th class="criativos-th-arrastavel" data-col-key="${c.key}" title="Arraste para reordenar"><i class="ti ti-grip-vertical"></i>${escapeHtml(c.label)}</th>`).join('')}
+      ${colunas.map(c => `<th class="criativos-th-arrastavel" data-col-key="${c.key}" title="Arraste para reordenar"><i class="ti ti-grip-vertical"></i>${escapeHtml(c.label)}${c.custom ? criativoColunaBadge(c.tipoCustom) : ''}${c.custom ? `<i class="ti ti-trash" style="margin-left:5px;font-size:11px;opacity:.6;" title="Excluir categoria" onclick="event.stopPropagation();excluirCriativoColuna('${c.colId}')"></i>` : ''}</th>`).join('')}
       <th class="criativos-th-acao"></th>
     </tr>`;
     theadEl.innerHTML = linhaGrupos + linhaColunas;
     initCriativosColunaDrag();
+  }
+
+  function criativoColunaBadge(tipo) {
+    const info = CRIATIVOS_TIPO_INFO[tipo] || CRIATIVOS_TIPO_INFO.texto_curto;
+    return `<span class="criativos-col-tipo-badge" style="background:${info.cor}22;color:${info.cor};"><span class="criativos-col-tipo-dot" style="background:${info.cor};"></span>${info.label}</span>`;
   }
 
   function renderCriativosTabela() {
@@ -6531,13 +6627,15 @@
     if (campo === 'lucro') renderCriativosTabela();
   }
 
-  function abrirCriativoTextoModal(id, campo, titulo) {
+  function abrirCriativoTextoModal(id, campo, titulo, colId) {
     const c = criativosCache.find(x => x.id === id);
     if (!c) return;
     document.getElementById('criativo-texto-modal-id').value = id;
-    document.getElementById('criativo-texto-modal-campo').value = campo;
+    document.getElementById('criativo-texto-modal-campo').value = campo || '';
+    document.getElementById('criativo-texto-modal-colid').value = colId || '';
     document.getElementById('criativo-texto-modal-titulo').textContent = titulo;
-    document.getElementById('criativo-texto-modal-valor').value = c[campo] || '';
+    const valorAtual = colId ? ((c.campos_extra || {})[colId] || '') : (c[campo] || '');
+    document.getElementById('criativo-texto-modal-valor').value = valorAtual;
     document.getElementById('criativo-texto-modal-overlay').classList.add('aberto');
     document.getElementById('criativo-texto-modal-valor').focus();
   }
@@ -6549,12 +6647,126 @@
   async function salvarCriativoTextoModal() {
     const id = document.getElementById('criativo-texto-modal-id').value;
     const campo = document.getElementById('criativo-texto-modal-campo').value;
+    const colId = document.getElementById('criativo-texto-modal-colid').value;
     const valor = document.getElementById('criativo-texto-modal-valor').value;
-    const { error } = await sb.from('criativos').update({ [campo]: valor }).eq('id', id);
-    if (error) { alert('Erro ao salvar: ' + error.message); return; }
     const c = criativosCache.find(x => x.id === id);
-    if (c) c[campo] = valor;
+    if (!c) return;
+    if (colId) {
+      const col = criativosColunasCustom.find(x => x.id === colId);
+      const tipo = col ? col.tipo : 'texto_longo';
+      const valorFinal = tipo === 'link_video' ? (valor ? valor.trim() : null) : valor;
+      const camposExtra = { ...(c.campos_extra || {}), [colId]: valorFinal };
+      const { error } = await sb.from('criativos').update({ campos_extra: camposExtra }).eq('id', id);
+      if (error) { alert('Erro ao salvar: ' + error.message); return; }
+      c.campos_extra = camposExtra;
+    } else {
+      const { error } = await sb.from('criativos').update({ [campo]: valor }).eq('id', id);
+      if (error) { alert('Erro ao salvar: ' + error.message); return; }
+      c[campo] = valor;
+    }
     fecharCriativoTextoModal();
+    renderCriativosTabela();
+  }
+
+  // ---- Renderização/salvamento dos valores das categorias customizadas
+  // (campos_extra) — espelha os helpers criativoMoedaInput/PercentInput/
+  // InteiroInput/DecimalInput acima, mas lendo/escrevendo em campos_extra[colId]
+  // em vez de uma coluna fixa da tabela. ----
+  function renderCriativoCampoCustom(c, col) {
+    const valor = (c.campos_extra || {})[col.id];
+    switch (col.tipo) {
+      case 'texto_curto':
+        return `<input type="text" value="${escapeHtml(valor || '')}" placeholder="${escapeHtml(col.nome)}" onblur="salvarCriativoCampoCustom('${c.id}','${col.id}','texto_curto',this.value)">`;
+      case 'texto_longo':
+        return `<span class="criativos-texto-truncada" data-vazio="${escapeHtml(col.nome)}" onclick="abrirCriativoTextoModal('${c.id}',null,'${escapeHtml(col.nome)}','${col.id}')">${escapeHtml(valor || '')}</span>`;
+      case 'numero':
+        return `<input type="text" inputmode="numeric" value="${valor ?? ''}" placeholder="0" onblur="salvarCriativoCampoCustom('${c.id}','${col.id}','numero',this.value)">`;
+      case 'percentual':
+        return `<div class="criativos-valor-wrap"><input type="text" inputmode="decimal" value="${valor != null ? formatValorBR(valor) : ''}" placeholder="0,00" onblur="salvarCriativoCampoCustom('${c.id}','${col.id}','percentual',this.value)"><span class="criativos-afixo">%</span></div>`;
+      case 'moeda':
+        return `<div class="criativos-valor-wrap"><span class="criativos-afixo">R$</span><input type="text" inputmode="decimal" value="${valor != null ? formatValorBR(valor) : ''}" placeholder="0,00" onblur="salvarCriativoCampoCustom('${c.id}','${col.id}','moeda',this.value)"></div>`;
+      case 'link_video':
+        return renderCriativoVideoCampo(c, col, valor);
+      default:
+        return '';
+    }
+  }
+
+  async function salvarCriativoCampoCustom(id, colId, tipo, valorStr) {
+    const c = criativosCache.find(x => x.id === id);
+    if (!c) return;
+    let valor = valorStr;
+    if (tipo === 'moeda' || tipo === 'percentual') valor = parseValorBR(valorStr);
+    else if (tipo === 'numero') valor = valorStr ? (parseInt(valorStr, 10) || 0) : 0;
+    const camposExtra = { ...(c.campos_extra || {}), [colId]: valor };
+    const { error } = await sb.from('criativos').update({ campos_extra: camposExtra }).eq('id', id);
+    if (error) { alert('Erro ao salvar: ' + error.message); return; }
+    c.campos_extra = camposExtra;
+  }
+
+  // ---- Categoria "Link de vídeo": botão "Abrir" (nova aba) + preview em
+  // hover via iframe (Google Drive / YouTube) ou <video> (.mp4 direto).
+  // Links não reconhecidos ainda mostram o botão "Abrir", só sem preview. ----
+  function criativoVideoEmbedUrl(url) {
+    if (!url) return null;
+    const drive = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if (drive) return { tipo: 'iframe', src: `https://drive.google.com/file/d/${drive[1]}/preview` };
+    const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+    if (yt) return { tipo: 'iframe', src: `https://www.youtube.com/embed/${yt[1]}` };
+    if (/\.mp4(\?|$)/i.test(url)) return { tipo: 'video', src: url };
+    return null;
+  }
+
+  function renderCriativoVideoCampo(c, col, valor) {
+    if (!valor) {
+      return `<span class="criativos-texto-truncada" data-vazio="+ link" onclick="abrirCriativoTextoModal('${c.id}',null,'${escapeHtml(col.nome)}','${col.id}')"></span>`;
+    }
+    const embed = criativoVideoEmbedUrl(valor);
+    const preview = embed
+      ? `<div class="criativos-video-preview">${embed.tipo === 'iframe' ? `<iframe src="${embed.src}" allow="autoplay" allowfullscreen></iframe>` : `<video src="${embed.src}" controls></video>`}</div>`
+      : '';
+    return `<div class="criativos-video-wrap">
+      <a class="criativos-video-btn" href="${escapeHtml(valor)}" target="_blank" rel="noopener" style="background:#f8717122;color:#f87171;"><i class="ti ti-player-play"></i> Abrir</a>
+      <i class="ti ti-pencil" style="cursor:pointer;color:var(--muted);font-size:13px;" title="Editar link" onclick="abrirCriativoTextoModal('${c.id}',null,'${escapeHtml(col.nome)}','${col.id}')"></i>
+      ${preview}
+    </div>`;
+  }
+
+  // ---- Modal "Nova categoria": cria a definição em criativos_colunas
+  // (nome + tipo + grupo escolhidos pelo usuário) e a acrescenta ao fim
+  // da ordem de colunas exibida. ----
+  function abrirNovaCriativoColunaModal() {
+    document.getElementById('criativo-coluna-nome').value = '';
+    document.getElementById('criativo-coluna-tipo').value = 'texto_curto';
+    document.getElementById('criativo-coluna-grupo').value = 'criativo';
+    document.getElementById('criativo-coluna-modal-overlay').classList.add('aberto');
+    document.getElementById('criativo-coluna-nome').focus();
+  }
+
+  function fecharNovaCriativoColunaModal() {
+    document.getElementById('criativo-coluna-modal-overlay').classList.remove('aberto');
+  }
+
+  async function salvarNovaCriativoColuna() {
+    const nome = document.getElementById('criativo-coluna-nome').value.trim();
+    if (!nome) { alert('Digite um nome para a categoria.'); return; }
+    const tipo = document.getElementById('criativo-coluna-tipo').value;
+    const grupo = document.getElementById('criativo-coluna-grupo').value;
+    const ordem = criativosColunasCustom.length ? Math.max(...criativosColunasCustom.map(c => c.ordem || 0)) + 10 : 0;
+    const { data, error } = await sb.from('criativos_colunas').insert({ nome, tipo, grupo, ordem }).select().single();
+    if (error) { alert('Erro ao criar categoria: ' + error.message); return; }
+    criativosColunasCustom.push(data);
+    sincronizarCriativosColunaOrdem();
+    fecharNovaCriativoColunaModal();
+    renderCriativosTabela();
+  }
+
+  async function excluirCriativoColuna(colId) {
+    if (!confirm('Excluir essa categoria? Os valores já preenchidos nela serão perdidos em todos os criativos.')) return;
+    const { error } = await sb.from('criativos_colunas').delete().eq('id', colId);
+    if (error) { alert('Erro ao excluir categoria: ' + error.message); return; }
+    criativosColunasCustom = criativosColunasCustom.filter(c => c.id !== colId);
+    sincronizarCriativosColunaOrdem();
     renderCriativosTabela();
   }
 
