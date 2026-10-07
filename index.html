@@ -5413,7 +5413,7 @@
       finKpiCard('Custo total', brl(custoTotal), null, 'custo'),
       finKpiCard('Despesa total', brl(despesaTotal), null, 'despesa'),
       finKpiCard('Investimento', brl(investimentoTotal), investimentoSub, 'investimento'),
-      finKpiCard('Total', brl(total), null, total >= 0 ? 'saldo_pos' : 'saldo_neg'),
+      finKpiCard('Total', brl(total), 'Tudo lançado no mês — não é o saldo do banco', total >= 0 ? 'saldo_pos' : 'saldo_neg'),
     ].join('');
 
     renderFinMetasResumo();
@@ -6296,7 +6296,7 @@
           const { data: ultimoReal } = await sb.from('fin_entries').select('valor').eq('categoria_id', cat.id).ilike('nome', nome).gt('valor', 0).lt('mes', mes).order('mes', { ascending: false }).limit(1);
           if (ultimoReal && ultimoReal.length) valorRepetido = ultimoReal[0].valor;
         }
-        await sb.from('fin_entries').insert({ contexto: cat.contexto, tipo: cat.tipo, nome, valor: valorRepetido, mes, categoria_id: cat.id, pago: false });
+        await sb.from('fin_entries').insert({ contexto: cat.contexto, tipo: cat.tipo, nome, valor: valorRepetido, mes, categoria_id: cat.id, pago: !cat.eh_assinatura });
       }
     }
   }
