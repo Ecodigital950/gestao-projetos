@@ -938,6 +938,9 @@
                 <div class="fin-card-sub" id="fin-fila-resumo" style="margin-top:2px;"></div>
               </div>
               <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <label style="margin:0; display:flex; align-items:center; gap:6px; text-transform:none; letter-spacing:0; font-size:12.5px;">Importar a partir de
+                  <input type="date" id="fin-fila-data-min" value="2026-10-01" style="width:auto;" onchange="try{localStorage.setItem('finFilaDataMin',this.value)}catch(e){}">
+                </label>
                 <input type="file" id="fin-fila-arquivo" accept=".csv,text/csv" style="display:none;" onchange="importarExtratoNubankArquivo(this)">
                 <button type="button" onclick="document.getElementById('fin-fila-arquivo').click()"><i class="ti ti-upload"></i> Importar extrato (CSV)</button>
               </div>
@@ -5330,7 +5333,10 @@
     document.getElementById('fin-subaba-fila-btn').classList.toggle('active', aba === 'fila');
     document.getElementById('fin-subaba-fila').style.display = aba === 'fila' ? 'block' : 'none';
     if (aba === 'metas') renderFinMetasTab();
-    if (aba === 'fila') carregarFinFila();
+    if (aba === 'fila') {
+      try { const salvo = localStorage.getItem('finFilaDataMin'); if (salvo) document.getElementById('fin-fila-data-min').value = salvo; } catch (e) {}
+      carregarFinFila();
+    }
   }
 
   // ---- Fila "Para classificar": saídas importadas do extrato do Nubank PJ
@@ -5555,8 +5561,9 @@
     input.value = '';
     if (!file) return;
     try {
-      const rel = await importarExtratoNubankTexto(await file.text());
-      alert(`Extrato importado.\n\nSaídas novas: ${rel.novas}\nLançadas sozinhas pelas regras: ${rel.auto}\nIgnoradas pelas regras: ${rel.ignoradas}\nNa fila para classificar: ${rel.pendentes}\nJá importadas antes: ${rel.repetidas}\nEntradas puladas: ${rel.entradas}`);
+      const dataMin = document.getElementById('fin-fila-data-min').value || null;
+      const rel = await importarExtratoNubankTexto(await file.text(), dataMin);
+      alert(`Extrato importado${dataMin ? ' (a partir de ' + dataMin.split('-').reverse().join('/') + ')' : ''}.\n\nIgnoradas por serem anteriores à data: ${rel.antigas}\nSaídas novas: ${rel.novas}\nLançadas sozinhas pelas regras: ${rel.auto}\nIgnoradas pelas regras: ${rel.ignoradas}\nNa fila para classificar: ${rel.pendentes}\nJá importadas antes: ${rel.repetidas}\nEntradas puladas: ${rel.entradas}`);
     } catch (e) {
       alert('Não consegui importar esse arquivo: ' + (e.message || e));
     }
@@ -5564,20 +5571,21 @@
     carregarFinanceiroMensal();
   }
 
-  async function importarExtratoNubankTexto(texto) {
+  async function importarExtratoNubankTexto(texto, dataMin) {
     const linhas = parseCsvSimples(texto);
     if (linhas.length < 2) throw new Error('O arquivo está vazio.');
     const cab = linhas[0].map(h => h.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase());
     const iData = cab.indexOf('data'), iValor = cab.indexOf('valor'), iId = cab.indexOf('identificador'), iDesc = cab.indexOf('descricao');
     if ([iData, iValor, iId, iDesc].some(i => i < 0)) throw new Error('Esse CSV não parece ser o extrato do Nubank (colunas Data, Valor, Identificador, Descrição).');
-    const rel = { novas: 0, auto: 0, ignoradas: 0, pendentes: 0, repetidas: 0, entradas: 0 };
+    const rel = { novas: 0, auto: 0, ignoradas: 0, pendentes: 0, repetidas: 0, entradas: 0, antigas: 0 };
     const saidas = [];
     for (const l of linhas.slice(1)) {
       const valor = parseFloat(l[iValor]);
       if (!isFinite(valor)) continue;
-      if (valor >= 0) { rel.entradas++; continue; }
       const [dd, mm, aa] = (l[iData] || '').split('/');
       if (!aa) continue;
+      if (dataMin && `${aa}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}` < dataMin) { rel.antigas++; continue; }
+      if (valor >= 0) { rel.entradas++; continue; }
       const desc = (l[iDesc] || '').trim();
       saidas.push({ identificador: l[iId].trim(), data: `${aa}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`, valor: Math.abs(valor), descricao: desc, tipo_mov: finFilaTipoMov(desc), chave: finFilaChave(desc) });
     }
