@@ -446,6 +446,20 @@
   .fin-lanc-excluir { font-size: 14px; color: var(--muted); cursor: pointer; }
   .fin-lanc-excluir:hover { color: var(--neg); }
   .fin-lanc-add { width: 100%; font-size: 12px; padding: 6px; }
+  .fin-fila-badge { background: var(--neg); color: #fff; border-radius: 10px; font-size: 10.5px; padding: 1px 6px; margin-left: 4px; font-weight: 700; }
+  .fin-fila-aviso { background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.4); color: #fbbf24; border-radius: 10px; padding: 10px 14px; margin-bottom: 14px; cursor: pointer; font-size: 13px; }
+  .fin-fila-item { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; padding: 12px 14px; border: 1px solid var(--card-border); border-radius: 10px; margin-top: 10px; background: rgba(255,255,255,0.02); }
+  .fin-fila-info { flex: 1 1 220px; min-width: 200px; }
+  .fin-fila-valor { font-size: 18px; font-weight: 700; color: var(--neg); }
+  .fin-fila-desc { font-size: 13px; margin-top: 2px; word-break: break-word; }
+  .fin-fila-dup { font-size: 11.5px; color: #fbbf24; margin-top: 4px; }
+  .fin-fila-ctrl { flex: 2 1 340px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .fin-fila-ctrl select, .fin-fila-ctrl input[type=text] { min-width: 150px; flex: 1 1 150px; }
+  .fin-fila-seg { display: inline-flex; border: 1px solid var(--card-border); border-radius: 8px; overflow: hidden; }
+  .fin-fila-seg button { background: transparent; border: 0; border-radius: 0; padding: 6px 12px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+  .fin-fila-seg button.ativo { background: var(--info); color: #0c1120; font-weight: 700; }
+  .fin-fila-lembrar { font-size: 11.5px; color: var(--muted); display: flex; align-items: center; gap: 4px; text-transform: none; letter-spacing: 0; font-weight: 400; margin: 0; }
+  .fin-fila-lembrar input { width: auto; }
   .tm-fin-box { background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; margin-bottom: 16px; }
   .tm-fin-lista { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
   .tm-fin-row { display: grid; grid-template-columns: 40px 1fr 96px 26px 18px; gap: 4px; align-items: center; }
@@ -727,8 +741,10 @@
             <div class="tab-toggle-group">
               <button type="button" id="fin-subaba-geral-btn" class="tab-toggle active" onclick="definirFinSubaba('geral')">Visão geral</button>
               <button type="button" id="fin-subaba-metas-btn" class="tab-toggle" onclick="definirFinSubaba('metas')"><i class="ti ti-target-arrow"></i> Metas</button>
+              <button type="button" id="fin-subaba-fila-btn" class="tab-toggle" onclick="definirFinSubaba('fila')"><i class="ti ti-inbox"></i> Para classificar <span id="fin-fila-badge" class="fin-fila-badge" style="display:none;"></span></button>
             </div>
           </div>
+          <div id="fin-fila-aviso" class="fin-fila-aviso" style="display:none;" onclick="definirFinSubaba('fila')"></div>
 
           <div id="fin-subaba-geral">
           <div class="card">
@@ -913,6 +929,20 @@
               <button type="button" onclick="abrirFinMetaModalNova('pessoal')"><i class="ti ti-plus"></i> Nova meta (Pessoal)</button>
             </div>
             <div id="fin-metas-tab-lista"></div>
+          </div>
+
+          <div id="fin-subaba-fila" style="display:none;">
+            <div class="card" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; justify-content:space-between;">
+              <div>
+                <strong>Saídas para classificar</strong>
+                <div class="fin-card-sub" id="fin-fila-resumo" style="margin-top:2px;"></div>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <input type="file" id="fin-fila-arquivo" accept=".csv,text/csv" style="display:none;" onchange="importarExtratoNubankArquivo(this)">
+                <button type="button" onclick="document.getElementById('fin-fila-arquivo').click()"><i class="ti ti-upload"></i> Importar extrato (CSV)</button>
+              </div>
+            </div>
+            <div id="fin-fila-lista"></div>
           </div>
         </div>
       </div>
@@ -3855,10 +3885,6 @@
 
   // ---- Financeiro dentro do cartão (lançamentos dia/descrição/valor) ----
   let tmLancamentos = [];
-  function parseValorBR(s) {
-    const n = parseFloat(String(s).replace(/\./g, '').replace(',', '.').replace(/[^\d.\-]/g, ''));
-    return isFinite(n) ? n : 0;
-  }
   function fmtValorInput(v) {
     return (Number(v) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
@@ -4707,6 +4733,7 @@
     // lançamento (essa função é chamada de novo depois de toda mutação em
     // fin_entries).
     atualizarBadgeUltimaAtualizacaoFinanceiro();
+    atualizarFinFilaBadge();
     if (!projectsCache.length) await carregarProjetosSelects();
     await carregarFinCategorias();
     await carregarFinConfigColunas();
@@ -5300,7 +5327,299 @@
     document.getElementById('fin-subaba-metas-btn').classList.toggle('active', aba === 'metas');
     document.getElementById('fin-subaba-geral').style.display = aba === 'geral' ? 'block' : 'none';
     document.getElementById('fin-subaba-metas').style.display = aba === 'metas' ? 'block' : 'none';
+    document.getElementById('fin-subaba-fila-btn').classList.toggle('active', aba === 'fila');
+    document.getElementById('fin-subaba-fila').style.display = aba === 'fila' ? 'block' : 'none';
     if (aba === 'metas') renderFinMetasTab();
+    if (aba === 'fila') carregarFinFila();
+  }
+
+  // ---- Fila "Para classificar": saídas importadas do extrato do Nubank PJ
+  // (CSV de domingo) que ainda não têm categoria. Regras "estabelecimento →
+  // categoria" (fin_regras_categoria) lançam sozinhas o que já é conhecido;
+  // o resto fica aqui até o Bruno escolher Pessoal/Eco + categoria. ----
+  let finFilaCache = [];
+  let finFilaSel = {};
+
+  function finFilaChave(desc) {
+    let t = String(desc || '').trim();
+    let m;
+    if ((m = t.match(/^Compra no d[eé]bito - (.*)$/i))) {
+      t = m[1];
+    } else if ((m = t.match(/^Transfer[eê]ncia enviada pelo Pix - (.*)$/i))) {
+      const partes = m[1].split(' - ');
+      const nome = [];
+      for (const p of partes) {
+        if (/^(•|\d{3}\.\d{3}\.\d{3}|\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2})/.test(p.trim())) break;
+        nome.push(p.trim());
+      }
+      t = nome.length ? nome.join(' - ') : partes[0];
+    }
+    return t.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+  }
+  function finFilaTipoMov(desc) {
+    if (/^Compra no d[eé]bito/i.test(desc)) return 'debito';
+    if (/^Transfer[eê]ncia enviada pelo Pix/i.test(desc)) return 'pix_enviado';
+    return 'outro';
+  }
+  function finFilaNomeAmigavel(chave) {
+    return chave.toLowerCase().replace(/(^|[\s\-\/\*])([a-z0-9])/g, (_, a, b) => a + b.toUpperCase());
+  }
+
+  function parseCsvSimples(txt) {
+    txt = txt.replace(/^﻿/, '');
+    const rows = [];
+    let row = [], cur = '', q = false;
+    for (let i = 0; i < txt.length; i++) {
+      const c = txt[i];
+      if (q) {
+        if (c === '"') { if (txt[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+        else cur += c;
+      } else if (c === '"') q = true;
+      else if (c === ',') { row.push(cur); cur = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && txt[i + 1] === '\n') i++;
+        row.push(cur); cur = '';
+        if (row.length > 1 || row[0] !== '') rows.push(row);
+        row = [];
+      } else cur += c;
+    }
+    if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+    return rows;
+  }
+
+  async function atualizarFinFilaBadge() {
+    const { count } = await sb.from('fin_fila_importacao').select('id', { count: 'exact', head: true }).eq('status', 'pendente');
+    const n = count || 0;
+    const badge = document.getElementById('fin-fila-badge');
+    const aviso = document.getElementById('fin-fila-aviso');
+    if (badge) { badge.textContent = n; badge.style.display = n ? 'inline-block' : 'none'; }
+    if (aviso) {
+      aviso.style.display = n ? 'block' : 'none';
+      aviso.innerHTML = `<i class="ti ti-inbox"></i> Você tem <strong>${n}</strong> saída${n === 1 ? '' : 's'} do Nubank para classificar. Toque para abrir.`;
+    }
+  }
+
+  async function carregarFinFila() {
+    if (!finCategoriasCache.length) await carregarFinCategorias();
+    const { data, error } = await sb.from('fin_fila_importacao').select('*').eq('status', 'pendente').order('data', { ascending: false }).order('created_at');
+    if (error) { document.getElementById('fin-fila-lista').innerHTML = `<p class="fin-card-sub" style="padding:12px;">Erro ao carregar a fila: ${escapeHtml(error.message)}</p>`; return; }
+    finFilaCache = data || [];
+    renderFinFila();
+    atualizarFinFilaBadge();
+  }
+
+  function finFilaSelDe(id) {
+    if (!finFilaSel[id]) finFilaSel[id] = { contexto: 'pessoal', categoria_id: '', novaNome: '', novaTag: '', lembrar: true };
+    return finFilaSel[id];
+  }
+
+  function renderFinFila() {
+    const lista = document.getElementById('fin-fila-lista');
+    const resumo = document.getElementById('fin-fila-resumo');
+    if (!lista) return;
+    const total = finFilaCache.reduce((s, i) => s + Math.abs(Number(i.valor)), 0);
+    resumo.textContent = finFilaCache.length ? `${finFilaCache.length} pendente${finFilaCache.length === 1 ? '' : 's'} · ${brl(total)}` : 'Nada pendente.';
+    if (!finFilaCache.length) {
+      lista.innerHTML = '<p class="fin-card-sub" style="padding:16px 4px;">Tudo classificado. Importe o extrato de domingo (CSV) para trazer novas saídas.</p>';
+      return;
+    }
+    lista.innerHTML = finFilaCache.map(it => {
+      const sel = finFilaSelDe(it.id);
+      const cats = finCategoriasCache.filter(c => c.contexto === sel.contexto && c.tipo === 'despesa').sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
+      const opts = cats.map(c => `<option value="${c.id}" ${sel.categoria_id === c.id ? 'selected' : ''}>${escapeHtml(c.nome)}</option>`).join('');
+      const novaBox = sel.categoria_id === '__nova__' ? `
+        <input type="text" placeholder="Nome da nova categoria" value="${escapeHtml(sel.novaNome)}" oninput="finFilaSelDe('${it.id}').novaNome=this.value">
+        <select onchange="finFilaSelDe('${it.id}').novaTag=this.value">
+          <option value="">Tag...</option>
+          ${finTagsCache.map(t => `<option value="${t.id}" ${sel.novaTag === t.id ? 'selected' : ''}>${escapeHtml(t.nome)}</option>`).join('')}
+        </select>` : '';
+      const d = new Date(it.data + 'T00:00:00');
+      const dataFmt = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      const tipoLabel = it.tipo_mov === 'debito' ? 'Débito' : it.tipo_mov === 'pix_enviado' ? 'Pix' : '';
+      return `<div class="fin-fila-item">
+        <div class="fin-fila-info">
+          <div class="fin-fila-valor">${brl(Math.abs(Number(it.valor)))}</div>
+          <div class="fin-fila-desc"><strong>${escapeHtml(finFilaNomeAmigavel(it.chave) || it.descricao)}</strong></div>
+          <div class="fin-card-sub">${dataFmt}${tipoLabel ? ' · ' + tipoLabel : ''}</div>
+          ${it.possivel_duplicado ? `<div class="fin-fila-dup"><i class="ti ti-alert-triangle"></i> Parece já lançado: ${escapeHtml(it.possivel_duplicado)}</div>` : ''}
+        </div>
+        <div class="fin-fila-ctrl">
+          <div class="fin-fila-seg">
+            <button type="button" class="${sel.contexto === 'pessoal' ? 'ativo' : ''}" onclick="finFilaSetContexto('${it.id}','pessoal')">Pessoal</button>
+            <button type="button" class="${sel.contexto === 'eco' ? 'ativo' : ''}" onclick="finFilaSetContexto('${it.id}','eco')">Eco</button>
+          </div>
+          <select onchange="finFilaSetCategoria('${it.id}', this.value)">
+            <option value="">Categoria...</option>
+            ${opts}
+            <option value="__nova__" ${sel.categoria_id === '__nova__' ? 'selected' : ''}>+ Nova categoria...</option>
+          </select>
+          ${novaBox}
+          <label class="fin-fila-lembrar"><input type="checkbox" ${sel.lembrar ? 'checked' : ''} onchange="finFilaSelDe('${it.id}').lembrar=this.checked"> lembrar</label>
+          <button type="button" onclick="finFilaLancar('${it.id}')">Lançar</button>
+          <button type="button" class="secondary" title="Transferência para você ou algo que não é despesa" onclick="finFilaIgnorar('${it.id}')">Ignorar</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function finFilaSetContexto(id, ctx) {
+    const sel = finFilaSelDe(id);
+    sel.contexto = ctx; sel.categoria_id = '';
+    renderFinFila();
+  }
+  function finFilaSetCategoria(id, val) {
+    finFilaSelDe(id).categoria_id = val;
+    renderFinFila();
+  }
+
+  // Cria a linha em fin_entries (Pessoal/Eco, já paga) a partir de um item da fila.
+  async function finFilaCriarLancamento(item, contexto, categoriaId) {
+    const d = new Date(item.data + 'T00:00:00');
+    const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    const { data, error } = await sb.from('fin_entries').insert({
+      contexto, tipo: 'despesa', nome: finFilaNomeAmigavel(item.chave) || item.descricao,
+      valor: Math.abs(Number(item.valor)), mes, dia: d.getDate(), categoria_id: categoriaId, pago: true,
+    }).select().single();
+    if (error) throw error;
+    const { error: e2 } = await sb.from('fin_fila_importacao').update({ status: 'lancado', contexto, categoria_id: categoriaId, entry_id: data.id, classificado_em: new Date().toISOString() }).eq('id', item.id);
+    if (e2) throw e2;
+    return data;
+  }
+
+  // Depois de salvar uma regra nova, resolve sozinhos os outros pendentes com a mesma chave.
+  async function finFilaAplicarRegraAosPendentes(chave, regra) {
+    const iguais = finFilaCache.filter(i => i.chave === chave && !i.possivel_duplicado);
+    for (const it of iguais) {
+      if (regra.ignorar) {
+        await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString() }).eq('id', it.id);
+      } else {
+        await finFilaCriarLancamento(it, regra.contexto, regra.categoria_id);
+      }
+    }
+  }
+
+  async function finFilaLancar(id) {
+    const it = finFilaCache.find(x => x.id === id);
+    if (!it) return;
+    const sel = finFilaSelDe(id);
+    try {
+      let categoriaId = sel.categoria_id;
+      if (!categoriaId) { alert('Escolha a categoria (ou crie uma nova).'); return; }
+      if (categoriaId === '__nova__') {
+        const nome = sel.novaNome.trim();
+        if (!nome) { alert('Digite o nome da nova categoria.'); return; }
+        const doContexto = finCategoriasCache.filter(c => c.contexto === sel.contexto && c.tipo === 'despesa');
+        const ordem = doContexto.length ? Math.max(...doContexto.map(c => c.ordem || 0)) + 10 : 0;
+        const { data: nova, error: ec } = await sb.from('fin_categories').insert({ contexto: sel.contexto, tipo: 'despesa', nome, tag_id: sel.novaTag || null, expansivel: false, ordem }).select().single();
+        if (ec) throw ec;
+        finCategoriasCache.push(nova);
+        categoriaId = nova.id;
+      }
+      await finFilaCriarLancamento(it, sel.contexto, categoriaId);
+      if (sel.lembrar && it.chave) {
+        const regra = { chave: it.chave, contexto: sel.contexto, categoria_id: categoriaId, ignorar: false };
+        const { error: er } = await sb.from('fin_regras_categoria').upsert(regra, { onConflict: 'chave' });
+        if (er) throw er;
+        await finFilaAplicarRegraAosPendentes(it.chave, regra);
+      }
+    } catch (e) {
+      alert('Erro ao lançar: ' + (e.message || e));
+      return;
+    }
+    await carregarFinFila();
+    carregarFinanceiroMensal();
+  }
+
+  async function finFilaIgnorar(id) {
+    const it = finFilaCache.find(x => x.id === id);
+    if (!it) return;
+    const sel = finFilaSelDe(id);
+    try {
+      const { error } = await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString() }).eq('id', id);
+      if (error) throw error;
+      if (sel.lembrar && it.chave) {
+        const regra = { chave: it.chave, contexto: null, categoria_id: null, ignorar: true };
+        const { error: er } = await sb.from('fin_regras_categoria').upsert(regra, { onConflict: 'chave' });
+        if (er) throw er;
+        await finFilaAplicarRegraAosPendentes(it.chave, regra);
+      }
+    } catch (e) {
+      alert('Erro ao ignorar: ' + (e.message || e));
+      return;
+    }
+    await carregarFinFila();
+  }
+
+  async function importarExtratoNubankArquivo(input) {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      const rel = await importarExtratoNubankTexto(await file.text());
+      alert(`Extrato importado.\n\nSaídas novas: ${rel.novas}\nLançadas sozinhas pelas regras: ${rel.auto}\nIgnoradas pelas regras: ${rel.ignoradas}\nNa fila para classificar: ${rel.pendentes}\nJá importadas antes: ${rel.repetidas}\nEntradas puladas: ${rel.entradas}`);
+    } catch (e) {
+      alert('Não consegui importar esse arquivo: ' + (e.message || e));
+    }
+    await carregarFinFila();
+    carregarFinanceiroMensal();
+  }
+
+  async function importarExtratoNubankTexto(texto) {
+    const linhas = parseCsvSimples(texto);
+    if (linhas.length < 2) throw new Error('O arquivo está vazio.');
+    const cab = linhas[0].map(h => h.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase());
+    const iData = cab.indexOf('data'), iValor = cab.indexOf('valor'), iId = cab.indexOf('identificador'), iDesc = cab.indexOf('descricao');
+    if ([iData, iValor, iId, iDesc].some(i => i < 0)) throw new Error('Esse CSV não parece ser o extrato do Nubank (colunas Data, Valor, Identificador, Descrição).');
+    const rel = { novas: 0, auto: 0, ignoradas: 0, pendentes: 0, repetidas: 0, entradas: 0 };
+    const saidas = [];
+    for (const l of linhas.slice(1)) {
+      const valor = parseFloat(l[iValor]);
+      if (!isFinite(valor)) continue;
+      if (valor >= 0) { rel.entradas++; continue; }
+      const [dd, mm, aa] = (l[iData] || '').split('/');
+      if (!aa) continue;
+      const desc = (l[iDesc] || '').trim();
+      saidas.push({ identificador: l[iId].trim(), data: `${aa}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`, valor: Math.abs(valor), descricao: desc, tipo_mov: finFilaTipoMov(desc), chave: finFilaChave(desc) });
+    }
+    if (!saidas.length) return rel;
+    const { data: jaTem } = await sb.from('fin_fila_importacao').select('identificador').in('identificador', saidas.map(s => s.identificador));
+    const existentes = new Set((jaTem || []).map(x => x.identificador));
+    const novas = saidas.filter(s => !existentes.has(s.identificador));
+    rel.repetidas = saidas.length - novas.length;
+    if (!novas.length) return rel;
+
+    if (!finCategoriasCache.length) await carregarFinCategorias();
+    const { data: regras } = await sb.from('fin_regras_categoria').select('*');
+    const regraPor = Object.fromEntries((regras || []).map(r => [r.chave, r]));
+    const meses = [...new Set(novas.map(s => s.data.slice(0, 7) + '-01'))];
+    const { data: lancados } = await sb.from('fin_entries').select('nome,valor,dia,mes,contexto').eq('tipo', 'despesa').in('mes', meses);
+
+    for (const s of novas) {
+      const dia = Number(s.data.slice(8, 10));
+      const mes = s.data.slice(0, 7) + '-01';
+      const dup = (lancados || []).find(e => e.mes === mes && Math.abs(Number(e.valor) - s.valor) < 0.005 && (e.dia === null || e.dia === dia));
+      s.possivel_duplicado = dup ? `${dup.nome} (${dup.contexto === 'eco' ? 'Eco' : 'Pessoal'})` : null;
+      s.origem = 'csv';
+    }
+    const { data: inseridas, error } = await sb.from('fin_fila_importacao').insert(novas).select();
+    if (error) throw error;
+    rel.novas = inseridas.length;
+
+    for (const it of inseridas) {
+      const r = regraPor[it.chave];
+      if (r && !it.possivel_duplicado) {
+        if (r.ignorar) {
+          await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString() }).eq('id', it.id);
+          rel.ignoradas++;
+        } else {
+          await finFilaCriarLancamento(it, r.contexto, r.categoria_id);
+          rel.auto++;
+        }
+      } else {
+        rel.pendentes++;
+      }
+    }
+    return rel;
   }
 
   // Abre o modal de categoria normal (mesmo de sempre), só que já com a
