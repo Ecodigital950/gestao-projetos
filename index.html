@@ -946,6 +946,7 @@
               </div>
             </div>
             <div id="fin-fila-lista"></div>
+            <div id="fin-fila-historico"></div>
           </div>
         </div>
       </div>
@@ -5410,8 +5411,58 @@
     const { data, error } = await sb.from('fin_fila_importacao').select('*').eq('status', 'pendente').order('data', { ascending: false }).order('created_at');
     if (error) { document.getElementById('fin-fila-lista').innerHTML = `<p class="fin-card-sub" style="padding:12px;">Erro ao carregar a fila: ${escapeHtml(error.message)}</p>`; return; }
     finFilaCache = data || [];
+    const { data: hist } = await sb.from('fin_fila_importacao').select('*').neq('status', 'pendente').order('classificado_em', { ascending: false }).limit(150);
+    finFilaHistorico = hist || [];
     renderFinFila();
     atualizarFinFilaBadge();
+  }
+
+  // ---- Histórico: tudo que já saiu da fila (lançado à mão, lançado pela
+  // regra ou ignorado), com "Desfazer" pra devolver o item à fila. ----
+  let finFilaHistorico = [];
+  let finFilaHistAberto = true;
+
+  function renderFinFilaHistorico() {
+    const el = document.getElementById('fin-fila-historico');
+    if (!el) return;
+    if (!finFilaHistorico.length) { el.innerHTML = ''; return; }
+    const linhas = finFilaHistorico.map(h => {
+      const cat = finCategoriasCache.find(c => c.id === h.categoria_id);
+      const d = new Date(h.data + 'T00:00:00');
+      const dataFmt = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      const destino = h.status === 'ignorado' ? 'Ignorado' : `${h.contexto === 'eco' ? 'Eco' : 'Pessoal'} · ${cat ? escapeHtml(cat.nome) : '—'}`;
+      return `<tr>
+        <td>${dataFmt}</td>
+        <td>${escapeHtml(finFilaNomeAmigavel(h.chave) || h.descricao)}</td>
+        <td style="text-align:right;">${brl(Math.abs(Number(h.valor)))}</td>
+        <td>${destino}</td>
+        <td>${h.via_regra ? '<span class="fin-tag" style="background:rgba(56,189,248,0.15); color:var(--info);">pela regra</span>' : ''}</td>
+        <td><button type="button" class="row-action" onclick="finFilaDesfazer('${h.id}')">Desfazer</button></td>
+      </tr>`;
+    }).join('');
+    el.innerHTML = `<details class="card" style="margin-top:16px;" ${finFilaHistAberto ? 'open' : ''} ontoggle="finFilaHistAberto=this.open">
+      <summary style="cursor:pointer; font-weight:600;">Já classificados (${finFilaHistorico.length} mais recentes)</summary>
+      <div style="overflow-x:auto; margin-top:8px;"><table><thead><tr><th>Data</th><th>Nome</th><th style="text-align:right;">Valor</th><th>Onde entrou</th><th></th><th></th></tr></thead><tbody>${linhas}</tbody></table></div>
+    </details>`;
+  }
+
+  async function finFilaDesfazer(id) {
+    const h = finFilaHistorico.find(x => x.id === id);
+    if (!h) return;
+    if (!confirm(h.status === 'ignorado' ? 'Devolver esse item para a fila?' : 'Desfazer: apaga o lançamento do Financeiro e devolve esse item para a fila?')) return;
+    try {
+      if (h.entry_id) {
+        const { error: ed } = await sb.from('fin_entries').delete().eq('id', h.entry_id);
+        if (ed) throw ed;
+      }
+      const { error } = await sb.from('fin_fila_importacao').update({ status: 'pendente', contexto: null, categoria_id: null, entry_id: null, classificado_em: null, via_regra: false }).eq('id', id);
+      if (error) throw error;
+    } catch (e) {
+      alert('Erro ao desfazer: ' + (e.message || e));
+      return;
+    }
+    await finFilaRecarregarMantendoScroll();
+    carregarFinanceiroMensal();
   }
 
   function finFilaSelDe(id) {
@@ -5426,6 +5477,7 @@
     const total = finFilaCache.reduce((s, i) => s + Math.abs(Number(i.valor)), 0);
     resumo.textContent = (finFilaCache.length ? `${finFilaCache.length} pendente${finFilaCache.length === 1 ? '' : 's'} · ${brl(total)}` : 'Nada pendente.') + finFilaMensagem;
     finFilaMensagem = '';
+    renderFinFilaHistorico();
     if (!finFilaCache.length) {
       lista.innerHTML = '<p class="fin-card-sub" style="padding:16px 4px;">Tudo classificado. Importe o extrato de domingo (CSV) para trazer novas saídas.</p>';
       return;
@@ -5481,7 +5533,7 @@
   }
 
   // Cria a linha em fin_entries (Pessoal/Eco, já paga) a partir de um item da fila.
-  async function finFilaCriarLancamento(item, contexto, categoriaId, nome) {
+  async function finFilaCriarLancamento(item, contexto, categoriaId, nome, viaRegra) {
     // trava anti-duplicidade: confere no banco se o item ainda está pendente
     const { data: atual } = await sb.from('fin_fila_importacao').select('status').eq('id', item.id).maybeSingle();
     if (atual && atual.status !== 'pendente') return null;
@@ -5492,7 +5544,7 @@
       valor: Math.abs(Number(item.valor)), mes, dia: d.getDate(), categoria_id: categoriaId, pago: true,
     }).select().single();
     if (error) throw error;
-    const { error: e2 } = await sb.from('fin_fila_importacao').update({ status: 'lancado', contexto, categoria_id: categoriaId, entry_id: data.id, classificado_em: new Date().toISOString() }).eq('id', item.id);
+    const { error: e2 } = await sb.from('fin_fila_importacao').update({ status: 'lancado', contexto, categoria_id: categoriaId, entry_id: data.id, classificado_em: new Date().toISOString(), via_regra: !!viaRegra }).eq('id', item.id);
     if (e2) throw e2;
     return data;
   }
@@ -5504,9 +5556,9 @@
     const iguais = finFilaCache.filter(i => i.id !== excluirId && i.chave === chave && !i.possivel_duplicado);
     for (const it of iguais) {
       if (regra.ignorar) {
-        await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString() }).eq('id', it.id).eq('status', 'pendente');
+        await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString(), via_regra: true }).eq('id', it.id).eq('status', 'pendente');
       } else {
-        await finFilaCriarLancamento(it, regra.contexto, regra.categoria_id, regra.nome_amigavel);
+        await finFilaCriarLancamento(it, regra.contexto, regra.categoria_id, regra.nome_amigavel, true);
       }
     }
     return iguais.length;
@@ -5640,10 +5692,10 @@
       const r = regraPor[it.chave];
       if (r && !it.possivel_duplicado) {
         if (r.ignorar) {
-          await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString() }).eq('id', it.id);
+          await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString(), via_regra: true }).eq('id', it.id);
           rel.ignoradas++;
         } else {
-          await finFilaCriarLancamento(it, r.contexto, r.categoria_id, r.nome_amigavel);
+          await finFilaCriarLancamento(it, r.contexto, r.categoria_id, r.nome_amigavel, true);
           rel.auto++;
         }
       } else {
