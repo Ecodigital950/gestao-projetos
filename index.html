@@ -5424,7 +5424,8 @@
     const resumo = document.getElementById('fin-fila-resumo');
     if (!lista) return;
     const total = finFilaCache.reduce((s, i) => s + Math.abs(Number(i.valor)), 0);
-    resumo.textContent = finFilaCache.length ? `${finFilaCache.length} pendente${finFilaCache.length === 1 ? '' : 's'} · ${brl(total)}` : 'Nada pendente.';
+    resumo.textContent = (finFilaCache.length ? `${finFilaCache.length} pendente${finFilaCache.length === 1 ? '' : 's'} · ${brl(total)}` : 'Nada pendente.') + finFilaMensagem;
+    finFilaMensagem = '';
     if (!finFilaCache.length) {
       lista.innerHTML = '<p class="fin-card-sub" style="padding:16px 4px;">Tudo classificado. Importe o extrato de domingo (CSV) para trazer novas saídas.</p>';
       return;
@@ -5481,6 +5482,9 @@
 
   // Cria a linha em fin_entries (Pessoal/Eco, já paga) a partir de um item da fila.
   async function finFilaCriarLancamento(item, contexto, categoriaId, nome) {
+    // trava anti-duplicidade: confere no banco se o item ainda está pendente
+    const { data: atual } = await sb.from('fin_fila_importacao').select('status').eq('id', item.id).maybeSingle();
+    if (atual && atual.status !== 'pendente') return null;
     const d = new Date(item.data + 'T00:00:00');
     const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
     const { data, error } = await sb.from('fin_entries').insert({
@@ -5494,21 +5498,34 @@
   }
 
   // Depois de salvar uma regra nova, resolve sozinhos os outros pendentes com a mesma chave.
-  async function finFilaAplicarRegraAosPendentes(chave, regra) {
-    const iguais = finFilaCache.filter(i => i.chave === chave && !i.possivel_duplicado);
+  // excluirId = o item que o usuário acabou de lançar/ignorar (já resolvido;
+  // sem isso ele era lançado uma 2ª vez, porque o cache ainda o mostra pendente).
+  async function finFilaAplicarRegraAosPendentes(chave, regra, excluirId) {
+    const iguais = finFilaCache.filter(i => i.id !== excluirId && i.chave === chave && !i.possivel_duplicado);
     for (const it of iguais) {
       if (regra.ignorar) {
-        await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString() }).eq('id', it.id);
+        await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString() }).eq('id', it.id).eq('status', 'pendente');
       } else {
         await finFilaCriarLancamento(it, regra.contexto, regra.categoria_id, regra.nome_amigavel);
       }
     }
+    return iguais.length;
+  }
+
+  let finFilaEmAndamento = new Set();
+  let finFilaMensagem = '';
+  async function finFilaRecarregarMantendoScroll() {
+    const y = window.scrollY;
+    await carregarFinFila();
+    window.scrollTo(0, y);
   }
 
   async function finFilaLancar(id) {
     const it = finFilaCache.find(x => x.id === id);
-    if (!it) return;
+    if (!it || finFilaEmAndamento.has(id)) return;
+    finFilaEmAndamento.add(id);
     const sel = finFilaSelDe(id);
+    finFilaMensagem = '';
     try {
       let categoriaId = sel.categoria_id;
       if (!categoriaId) { alert('Escolha a categoria (ou crie uma nova).'); return; }
@@ -5528,13 +5545,16 @@
         const regra = { chave: it.chave, contexto: sel.contexto, categoria_id: categoriaId, ignorar: false, nome_amigavel: nomeFinal };
         const { error: er } = await sb.from('fin_regras_categoria').upsert(regra, { onConflict: 'chave' });
         if (er) throw er;
-        await finFilaAplicarRegraAosPendentes(it.chave, regra);
+        const extras = await finFilaAplicarRegraAosPendentes(it.chave, regra, id);
+        finFilaMensagem = extras ? ` · ${extras} outro${extras === 1 ? '' : 's'} "${nomeFinal}" também lançado${extras === 1 ? '' : 's'} pela regra` : '';
       }
     } catch (e) {
       alert('Erro ao lançar: ' + (e.message || e));
+      finFilaEmAndamento.delete(id);
       return;
     }
-    await carregarFinFila();
+    finFilaEmAndamento.delete(id);
+    await finFilaRecarregarMantendoScroll();
     carregarFinanceiroMensal();
   }
 
@@ -5549,13 +5569,14 @@
         const regra = { chave: it.chave, contexto: null, categoria_id: null, ignorar: true };
         const { error: er } = await sb.from('fin_regras_categoria').upsert(regra, { onConflict: 'chave' });
         if (er) throw er;
-        await finFilaAplicarRegraAosPendentes(it.chave, regra);
+        const extras = await finFilaAplicarRegraAosPendentes(it.chave, regra, id);
+        finFilaMensagem = extras ? ` · ${extras} outro${extras === 1 ? '' : 's'} igual${extras === 1 ? '' : 'is'} também ignorado${extras === 1 ? '' : 's'}` : '';
       }
     } catch (e) {
       alert('Erro ao ignorar: ' + (e.message || e));
       return;
     }
-    await carregarFinFila();
+    await finFilaRecarregarMantendoScroll();
   }
 
   async function importarExtratoNubankArquivo(input) {
