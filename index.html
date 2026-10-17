@@ -5445,11 +5445,12 @@
       return `<div class="fin-fila-item">
         <div class="fin-fila-info">
           <div class="fin-fila-valor">${brl(Math.abs(Number(it.valor)))}</div>
-          <div class="fin-fila-desc"><strong>${escapeHtml(finFilaNomeAmigavel(it.chave) || it.descricao)}</strong></div>
+          <div class="fin-fila-desc" style="color:var(--muted); font-size:12px;" title="Nome original do pagamento">${escapeHtml(finFilaNomeAmigavel(it.chave) || it.descricao)}</div>
           <div class="fin-card-sub">${dataFmt}${tipoLabel ? ' · ' + tipoLabel : ''}</div>
           ${it.possivel_duplicado ? `<div class="fin-fila-dup"><i class="ti ti-alert-triangle"></i> Parece já lançado: ${escapeHtml(it.possivel_duplicado)}</div>` : ''}
         </div>
         <div class="fin-fila-ctrl">
+          <input type="text" style="flex:1 1 100%;" placeholder="Nome para lembrar (ex: Gasolina, Mercado)" value="${escapeHtml(sel.nome !== undefined ? sel.nome : finFilaNomeAmigavel(it.chave))}" oninput="finFilaSelDe('${it.id}').nome=this.value">
           <div class="fin-fila-seg">
             <button type="button" class="${sel.contexto === 'pessoal' ? 'ativo' : ''}" onclick="finFilaSetContexto('${it.id}','pessoal')">Pessoal</button>
             <button type="button" class="${sel.contexto === 'eco' ? 'ativo' : ''}" onclick="finFilaSetContexto('${it.id}','eco')">Eco</button>
@@ -5479,11 +5480,11 @@
   }
 
   // Cria a linha em fin_entries (Pessoal/Eco, já paga) a partir de um item da fila.
-  async function finFilaCriarLancamento(item, contexto, categoriaId) {
+  async function finFilaCriarLancamento(item, contexto, categoriaId, nome) {
     const d = new Date(item.data + 'T00:00:00');
     const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
     const { data, error } = await sb.from('fin_entries').insert({
-      contexto, tipo: 'despesa', nome: finFilaNomeAmigavel(item.chave) || item.descricao,
+      contexto, tipo: 'despesa', nome: (nome && nome.trim()) || finFilaNomeAmigavel(item.chave) || item.descricao,
       valor: Math.abs(Number(item.valor)), mes, dia: d.getDate(), categoria_id: categoriaId, pago: true,
     }).select().single();
     if (error) throw error;
@@ -5499,7 +5500,7 @@
       if (regra.ignorar) {
         await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString() }).eq('id', it.id);
       } else {
-        await finFilaCriarLancamento(it, regra.contexto, regra.categoria_id);
+        await finFilaCriarLancamento(it, regra.contexto, regra.categoria_id, regra.nome_amigavel);
       }
     }
   }
@@ -5521,9 +5522,10 @@
         finCategoriasCache.push(nova);
         categoriaId = nova.id;
       }
-      await finFilaCriarLancamento(it, sel.contexto, categoriaId);
+      const nomeFinal = ((sel.nome !== undefined ? sel.nome : '') || '').trim() || finFilaNomeAmigavel(it.chave);
+      await finFilaCriarLancamento(it, sel.contexto, categoriaId, nomeFinal);
       if (sel.lembrar && it.chave) {
-        const regra = { chave: it.chave, contexto: sel.contexto, categoria_id: categoriaId, ignorar: false };
+        const regra = { chave: it.chave, contexto: sel.contexto, categoria_id: categoriaId, ignorar: false, nome_amigavel: nomeFinal };
         const { error: er } = await sb.from('fin_regras_categoria').upsert(regra, { onConflict: 'chave' });
         if (er) throw er;
         await finFilaAplicarRegraAosPendentes(it.chave, regra);
@@ -5620,7 +5622,7 @@
           await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString() }).eq('id', it.id);
           rel.ignoradas++;
         } else {
-          await finFilaCriarLancamento(it, r.contexto, r.categoria_id);
+          await finFilaCriarLancamento(it, r.contexto, r.categoria_id, r.nome_amigavel);
           rel.auto++;
         }
       } else {
