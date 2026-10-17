@@ -942,6 +942,7 @@
                   <input type="date" id="fin-fila-data-min" value="2026-10-01" style="width:auto;" onchange="try{localStorage.setItem('finFilaDataMin',this.value)}catch(e){}">
                 </label>
                 <input type="file" id="fin-fila-arquivo" accept=".csv,text/csv" style="display:none;" onchange="importarExtratoNubankArquivo(this)">
+                <button type="button" id="fin-fila-bulk-btn" class="secondary" style="display:none;" onclick="finFilaLancarSugeridos()"></button>
                 <button type="button" onclick="document.getElementById('fin-fila-arquivo').click()"><i class="ti ti-upload"></i> Importar extrato (CSV)</button>
               </div>
             </div>
@@ -5411,6 +5412,8 @@
     const { data, error } = await sb.from('fin_fila_importacao').select('*').eq('status', 'pendente').order('data', { ascending: false }).order('created_at');
     if (error) { document.getElementById('fin-fila-lista').innerHTML = `<p class="fin-card-sub" style="padding:12px;">Erro ao carregar a fila: ${escapeHtml(error.message)}</p>`; return; }
     finFilaCache = data || [];
+    const { data: regrasDb } = await sb.from('fin_regras_categoria').select('*');
+    finRegrasMap = Object.fromEntries((regrasDb || []).map(r => [r.chave, r]));
     const { data: hist } = await sb.from('fin_fila_importacao').select('*').neq('status', 'pendente').order('classificado_em', { ascending: false }).limit(150);
     finFilaHistorico = hist || [];
     renderFinFila();
@@ -5465,8 +5468,20 @@
     carregarFinanceiroMensal();
   }
 
+  // Regras: por padrão só SUGEREM (pré-preenchem a categoria na fila). Só lançam
+  // sozinhas as marcadas como "automática" — evita o mesmo estabelecimento cair
+  // sempre na mesma categoria quando o gasto varia (ex: Koch, mercado ou lazer).
+  let finRegrasMap = {};
   function finFilaSelDe(id) {
-    if (!finFilaSel[id]) finFilaSel[id] = { contexto: 'pessoal', categoria_id: '', novaNome: '', novaTag: '', lembrar: true };
+    if (!finFilaSel[id]) {
+      const it = finFilaCache.find(x => x.id === id);
+      const r = it && finRegrasMap[it.chave];
+      if (r && !r.ignorar) {
+        finFilaSel[id] = { contexto: r.contexto, categoria_id: r.categoria_id, nome: r.nome_amigavel || undefined, novaNome: '', novaTag: '', lembrar: true, automatica: false, sugerido: true };
+      } else {
+        finFilaSel[id] = { contexto: 'pessoal', categoria_id: '', novaNome: '', novaTag: '', lembrar: true, automatica: false, sugerido: false, sugeridoIgnorar: !!(r && r.ignorar) };
+      }
+    }
     return finFilaSel[id];
   }
 
@@ -5477,6 +5492,9 @@
     const total = finFilaCache.reduce((s, i) => s + Math.abs(Number(i.valor)), 0);
     resumo.textContent = (finFilaCache.length ? `${finFilaCache.length} pendente${finFilaCache.length === 1 ? '' : 's'} · ${brl(total)}` : 'Nada pendente.') + finFilaMensagem;
     finFilaMensagem = '';
+    const sugeridos = finFilaCache.filter(i => { const s = finFilaSelDe(i.id); return s.sugerido && s.categoria_id && s.categoria_id !== '__nova__' && !i.possivel_duplicado; });
+    const bulk = document.getElementById('fin-fila-bulk-btn');
+    if (bulk) { bulk.style.display = sugeridos.length ? 'inline-flex' : 'none'; bulk.innerHTML = `<i class="ti ti-sparkles"></i> Lançar ${sugeridos.length} sugerido${sugeridos.length === 1 ? '' : 's'}`; }
     renderFinFilaHistorico();
     if (!finFilaCache.length) {
       lista.innerHTML = '<p class="fin-card-sub" style="padding:16px 4px;">Tudo classificado. Importe o extrato de domingo (CSV) para trazer novas saídas.</p>';
@@ -5500,6 +5518,8 @@
           <div class="fin-fila-valor">${brl(Math.abs(Number(it.valor)))}</div>
           <div class="fin-fila-desc" style="color:var(--muted); font-size:12px;" title="Nome original do pagamento">${escapeHtml(finFilaNomeAmigavel(it.chave) || it.descricao)}</div>
           <div class="fin-card-sub">${dataFmt}${tipoLabel ? ' · ' + tipoLabel : ''}</div>
+          ${sel.sugerido ? '<div class="fin-card-sub" style="color:var(--info);"><i class="ti ti-sparkles"></i> Sugestão da regra — confira</div>' : ''}
+          ${sel.sugeridoIgnorar ? '<div class="fin-card-sub" style="color:var(--info);"><i class="ti ti-sparkles"></i> Regra anterior: ignorar</div>' : ''}
           ${it.possivel_duplicado ? `<div class="fin-fila-dup"><i class="ti ti-alert-triangle"></i> Parece já lançado: ${escapeHtml(it.possivel_duplicado)}</div>` : ''}
         </div>
         <div class="fin-fila-ctrl">
@@ -5514,7 +5534,8 @@
             <option value="__nova__" ${sel.categoria_id === '__nova__' ? 'selected' : ''}>+ Nova categoria...</option>
           </select>
           ${novaBox}
-          <label class="fin-fila-lembrar"><input type="checkbox" ${sel.lembrar ? 'checked' : ''} onchange="finFilaSelDe('${it.id}').lembrar=this.checked"> lembrar</label>
+          <label class="fin-fila-lembrar" title="Guarda como sugestão para os próximos do mesmo estabelecimento"><input type="checkbox" ${sel.lembrar ? 'checked' : ''} onchange="finFilaSelDe('${it.id}').lembrar=this.checked; renderFinFila()"> lembrar</label>
+          ${sel.lembrar ? `<label class="fin-fila-lembrar" title="Marque só se esse estabelecimento sempre cai na mesma categoria"><input type="checkbox" ${sel.automatica ? 'checked' : ''} onchange="finFilaSelDe('${it.id}').automatica=this.checked"> lançar sozinho</label>` : ''}
           <button type="button" onclick="finFilaLancar('${it.id}')">Lançar</button>
           <button type="button" class="secondary" title="Transferência para você ou algo que não é despesa" onclick="finFilaIgnorar('${it.id}')">Ignorar</button>
         </div>
@@ -5522,13 +5543,32 @@
     }).join('');
   }
 
+  // Lança de uma vez todos os itens que vieram com sugestão da regra (e que você não mexeu).
+  async function finFilaLancarSugeridos() {
+    const lista = finFilaCache.filter(i => { const s = finFilaSelDe(i.id); return s.sugerido && s.categoria_id && s.categoria_id !== '__nova__' && !i.possivel_duplicado; });
+    if (!lista.length) return;
+    const total = lista.reduce((s, i) => s + Math.abs(Number(i.valor)), 0);
+    if (!confirm(`Lançar ${lista.length} saída${lista.length === 1 ? '' : 's'} (${brl(total)}) nas categorias sugeridas pelas regras?`)) return;
+    try {
+      for (const it of lista) {
+        const s = finFilaSelDe(it.id);
+        await finFilaCriarLancamento(it, s.contexto, s.categoria_id, ((s.nome !== undefined ? s.nome : '') || '').trim() || finFilaNomeAmigavel(it.chave), true);
+      }
+    } catch (e) {
+      alert('Erro ao lançar os sugeridos: ' + (e.message || e));
+    }
+    await finFilaRecarregarMantendoScroll();
+    carregarFinanceiroMensal();
+  }
+
   function finFilaSetContexto(id, ctx) {
     const sel = finFilaSelDe(id);
-    sel.contexto = ctx; sel.categoria_id = '';
+    sel.contexto = ctx; sel.categoria_id = ''; sel.sugerido = false;
     renderFinFila();
   }
   function finFilaSetCategoria(id, val) {
-    finFilaSelDe(id).categoria_id = val;
+    const sel = finFilaSelDe(id);
+    sel.categoria_id = val; sel.sugerido = false;
     renderFinFila();
   }
 
@@ -5554,6 +5594,12 @@
   // sem isso ele era lançado uma 2ª vez, porque o cache ainda o mostra pendente).
   async function finFilaAplicarRegraAosPendentes(chave, regra, excluirId) {
     const iguais = finFilaCache.filter(i => i.id !== excluirId && i.chave === chave && !i.possivel_duplicado);
+    finRegrasMap[chave] = regra;
+    if (!regra.automatica) {
+      // regra só sugere: pré-preenche os iguais (se ainda não mexeu neles), sem lançar nada
+      iguais.forEach(it => { delete finFilaSel[it.id]; });
+      return 0;
+    }
     for (const it of iguais) {
       if (regra.ignorar) {
         await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString(), via_regra: true }).eq('id', it.id).eq('status', 'pendente');
@@ -5594,11 +5640,11 @@
       const nomeFinal = ((sel.nome !== undefined ? sel.nome : '') || '').trim() || finFilaNomeAmigavel(it.chave);
       await finFilaCriarLancamento(it, sel.contexto, categoriaId, nomeFinal);
       if (sel.lembrar && it.chave) {
-        const regra = { chave: it.chave, contexto: sel.contexto, categoria_id: categoriaId, ignorar: false, nome_amigavel: nomeFinal };
+        const regra = { chave: it.chave, contexto: sel.contexto, categoria_id: categoriaId, ignorar: false, nome_amigavel: nomeFinal, automatica: !!sel.automatica };
         const { error: er } = await sb.from('fin_regras_categoria').upsert(regra, { onConflict: 'chave' });
         if (er) throw er;
         const extras = await finFilaAplicarRegraAosPendentes(it.chave, regra, id);
-        finFilaMensagem = extras ? ` · ${extras} outro${extras === 1 ? '' : 's'} "${nomeFinal}" também lançado${extras === 1 ? '' : 's'} pela regra` : '';
+        finFilaMensagem = extras ? ` · ${extras} outro${extras === 1 ? '' : 's'} "${nomeFinal}" também lançado${extras === 1 ? '' : 's'} pela regra` : (sel.automatica ? '' : ' · regra salva como sugestão (os próximos iguais vêm pré-preenchidos, você confere)');
       }
     } catch (e) {
       alert('Erro ao lançar: ' + (e.message || e));
@@ -5618,7 +5664,7 @@
       const { error } = await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString() }).eq('id', id);
       if (error) throw error;
       if (sel.lembrar && it.chave) {
-        const regra = { chave: it.chave, contexto: null, categoria_id: null, ignorar: true };
+        const regra = { chave: it.chave, contexto: null, categoria_id: null, ignorar: true, automatica: !!sel.automatica };
         const { error: er } = await sb.from('fin_regras_categoria').upsert(regra, { onConflict: 'chave' });
         if (er) throw er;
         const extras = await finFilaAplicarRegraAosPendentes(it.chave, regra, id);
@@ -5690,7 +5736,7 @@
 
     for (const it of inseridas) {
       const r = regraPor[it.chave];
-      if (r && !it.possivel_duplicado) {
+      if (r && r.automatica && !it.possivel_duplicado) {
         if (r.ignorar) {
           await sb.from('fin_fila_importacao').update({ status: 'ignorado', classificado_em: new Date().toISOString(), via_regra: true }).eq('id', it.id);
           rel.ignoradas++;
