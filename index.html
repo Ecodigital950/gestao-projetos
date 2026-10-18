@@ -600,9 +600,22 @@
     <input id="login-password" type="password" placeholder="••••••••">
     <div class="actions">
       <button onclick="handleLogin()">Entrar</button>
-      <button class="secondary" onclick="handleSignup()">Criar conta</button>
     </div>
+    <div style="margin-top:12px; text-align:center;"><a href="#" onclick="handleForgot(); return false;" style="font-size:12.5px; color:var(--muted);">Esqueci minha senha</a></div>
     <div class="login-msg" id="login-msg"></div>
+  </div>
+</div>
+
+<div id="reset-screen" style="display:none; position:fixed; inset:0; z-index:200; align-items:center; justify-content:center; background:var(--bg);">
+  <div class="login-box">
+    <h1>Crie sua senha</h1>
+    <p class="sub">Escolha uma senha só sua para entrar no gestor.</p>
+    <label>Nova senha (mínimo 8 caracteres)</label>
+    <input id="reset-pw1" type="password" placeholder="••••••••" autocomplete="new-password">
+    <label>Repita a nova senha</label>
+    <input id="reset-pw2" type="password" placeholder="••••••••" autocomplete="new-password">
+    <div class="actions"><button onclick="handleSetPassword()">Salvar senha e entrar</button></div>
+    <div class="login-msg" id="reset-msg"></div>
   </div>
 </div>
 
@@ -1172,8 +1185,18 @@
           </div>
         </div>
         <div class="card">
+          <h3 style="margin-top:0;">Minha senha</h3>
+          <p class="placeholder" style="margin-bottom:12px;">Troque a senha da sua conta quando quiser. Mínimo de 8 caracteres.</p>
+          <div class="form-row" style="align-items:flex-end;">
+            <div><label>Nova senha</label><input type="password" id="minha-senha-1" autocomplete="new-password"></div>
+            <div><label>Repita a nova senha</label><input type="password" id="minha-senha-2" autocomplete="new-password"></div>
+            <div><button onclick="alterarMinhaSenha()">Alterar senha</button></div>
+          </div>
+          <div id="minha-senha-msg" class="login-msg"></div>
+        </div>
+        <div class="card">
           <h3 style="margin-top:0;">Usuários</h3>
-          <p class="placeholder" style="margin-bottom:12px;">Crie um acesso pra alguém da equipe. A senha padrão é <strong>senha-removida</strong> — combine com a pessoa pra trocar depois de entrar.</p>
+          <p class="placeholder" style="margin-bottom:12px;">Crie um acesso pra alguém da equipe. Você recebe um link para enviar à pessoa, e ela cria a própria senha ao abrir.</p>
           <div class="form-row" style="align-items:flex-end;">
             <div><label>Nome</label><input type="text" id="novo-user-nome" placeholder="Ex: Maria Silva"></div>
             <div><label>E-mail</label><input type="email" id="novo-user-email" placeholder="maria@empresa.com"></div>
@@ -1366,7 +1389,7 @@
         <div id="proj-acesso-novo-permissoes"></div>
       </div>
       <div style="margin-top:10px;"><button type="button" id="proj-acesso-novo-btn" onclick="criarUsuarioECompartilhar()">Criar e dar acesso</button></div>
-      <p class="placeholder" style="margin-top:6px;">Senha padrão: <strong>senha-removida</strong>. "Projetos" já vem marcado porque você está compartilhando este projeto com ela — desmarque se não for o caso.</p>
+      <p class="placeholder" style="margin-top:6px;">Você recebe um link para a pessoa criar a própria senha. "Projetos" já vem marcado porque você está compartilhando este projeto com ela — desmarque se não for o caso.</p>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-top:20px;">
       <button type="button" class="secondary" onclick="fecharProjAcessoModal()">Fechar</button>
@@ -1427,6 +1450,9 @@
 <script>
   const SUPABASE_URL = "https://vqevcjuptlnfvzttzlme.supabase.co";
   const SUPABASE_ANON_KEY = "sb_publishable_Lr3EvmY6tMjhIdMVjNHtzg_u6qIzHMF";
+  // Guarda, antes de o supabase-js limpar o endereço, se a pessoa chegou por
+  // um link de "criar/redefinir senha" (type=recovery).
+  const CHEGOU_POR_LINK_DE_SENHA = /[#&?]type=(recovery|invite)\b/.test(location.hash + location.search);
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const MODULES = ["dashboard", "financeiro", "tarefas", "projetos", "criativos", "configuracoes"];
@@ -1556,10 +1582,17 @@
     initDashPeriodo();
     initTmVencimentoPicker();
     const { data: { session } } = await sb.auth.getSession();
-    if (session) {
+    if (session && CHEGOU_POR_LINK_DE_SENHA) {
+      // Veio do link: antes de entrar, a pessoa cria a própria senha.
+      document.getElementById('reset-screen').style.display = 'flex';
+    } else if (session) {
       await afterLogin(session.user);
     } else {
       document.getElementById('login-screen').style.display = 'flex';
+      if (/error_code=otp_expired|error=access_denied/.test(location.hash)) {
+        document.getElementById('login-msg').textContent = 'Esse link expirou ou já foi usado. Peça um novo link a quem administra.';
+        history.replaceState(null, '', location.pathname);
+      }
     }
   }
 
@@ -1573,23 +1606,82 @@
     await afterLogin(data.user);
   }
 
-  async function handleSignup() {
+  // Contas só são criadas por quem administra (link de acesso). O cadastro
+  // público virá depois, com aprovação.
+  async function handleForgot() {
     const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value;
     const msg = document.getElementById('login-msg');
-    msg.textContent = '';
-    if (!email || !password || password.length < 6) {
-      msg.textContent = 'Preencha e-mail e senha (mínimo 6 caracteres).';
-      return;
-    }
-    const { data, error } = await sb.auth.signUp({ email, password });
+    msg.style.color = 'var(--neg)';
+    if (!email) { msg.textContent = 'Digite seu e-mail acima e clique de novo em "Esqueci minha senha".'; return; }
+    await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    msg.style.color = 'var(--pos)';
+    msg.textContent = 'Se esse e-mail tiver conta, enviamos um link para criar uma nova senha. Se não chegar, peça um novo link a quem administra.';
+  }
+
+  async function handleSetPassword() {
+    const p1 = document.getElementById('reset-pw1').value;
+    const p2 = document.getElementById('reset-pw2').value;
+    const msg = document.getElementById('reset-msg');
+    msg.style.color = 'var(--neg)';
+    if (p1.length < 8) { msg.textContent = 'A senha precisa ter pelo menos 8 caracteres.'; return; }
+    if (p1 !== p2) { msg.textContent = 'As senhas não são iguais.'; return; }
+    if (/^senha-removida$/i.test(p1)) { msg.textContent = 'Escolha outra senha.'; return; }
+    const { data, error } = await sb.auth.updateUser({ password: p1 });
     if (error) { msg.textContent = error.message; return; }
-    if (data.session) {
-      await afterLogin(data.user);
-    } else {
-      msg.style.color = 'var(--pos)';
-      msg.textContent = 'Conta criada! Confirme seu e-mail e depois faça login.';
+    history.replaceState(null, '', location.pathname);
+    document.getElementById('reset-screen').style.display = 'none';
+    await afterLogin(data.user);
+  }
+
+  async function alterarMinhaSenha() {
+    const p1 = document.getElementById('minha-senha-1').value;
+    const p2 = document.getElementById('minha-senha-2').value;
+    const msg = document.getElementById('minha-senha-msg');
+    msg.style.color = 'var(--neg)';
+    if (p1.length < 8) { msg.textContent = 'A senha precisa ter pelo menos 8 caracteres.'; return; }
+    if (p1 !== p2) { msg.textContent = 'As senhas não são iguais.'; return; }
+    if (/^senha-removida$/i.test(p1)) { msg.textContent = 'Escolha outra senha.'; return; }
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    if (error) { msg.textContent = error.message; return; }
+    document.getElementById('minha-senha-1').value = '';
+    document.getElementById('minha-senha-2').value = '';
+    msg.style.color = 'var(--pos)';
+    msg.textContent = 'Senha alterada.';
+  }
+
+  // Mostra o link para a pessoa criar a própria senha (o admin envia por WhatsApp).
+  function mostrarLinkAcesso(email, link, avisoExtra) {
+    const old = document.getElementById('link-acesso-overlay');
+    if (old) old.remove();
+    const ov = document.createElement('div');
+    ov.id = 'link-acesso-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(5,8,18,.72);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.innerHTML = `<div class="card" style="max-width:520px;width:100%;">
+      <h3 style="margin-top:0;">Link de acesso para ${escapeHtml(email)}</h3>
+      <p class="placeholder" style="margin-bottom:10px;">Envie este link para a pessoa. Ao abrir, ela cria a própria senha. O link vale por tempo limitado e funciona uma única vez; se expirar, gere outro em Configurações &gt; Usuários.</p>
+      <input id="link-acesso-input" type="text" readonly style="width:100%;" value="${escapeHtml(link)}">
+      ${avisoExtra ? `<p class="placeholder" style="margin-top:10px;">${escapeHtml(avisoExtra)}</p>` : ''}
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+        <button class="secondary" onclick="document.getElementById('link-acesso-overlay').remove()">Fechar</button>
+        <button onclick="copiarLinkAcesso(this)">Copiar link</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+    const inp = document.getElementById('link-acesso-input'); inp.focus(); inp.select();
+  }
+  async function copiarLinkAcesso(btn) {
+    const inp = document.getElementById('link-acesso-input');
+    try { await navigator.clipboard.writeText(inp.value); btn.textContent = 'Copiado'; } catch (e) { inp.select(); document.execCommand('copy'); btn.textContent = 'Copiado'; }
+  }
+
+  async function gerarNovoLinkAcesso(email) {
+    if (!confirm('Gerar um novo link de acesso para ' + email + '? Ele troca o link anterior e a pessoa cria uma nova senha.')) return;
+    const { data, error } = await sb.functions.invoke('admin-create-user', { body: { email, regenerar: true } });
+    if (error || data?.error) {
+      let msg = data?.error || error?.message || 'Erro desconhecido';
+      try { const corpo = await error.context.json(); if (corpo?.error) msg = corpo.error; } catch (e) { /* ignora */ }
+      alert('Erro ao gerar link: ' + msg); return;
     }
+    mostrarLinkAcesso(email, data.link);
   }
 
   async function handleLogout() {
@@ -1817,8 +1909,8 @@
     }
 
     await carregarUsuariosBasico();
-    alert('Usuário criado com os acessos marcados! Peça pra essa pessoa entrar com a senha padrão senha-removida e trocar depois.');
     abrirProjAcessoModal(projectId);
+    mostrarLinkAcesso(email, data.link, 'Usuário criado com os acessos marcados.');
   }
 
   async function toggleProjAcesso(projectId, userId, ligado) {
@@ -2649,7 +2741,7 @@
       const gerenciaChecked = u.is_admin || userPerms.has('gerenciar_usuarios') ? 'checked' : '';
       const gerenciaDisabled = u.is_admin ? 'disabled' : '';
       cells += `<td><input type="checkbox" ${gerenciaChecked} ${gerenciaDisabled} onchange="togglePermissao('${u.id}','gerenciar_usuarios',this.checked)"></td>`;
-      cells += `<td><button class="row-action" onclick="editarNomeUsuario('${u.id}')">Editar nome</button></td>`;
+      cells += `<td><button class="row-action" onclick="editarNomeUsuario('${u.id}')">Editar nome</button>${currentProfile && currentProfile.is_admin && u.id !== currentProfile.id ? ` <button class="row-action" onclick="gerarNovoLinkAcesso('${escapeHtml(u.email)}')">Gerar link de senha</button>` : ''}</td>`;
       tr.innerHTML = cells;
       tbody.appendChild(tr);
     });
@@ -2754,7 +2846,7 @@
     renderPermissoesChecklist('novo-user-permissoes', []);
     document.getElementById('novo-user-projetos-wrap').style.display = 'none';
     document.querySelectorAll('#novo-user-projetos .novo-user-projeto-check').forEach(el => { el.checked = false; });
-    alert('Usuário criado com os acessos marcados! Peça pra essa pessoa entrar com a senha padrão senha-removida e trocar depois.' + avisoAcessoProjeto);
+    mostrarLinkAcesso(email, data.link, 'Usuário criado com os acessos marcados.' + avisoAcessoProjeto);
     carregarUsuarios();
   }
 
