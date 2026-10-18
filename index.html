@@ -619,6 +619,14 @@
   </div>
 </div>
 
+<div id="espera-screen" style="display:none; position:fixed; inset:0; z-index:200; align-items:center; justify-content:center; background:var(--bg);">
+  <div class="login-box">
+    <h1 id="espera-titulo">Aguardando aprovação</h1>
+    <p class="sub" id="espera-texto"></p>
+    <div class="actions"><button class="secondary" onclick="handleLogout()">Sair</button></div>
+  </div>
+</div>
+
 <div id="app-screen">
   <div id="ajuda-popover" class="ajuda-popover"></div>
   <div class="layout">
@@ -1464,6 +1472,16 @@
 
   let currentUser = null;
   let currentProfile = null;
+  let currentWorkspaceId = null;
+  let currentWorkspaceNome = '';
+
+  // IDs de quem está no meu espaço (o superadmin enxerga todos os perfis,
+  // mas as listas internas devem mostrar só a equipe do espaço atual).
+  async function idsDoMeuEspaco() {
+    if (!currentWorkspaceId) return [];
+    const { data } = await sb.from('workspace_members').select('user_id').eq('workspace_id', currentWorkspaceId);
+    return (data || []).map(m => m.user_id);
+  }
   let currentPermissions = new Set();
 
   // ---- Ícones de ajuda clicáveis (explicam funções novas) ----
@@ -1701,11 +1719,42 @@
       return;
     }
     currentProfile = profile;
+
+    // Conta ainda sem acesso liberado: mostra só a tela de espera.
+    if (profile.status && profile.status !== 'aprovado') {
+      const msgs = {
+        pendente: ['Aguardando aprovação', 'Recebemos seu pedido de acesso. Assim que for aprovado, você entra aqui com a mesma senha. Pode fechar esta página.'],
+        recusado: ['Pedido não aprovado', 'Seu pedido de acesso não foi aprovado.' + (profile.motivo_recusa ? ' Motivo: ' + profile.motivo_recusa : '')],
+        suspenso: ['Acesso suspenso', 'Seu acesso está suspenso. Fale com quem administra.'],
+      };
+      const [titulo, texto] = msgs[profile.status] || msgs.suspenso;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app-screen').style.display = 'none';
+      document.getElementById('espera-titulo').textContent = titulo;
+      document.getElementById('espera-texto').textContent = texto;
+      document.getElementById('espera-screen').style.display = 'flex';
+      return;
+    }
+
+    // Espaço (workspace) do usuário: dono primeiro.
+    const { data: meusEspacos } = await sb.from('workspace_members').select('workspace_id, papel, workspaces(nome)').eq('user_id', user.id);
+    const espaco = (meusEspacos || []).find(m => m.papel === 'dono') || (meusEspacos || [])[0];
+    currentWorkspaceId = espaco ? espaco.workspace_id : null;
+    currentWorkspaceNome = espaco && espaco.workspaces ? espaco.workspaces.nome : '';
+    if (!currentWorkspaceId) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app-screen').style.display = 'none';
+      document.getElementById('espera-titulo').textContent = 'Acesso não configurado';
+      document.getElementById('espera-texto').textContent = 'Sua conta ainda não está ligada a um espaço. Fale com quem administra.';
+      document.getElementById('espera-screen').style.display = 'flex';
+      return;
+    }
+
     aplicarCorFundoApp(profile.cor_fundo_app);
     const inputCorFundo = document.getElementById('aparencia-cor-fundo');
     if (inputCorFundo) inputCorFundo.value = profile.cor_fundo_app || '#0c1120';
 
-    if (profile.is_admin) {
+    if (profile.is_superadmin) {
       currentPermissions = new Set(MODULES);
     } else {
       const { data: perms } = await sb.from('user_permissions').select('modulo').eq('user_id', user.id);
@@ -1714,7 +1763,7 @@
 
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app-screen').style.display = 'block';
-    document.getElementById('user-email').textContent = (profile.nome || profile.email) + (profile.is_admin ? ' · admin' : '');
+    document.getElementById('user-email').textContent = (profile.nome || profile.email) + (profile.is_admin ? ' · admin' : '') + (currentWorkspaceNome ? ' · ' + currentWorkspaceNome : '');
 
     renderNav();
     const firstModule = MODULES.find(m => currentPermissions.has(m));
@@ -2720,14 +2769,16 @@
   // "Compartilhar" na tela de Projetos, pra montar a lista de com quem dá
   // pra compartilhar um projeto.
   async function carregarUsuariosBasico() {
-    const { data } = await sb.from('profiles').select('id,nome,email,is_admin').order('created_at', { ascending: true });
+    const ids = await idsDoMeuEspaco();
+    const { data } = await sb.from('profiles').select('id,nome,email,is_admin').in('id', ids).order('created_at', { ascending: true });
     usuariosCache = data || [];
   }
 
   async function carregarUsuarios() {
-    const { data: profiles } = await sb.from('profiles').select('*').order('created_at', { ascending: true });
+    const ids = await idsDoMeuEspaco();
+    const { data: profiles } = await sb.from('profiles').select('*').in('id', ids).order('created_at', { ascending: true });
     usuariosCache = profiles || [];
-    const { data: allPerms } = await sb.from('user_permissions').select('*');
+    const { data: allPerms } = await sb.from('user_permissions').select('*').in('user_id', ids);
     const tbody = document.getElementById('usuarios-tbody');
     tbody.innerHTML = '';
     usuariosCache.forEach(u => {
@@ -3065,7 +3116,7 @@
     const tmProjSel = document.getElementById('tm-projeto');
     if (tmProjSel) { const anterior = tmProjSel.value; tmProjSel.innerHTML = projOpts; tmProjSel.value = anterior; }
 
-    const { data: profs } = await sb.from('profiles').select('id,nome,email').order('email');
+    const { data: profs } = await sb.from('profiles').select('id,nome,email').in('id', await idsDoMeuEspaco()).order('email');
     profilesCacheForTasks = profs || [];
   }
 
