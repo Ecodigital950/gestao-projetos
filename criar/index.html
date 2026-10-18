@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Criar acesso | Gestor de Projetos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root { --bg:#0c1120; --card:#141b2e; --card2:#1a2339; --bd:#263150; --tx:#e8ecf6; --mut:#8b97b5; --pri:#4f8cff; --pos:#35c58a; --neg:#ef5a6f; --warn:#f2b84b; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--tx); font:14px/1.45 -apple-system,Segoe UI,Roboto,sans-serif; padding:16px; }
+  .card { background:var(--card); border:1px solid var(--bd); border-radius:12px; padding:24px; width:100%; max-width:420px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  p.sub { color:var(--mut); margin:0 0 14px; }
+  label { display:block; font-size:12px; color:var(--mut); margin:12px 0 4px; }
+  input { width:100%; background:var(--card2); border:1px solid var(--bd); color:var(--tx); border-radius:8px; padding:10px; font:inherit; }
+  input:focus { outline:2px solid var(--pri); outline-offset:0; }
+  .btn { width:100%; margin-top:16px; background:var(--pri); color:#fff; border:0; border-radius:8px; padding:11px 16px; cursor:pointer; font:inherit; font-weight:600; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .msg { margin-top:10px; font-size:13px; color:var(--neg); min-height:18px; }
+  .rodape { color:var(--mut); font-size:12.5px; margin-top:16px; text-align:center; }
+  .rodape a { color:var(--pri); text-decoration:none; }
+  .passos { list-style:none; padding:0; margin:16px 0 0; }
+  .passos li { display:flex; gap:12px; align-items:flex-start; padding:9px 0; color:var(--mut); }
+  .passos .dot { width:22px; height:22px; border-radius:50%; border:2px solid var(--bd); flex:none; display:grid; place-items:center; font-size:12px; }
+  .passos li.ok { color:var(--tx); } .passos li.ok .dot { background:var(--pos); border-color:var(--pos); color:#06241a; }
+  .passos li.cur { color:var(--tx); } .passos li.cur .dot { border-color:var(--warn); color:var(--warn); }
+  .hp { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+</style>
+</head>
+<body>
+
+<div class="card" id="form-box">
+  <h1>Criar acesso</h1>
+  <p class="sub">Seu pedido passa por aprovação. Você ganha um espaço só seu, vazio.</p>
+  <form id="f" autocomplete="on" novalidate>
+    <label for="nome">Nome completo</label>
+    <input id="nome" name="name" autocomplete="name" placeholder="Maria Souza" maxlength="80">
+    <label for="email">E-mail</label>
+    <input id="email" name="email" type="email" autocomplete="email" placeholder="maria@empresa.com" maxlength="120">
+    <label for="whats">WhatsApp</label>
+    <input id="whats" name="tel" type="tel" autocomplete="tel" placeholder="(51) 99999-9999" maxlength="30">
+    <label for="senha">Senha (mínimo 8 caracteres)</label>
+    <input id="senha" name="new-password" type="password" autocomplete="new-password" maxlength="72">
+    <div class="hp" aria-hidden="true"><label>Não preencha<input id="site" tabindex="-1" autocomplete="off"></label></div>
+    <button class="btn" id="btn" type="submit">Criar acesso</button>
+    <div class="msg" id="msg" role="alert"></div>
+  </form>
+  <div class="rodape">Já tem conta? <a href="../">Entrar</a></div>
+</div>
+
+<div class="card" id="ok-box" style="display:none;">
+  <h1>Pedido enviado</h1>
+  <p class="sub">Confira seu e-mail (e o spam) para confirmar o endereço. Depois, é só aguardar a aprovação.</p>
+  <ul class="passos">
+    <li class="ok"><span class="dot">&#10003;</span><div><b>Pedido enviado</b><br><small>Recebemos seus dados.</small></div></li>
+    <li class="cur"><span class="dot">2</span><div><b>Confirme seu e-mail</b><br><small>Abra a mensagem que enviamos e clique no link.</small></div></li>
+    <li><span class="dot">3</span><div><b>Aprovação</b><br><small>Você entra com a senha que criou assim que for aprovado.</small></div></li>
+    <li><span class="dot">4</span><div><b>Seu espaço pronto</b><br><small>Categorias do Financeiro, sem nenhum lançamento.</small></div></li>
+  </ul>
+  <div class="rodape"><a href="../">Ir para o login</a></div>
+</div>
+
+<script>
+  const SUPABASE_URL = "https://vqevcjuptlnfvzttzlme.supabase.co";
+  const SUPABASE_ANON_KEY = "sb_publishable_Lr3EvmY6tMjhIdMVjNHtzg_u6qIzHMF";
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  const APP_URL = location.origin + location.pathname.replace(/criar\/?(index\.html)?$/, '');
+  const $ = id => document.getElementById(id);
+
+  function mostrarOk() { $('form-box').style.display = 'none'; $('ok-box').style.display = ''; }
+
+  $('f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = $('msg'); msg.style.color = 'var(--neg)'; msg.textContent = '';
+    const nome = $('nome').value.trim(), email = $('email').value.trim().toLowerCase();
+    const whats = $('whats').value.trim(), senha = $('senha').value;
+    if ($('site').value) { mostrarOk(); return; }                      // robô: finge que deu certo
+    if (nome.length < 3) { msg.textContent = 'Informe seu nome completo.'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { msg.textContent = 'Informe um e-mail válido.'; return; }
+    if (whats.replace(/\D/g, '').length < 10) { msg.textContent = 'Informe seu WhatsApp com DDD.'; return; }
+    if (senha.length < 8) { msg.textContent = 'A senha precisa ter pelo menos 8 caracteres.'; return; }
+    if (/^\d+$/.test(senha)) { msg.textContent = 'Use letras na senha, não só números.'; return; }
+    const ultimo = Number(localStorage.getItem('criar_ultimo') || 0);
+    if (Date.now() - ultimo < 20000) { msg.textContent = 'Aguarde alguns segundos antes de tentar de novo.'; return; }
+    localStorage.setItem('criar_ultimo', String(Date.now()));
+
+    $('btn').disabled = true; $('btn').textContent = 'Enviando...';
+    const { data, error } = await sb.auth.signUp({
+      email, password: senha,
+      options: { data: { nome, whatsapp: whats }, emailRedirectTo: APP_URL },
+    });
+    $('btn').disabled = false; $('btn').textContent = 'Criar acesso';
+    if (error) {
+      const t = (error.message || '') + ' ' + (error.code || '');
+      if (/rate.?limit/i.test(t)) msg.textContent = 'Muitos pedidos em pouco tempo. Tente de novo em alguns minutos.';
+      else if (/database error|convite|saving new user|signup.*disabled/i.test(t)) msg.textContent = 'Os cadastros ainda não estão abertos. Tente novamente em breve.';
+      else if (/password/i.test(t)) msg.textContent = 'Senha não aceita. Escolha uma senha maior e mais difícil de adivinhar.';
+      else msg.textContent = 'Não foi possível enviar seu pedido. Tente de novo em instantes.';
+      return;
+    }
+    // E-mail já cadastrado volta sem erro (por segurança) e sem identidades: não revelamos isso.
+    mostrarOk();
+  });
+</script>
+</body>
+</html>

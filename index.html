@@ -1202,6 +1202,19 @@
           </div>
           <div id="minha-senha-msg" class="login-msg"></div>
         </div>
+        <div class="card" id="card-solicitacoes" style="display:none;">
+          <h3 style="margin-top:0;">Solicitações de acesso <span id="solic-badge" style="display:none;margin-left:8px;background:var(--neg);color:#fff;border-radius:10px;padding:1px 8px;font-size:12px;font-weight:600;vertical-align:middle;"></span></h3>
+          <p class="placeholder" style="margin-bottom:12px;">Quem pediu acesso em <b>/criar</b> aparece aqui. Ao aprovar, a pessoa ganha um espaço só dela (sem nada seu), com as categorias do Financeiro zeradas e os módulos que você escolher.</p>
+          <div style="overflow-x:auto;"><table>
+            <thead><tr><th>Pessoa</th><th>WhatsApp</th><th>Pediu em</th><th></th></tr></thead>
+            <tbody id="solic-pendentes-tbody"></tbody>
+          </table></div>
+          <h4 style="margin:18px 0 8px;">Espaços de clientes</h4>
+          <div style="overflow-x:auto;"><table>
+            <thead><tr><th>Espaço</th><th>Dono</th><th>Situação</th><th></th></tr></thead>
+            <tbody id="solic-espacos-tbody"></tbody>
+          </table></div>
+        </div>
         <div class="card">
           <h3 style="margin-top:0;">Usuários</h3>
           <p class="placeholder" style="margin-bottom:12px;">Crie um acesso pra alguém da equipe. Você recebe um link para enviar à pessoa, e ela cria a própria senha ao abrir.</p>
@@ -1782,6 +1795,7 @@
     await carregarUsuariosBasico();
 
     if (currentPermissions.has('projetos')) carregarProjetos();
+    if (profile.is_superadmin) carregarSolicitacoes();
     if (profile.is_admin) {
       carregarUsuarios();
       carregarCategoriasConfig();
@@ -2768,6 +2782,107 @@
   // usuariosCache, sem tocar em tabela nenhuma de admin. Usada pelo botão
   // "Compartilhar" na tela de Projetos, pra montar a lista de com quem dá
   // pra compartilhar um projeto.
+  // ---- Solicitações de acesso e espaços de clientes (só superadmin) ----
+  const MODULOS_CLIENTE = [['dashboard', 'Dashboard'], ['tarefas', 'Kanban'], ['projetos', 'Projetos'], ['financeiro', 'Financeiro'], ['criativos', 'Criativos']];
+  let solicitacoesCache = [];
+
+  async function carregarSolicitacoes() {
+    if (!currentProfile || !currentProfile.is_superadmin) return;
+    document.getElementById('card-solicitacoes').style.display = '';
+    const { data: pend } = await sb.from('profiles').select('id,nome,email,whatsapp,created_at,status,motivo_recusa')
+      .in('status', ['pendente', 'recusado']).order('created_at', { ascending: true });
+    solicitacoesCache = pend || [];
+    const pendentes = solicitacoesCache.filter(s => s.status === 'pendente');
+    const tb = document.getElementById('solic-pendentes-tbody');
+    const fmt = d => new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    tb.innerHTML = solicitacoesCache.length ? solicitacoesCache.map(s => `<tr>
+      <td>${escapeHtml(s.nome || s.email)}<div class="card-sub" style="margin:0;">${escapeHtml(s.email)}</div></td>
+      <td>${s.whatsapp ? `<a href="https://wa.me/${encodeURIComponent(String(s.whatsapp).replace(/\D/g, ''))}" target="_blank" rel="noopener">${escapeHtml(s.whatsapp)}</a>` : '—'}</td>
+      <td>${fmt(s.created_at)}</td>
+      <td>${s.status === 'pendente'
+        ? `<button class="row-action" onclick="abrirAprovacao('${s.id}')">Aprovar</button><button class="row-action danger" onclick="recusarSolicitacao('${s.id}')">Recusar</button>`
+        : `<span class="card-sub" style="margin:0;">Recusado${s.motivo_recusa ? ': ' + escapeHtml(s.motivo_recusa) : ''}</span> <button class="row-action" onclick="abrirAprovacao('${s.id}')">Aprovar mesmo assim</button>`}</td>
+    </tr>`).join('') : '<tr><td colspan="4" class="placeholder">Nenhuma solicitação no momento.</td></tr>';
+
+    const badge = document.getElementById('solic-badge');
+    badge.style.display = pendentes.length ? '' : 'none';
+    badge.textContent = pendentes.length;
+    const navItem = document.getElementById('nav-configuracoes');
+    if (navItem) {
+      let b = navItem.querySelector('.nav-badge');
+      if (!b) { b = document.createElement('span'); b.className = 'nav-badge'; b.style.cssText = 'margin-left:auto;background:var(--neg);color:#fff;border-radius:10px;padding:0 7px;font-size:11px;font-weight:600;'; navItem.appendChild(b); }
+      b.textContent = pendentes.length; b.style.display = pendentes.length ? '' : 'none';
+    }
+
+    // Espaços de clientes (todos menos o meu)
+    const { data: wss } = await sb.from('workspaces').select('id,nome,dono_id,created_at').neq('id', currentWorkspaceId).order('created_at');
+    const donoIds = (wss || []).map(w => w.dono_id).filter(Boolean);
+    const { data: donos } = donoIds.length ? await sb.from('profiles').select('id,nome,email,status').in('id', donoIds) : { data: [] };
+    const donoPor = Object.fromEntries((donos || []).map(d => [d.id, d]));
+    const tbE = document.getElementById('solic-espacos-tbody');
+    tbE.innerHTML = (wss || []).length ? wss.map(w => {
+      const d = donoPor[w.dono_id] || {};
+      const suspenso = d.status === 'suspenso';
+      return `<tr><td>${escapeHtml(w.nome)}</td><td>${escapeHtml(d.email || '—')}</td>
+        <td>${suspenso ? '<span style="color:var(--neg)">Suspenso</span>' : '<span style="color:var(--pos)">Ativo</span>'}</td>
+        <td>${suspenso
+          ? `<button class="row-action" onclick="reativarEspaco('${w.id}')">Reativar</button>`
+          : `<button class="row-action danger" onclick="suspenderEspaco('${w.id}', '${escapeHtml(w.nome).replace(/'/g, '')}')">Suspender</button>`}</td></tr>`;
+    }).join('') : '<tr><td colspan="4" class="placeholder">Ainda não há espaços de clientes.</td></tr>';
+  }
+
+  function abrirAprovacao(userId) {
+    const s = solicitacoesCache.find(x => x.id === userId);
+    if (!s) return;
+    const old = document.getElementById('aprovar-overlay'); if (old) old.remove();
+    const ov = document.createElement('div');
+    ov.id = 'aprovar-overlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(5,8,18,.72);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.innerHTML = `<div class="card" style="max-width:480px;width:100%;">
+      <h3 style="margin-top:0;">Aprovar ${escapeHtml(s.nome || s.email)}</h3>
+      <p class="placeholder" style="margin-bottom:10px;">Cria um espaço só dessa pessoa, vazio, com as categorias do Financeiro zeradas. Ela não vê nada seu. Quais módulos liberar?</p>
+      <div id="aprovar-modulos">${MODULOS_CLIENTE.map(([k, n]) => `<label style="display:flex;align-items:center;gap:8px;margin:6px 0;"><input type="checkbox" value="${k}" checked> ${n}</label>`).join('')}</div>
+      <div id="aprovar-msg" class="login-msg"></div>
+      <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;">
+        <button class="secondary" onclick="document.getElementById('aprovar-overlay').remove()">Cancelar</button>
+        <button id="aprovar-btn" onclick="confirmarAprovacao('${s.id}')">Aprovar e liberar</button>
+      </div></div>`;
+    document.body.appendChild(ov);
+  }
+
+  async function confirmarAprovacao(userId) {
+    const modulos = [...document.querySelectorAll('#aprovar-modulos input:checked')].map(i => i.value);
+    const msg = document.getElementById('aprovar-msg'); msg.style.color = 'var(--neg)';
+    if (!modulos.length) { msg.textContent = 'Escolha ao menos um módulo.'; return; }
+    const btn = document.getElementById('aprovar-btn'); btn.disabled = true;
+    const { error } = await sb.rpc('aprovar_usuario', { p_user: userId, p_modulos: modulos });
+    if (error) { msg.textContent = 'Erro: ' + error.message; btn.disabled = false; return; }
+    document.getElementById('aprovar-overlay').remove();
+    await carregarSolicitacoes();
+    alert('Acesso liberado. Avise a pessoa para entrar com o e-mail e a senha que ela criou.');
+  }
+
+  async function recusarSolicitacao(userId) {
+    const motivo = prompt('Motivo da recusa (opcional, a pessoa verá):');
+    if (motivo === null) return;
+    const { error } = await sb.rpc('recusar_usuario', { p_user: userId, p_motivo: motivo });
+    if (error) { alert('Erro: ' + error.message); return; }
+    carregarSolicitacoes();
+  }
+
+  async function suspenderEspaco(wsId, nome) {
+    if (!confirm('Suspender o espaço "' + nome + '"? Todos os usuários dele perdem o acesso até você reativar. Nada é apagado.')) return;
+    const { error } = await sb.rpc('suspender_espaco', { p_ws: wsId });
+    if (error) { alert('Erro: ' + error.message); return; }
+    carregarSolicitacoes();
+  }
+
+  async function reativarEspaco(wsId) {
+    const { error } = await sb.rpc('reativar_espaco', { p_ws: wsId });
+    if (error) { alert('Erro: ' + error.message); return; }
+    carregarSolicitacoes();
+  }
+
   async function carregarUsuariosBasico() {
     const ids = await idsDoMeuEspaco();
     const { data } = await sb.from('profiles').select('id,nome,email,is_admin').in('id', ids).order('created_at', { ascending: true });
