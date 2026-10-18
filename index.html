@@ -1613,9 +1613,15 @@
     const msg = document.getElementById('login-msg');
     msg.style.color = 'var(--neg)';
     if (!email) { msg.textContent = 'Digite seu e-mail acima e clique de novo em "Esqueci minha senha".'; return; }
-    await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+    if (error) {
+      msg.textContent = /rate limit|over_email_send_rate_limit/i.test(error.message + (error.code || ''))
+        ? 'Muitos pedidos de e-mail em pouco tempo. Aguarde cerca de 1 hora e tente de novo.'
+        : 'Não foi possível enviar o e-mail: ' + error.message;
+      return;
+    }
     msg.style.color = 'var(--pos)';
-    msg.textContent = 'Se esse e-mail tiver conta, enviamos um link para criar uma nova senha. Se não chegar, peça um novo link a quem administra.';
+    msg.textContent = 'Se esse e-mail tiver conta, enviamos um link para criar uma nova senha (confira também o spam). Se não chegar, peça um novo link a quem administra.';
   }
 
   async function handleSetPassword() {
