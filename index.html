@@ -2414,7 +2414,7 @@
     const input = document.getElementById('fin-ultima-atualizacao-input');
     if (!input.value) { alert('Escolha uma data e hora.'); return; }
     const valor = new Date(input.value).toISOString();
-    const { error } = await sb.from('fin_config').upsert({ chave: 'ultima_atualizacao', valor, atualizado_por: currentUser.id, atualizado_em: new Date().toISOString() });
+    const { error } = await sb.from('fin_config').upsert({ chave: 'ultima_atualizacao', valor, atualizado_por: currentUser.id, atualizado_em: new Date().toISOString() }, { onConflict: 'workspace_id,chave' });
     if (error) { alert('Erro ao salvar: ' + error.message); return; }
     fecharEditarUltimaAtualizacaoFinanceiro();
     await atualizarBadgeUltimaAtualizacaoFinanceiro();
@@ -4720,7 +4720,7 @@
     finColunas[secao] = novo;
     aplicarFinColunas();
     const chave = secao === 'eco' ? 'fin_colunas_eco' : 'fin_colunas_pessoal';
-    const { error } = await sb.from('fin_settings').upsert({ chave, valor: novo }, { onConflict: 'chave' });
+    const { error } = await sb.from('fin_settings').upsert({ chave, valor: novo }, { onConflict: 'workspace_id,chave' });
     if (error) alert('Erro ao salvar nº de colunas: ' + error.message);
   }
 
@@ -5737,7 +5737,7 @@
       await finFilaCriarLancamento(it, sel.contexto, categoriaId, nomeFinal);
       if (sel.lembrar && it.chave) {
         const regra = { chave: it.chave, contexto: sel.contexto, categoria_id: categoriaId, ignorar: false, nome_amigavel: nomeFinal, automatica: !!sel.automatica };
-        const { error: er } = await sb.from('fin_regras_categoria').upsert(regra, { onConflict: 'chave' });
+        const { error: er } = await sb.from('fin_regras_categoria').upsert(regra, { onConflict: 'workspace_id,chave' });
         if (er) throw er;
         const extras = await finFilaAplicarRegraAosPendentes(it.chave, regra, id);
         finFilaMensagem = extras ? ` · ${extras} outro${extras === 1 ? '' : 's'} "${nomeFinal}" também lançado${extras === 1 ? '' : 's'} pela regra` : (sel.automatica ? '' : ' · regra salva como sugestão (os próximos iguais vêm pré-preenchidos, você confere)');
@@ -5761,7 +5761,7 @@
       if (error) throw error;
       if (sel.lembrar && it.chave) {
         const regra = { chave: it.chave, contexto: null, categoria_id: null, ignorar: true, automatica: !!sel.automatica };
-        const { error: er } = await sb.from('fin_regras_categoria').upsert(regra, { onConflict: 'chave' });
+        const { error: er } = await sb.from('fin_regras_categoria').upsert(regra, { onConflict: 'workspace_id,chave' });
         if (er) throw er;
         const extras = await finFilaAplicarRegraAosPendentes(it.chave, regra, id);
         finFilaMensagem = extras ? ` · ${extras} outro${extras === 1 ? '' : 's'} igual${extras === 1 ? '' : 'is'} também ignorado${extras === 1 ? '' : 's'}` : '';
@@ -6902,7 +6902,7 @@
   async function salvarProlabore() {
     const mes = finMesStr();
     const valor = parseValorBR(document.getElementById('fin-prolabore-valor').value);
-    const { error } = await sb.from('fin_prolabore').upsert({ mes, valor }, { onConflict: 'mes' });
+    const { error } = await sb.from('fin_prolabore').upsert({ mes, valor }, { onConflict: 'workspace_id,mes' });
     if (error) { alert('Erro ao salvar pró-labore: ' + error.message); return; }
     carregarFinanceiroMensal();
   }
@@ -6912,7 +6912,7 @@
   // campo, igual as outras anotações do app (ex: Notas do projeto). ----
   async function salvarFinNotasMes(valor) {
     const mes = finMesStr();
-    const { error } = await sb.from('fin_prolabore').upsert({ mes, notas: valor }, { onConflict: 'mes' });
+    const { error } = await sb.from('fin_prolabore').upsert({ mes, notas: valor }, { onConflict: 'workspace_id,mes' });
     if (error) { alert('Erro ao salvar anotação: ' + error.message); return; }
   }
 
