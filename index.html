@@ -505,6 +505,14 @@
   .fin-meta-concluida .fin-meta-card-barra-progresso { background: var(--pos); }
   .fin-meta-card-linhas { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 12px; }
   .fin-meta-card-linhas strong { display: block; font-size: 14px; margin-top: 2px; }
+  .fin-aplic { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--card-border); }
+  .fin-aplic-titulo { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .fin-aplic-row { display: grid; grid-template-columns: 1fr 110px 20px; gap: 6px; align-items: center; }
+  .fin-aplic-row input { font-size: 12px; padding: 6px 8px; }
+  .fin-aplic-row input.val { text-align: right; }
+  .fin-aplic-resumo { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px; font-size: 11.5px; color: var(--muted); margin-top: 10px; }
+  .fin-aplic-resumo .ok { color: var(--pos); }
+  .fin-aplic-resumo .alerta { color: #f2b84b; }
   .fin-grid tr.fin-resumo-custo td { font-weight: 700; background: #1c2440; }
   .fin-grid tr.fin-resumo-receita td { font-weight: 700; background: #14304a; color: var(--info); }
   .fin-grid tr.fin-resumo-diferenca td { font-weight: 700; }
@@ -1356,6 +1364,9 @@
         <div><label>Valor da meta (R$)</label><input type="text" inputmode="decimal" id="fincat-modal-meta-valor" placeholder="0,00"></div>
         <div><label>Data da meta (opcional)</label><input type="date" id="fincat-modal-meta-data"></div>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;text-transform:none;letter-spacing:0;font-size:13px;color:var(--text);font-weight:400;">
+        <input type="checkbox" id="fincat-modal-meta-detalhar" style="width:auto;"> <i class="ti ti-chart-pie"></i> Detalhar onde está aplicado (lista de aplicações com valor, no card da meta)
+      </label>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;">
       <span id="fincat-modal-excluir" class="row-action danger" style="display:none;cursor:pointer;" onclick="excluirFinCategoriaModal()">Excluir categoria</span>
@@ -6072,8 +6083,74 @@
             <div><span class="fin-card-sub">Progresso</span><strong>${Math.round(pct)}%</strong></div>
           </div>
           ${dataInfo}
+          ${m.meta_detalhar ? metaAplicacoesHtml(m, acumulado) : ''}
         </div>`;
     }).join('');
+  }
+
+  // ---- "Onde está aplicado": lista de aplicações (descrição + valor) da
+  // meta, ligada pelo checkbox "Detalhar onde está aplicado" na categoria.
+  // Salva em fin_categories.meta_aplicacoes (jsonb) — mesma regra de
+  // permissão da configuração da categoria. ----
+  function metaAplicacoesHtml(m, acumulado) {
+    const lista = Array.isArray(m.meta_aplicacoes) ? m.meta_aplicacoes : [];
+    return `<div class="fin-aplic">
+      <div class="fin-aplic-titulo"><i class="ti ti-chart-pie"></i> Onde está aplicado</div>
+      <div class="fin-lanc-lista">${lista.map((a, i) => `
+        <div class="fin-aplic-row">
+          <input type="text" value="${escapeHtml(a.descricao || '')}" placeholder="Onde está aplicado" onchange="editarMetaAplicacao('${m.id}', ${i}, 'descricao', this.value)">
+          <input class="val" type="text" inputmode="decimal" value="${a.valor ? formatValorBR(a.valor) : ''}" placeholder="0,00" onchange="editarMetaAplicacao('${m.id}', ${i}, 'valor', this.value)">
+          <i class="ti ti-trash fin-lanc-excluir" onclick="excluirMetaAplicacao('${m.id}', ${i})"></i>
+        </div>`).join('')}</div>
+      <button class="fin-lanc-add secondary" onclick="adicionarMetaAplicacao('${m.id}')"><i class="ti ti-plus"></i> Adicionar aplicação</button>
+      <div class="fin-aplic-resumo" id="meta-aplic-resumo-${m.id}">${metaAplicacoesResumoHtml(lista, acumulado)}</div>
+    </div>`;
+  }
+
+  function metaAplicacoesResumoHtml(lista, acumulado) {
+    const soma = lista.reduce((s, a) => s + Number(a.valor || 0), 0);
+    const dif = Math.round((acumulado - soma) * 100) / 100;
+    const situacao = dif === 0 ? '<span class="ok"><i class="ti ti-check"></i> Tudo detalhado</span>'
+      : dif > 0 ? `<span class="alerta">Falta detalhar ${brl(dif)}</span>`
+      : `<span class="alerta">Passou ${brl(-dif)} do acumulado</span>`;
+    return `<span>Detalhado: <b>${brl(soma)}</b> de ${brl(acumulado)}</span>${situacao}`;
+  }
+
+  async function salvarMetaAplicacoes(catId) {
+    const cat = finCategoriasCache.find(c => c.id === catId);
+    if (!cat) return false;
+    const { error } = await sb.from('fin_categories').update({ meta_aplicacoes: cat.meta_aplicacoes }).eq('id', catId);
+    if (error) { alert('Erro ao salvar aplicações: ' + error.message); await carregarFinCategorias(); renderFinMetasTab(); return false; }
+    return true;
+  }
+
+  async function adicionarMetaAplicacao(catId) {
+    const cat = finCategoriasCache.find(c => c.id === catId);
+    if (!cat) return;
+    cat.meta_aplicacoes = [...(Array.isArray(cat.meta_aplicacoes) ? cat.meta_aplicacoes : []), { descricao: '', valor: 0 }];
+    renderFinMetasTab();
+    // Foca a descrição da linha nova (a última deste card).
+    const linhas = document.querySelectorAll(`#meta-aplic-resumo-${catId}`);
+    const wrap = linhas[0] && linhas[0].closest('.fin-aplic');
+    const ins = wrap ? wrap.querySelectorAll('.fin-aplic-row') : [];
+    if (ins.length) ins[ins.length - 1].querySelector('input').focus();
+  }
+
+  async function editarMetaAplicacao(catId, idx, campo, valor) {
+    const cat = finCategoriasCache.find(c => c.id === catId);
+    if (!cat || !Array.isArray(cat.meta_aplicacoes) || !cat.meta_aplicacoes[idx]) return;
+    cat.meta_aplicacoes[idx][campo] = campo === 'valor' ? (parseValorBR(valor) || 0) : valor.trim();
+    const el = document.getElementById('meta-aplic-resumo-' + catId);
+    if (el) el.innerHTML = metaAplicacoesResumoHtml(cat.meta_aplicacoes, finMetasAcumuladoCache[catId] || 0);
+    await salvarMetaAplicacoes(catId);
+  }
+
+  async function excluirMetaAplicacao(catId, idx) {
+    const cat = finCategoriasCache.find(c => c.id === catId);
+    if (!cat || !Array.isArray(cat.meta_aplicacoes)) return;
+    cat.meta_aplicacoes = cat.meta_aplicacoes.filter((_, i) => i !== idx);
+    renderFinMetasTab();
+    await salvarMetaAplicacoes(catId);
   }
 
   function renderFinCardsV2() {
@@ -6360,6 +6437,7 @@
       document.getElementById('fincat-modal-eh-meta').checked = !!cat.eh_meta;
       document.getElementById('fincat-modal-meta-valor').value = cat.meta_valor ? formatValorBR(cat.meta_valor) : '';
       document.getElementById('fincat-modal-meta-data').value = cat.meta_data || '';
+      document.getElementById('fincat-modal-meta-detalhar').checked = !!cat.meta_detalhar;
       document.getElementById('fincat-modal-eh-assinatura').checked = !!cat.eh_assinatura;
       document.getElementById('fincat-modal-eh-gabarito').checked = !!cat.eh_gabarito;
       document.getElementById('fincat-modal-eh-limite').checked = cat.limite_gasto != null;
@@ -6373,6 +6451,7 @@
       document.getElementById('fincat-modal-eh-meta').checked = false;
       document.getElementById('fincat-modal-meta-valor').value = '';
       document.getElementById('fincat-modal-meta-data').value = '';
+      document.getElementById('fincat-modal-meta-detalhar').checked = false;
       document.getElementById('fincat-modal-eh-assinatura').checked = false;
       // Vem marcado por padrão numa categoria nova — a regra geral do
       // app é "recorrente repete sozinho"; quem cadastra uma categoria
@@ -6438,18 +6517,19 @@
     const eh_meta = document.getElementById('fincat-modal-eh-meta').checked;
     const meta_valor = eh_meta ? parseValorBR(document.getElementById('fincat-modal-meta-valor').value) : null;
     const meta_data = eh_meta ? (document.getElementById('fincat-modal-meta-data').value || null) : null;
+    const meta_detalhar = eh_meta && document.getElementById('fincat-modal-meta-detalhar').checked;
     const eh_assinatura = document.getElementById('fincat-modal-eh-assinatura').checked;
     const eh_gabarito = document.getElementById('fincat-modal-eh-gabarito').checked;
     const eh_limite = document.getElementById('fincat-modal-eh-limite').checked;
     const limite_gasto = eh_limite ? parseValorBR(document.getElementById('fincat-modal-limite-valor').value) : null;
 
     if (id) {
-      const { error } = await sb.from('fin_categories').update({ nome, tag_id, expansivel, eh_meta, meta_valor, meta_data, eh_assinatura, eh_gabarito, limite_gasto }).eq('id', id);
+      const { error } = await sb.from('fin_categories').update({ nome, tag_id, expansivel, eh_meta, meta_valor, meta_data, meta_detalhar, eh_assinatura, eh_gabarito, limite_gasto }).eq('id', id);
       if (error) { alert('Erro ao salvar categoria: ' + error.message); return; }
     } else {
       const doContexto = finCategoriasCache.filter(c => c.contexto === contexto && c.tipo === 'despesa');
       const ordem = doContexto.length ? Math.max(...doContexto.map(c => c.ordem || 0)) + 10 : 0;
-      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag_id, expansivel, ordem, eh_meta, meta_valor, meta_data, eh_assinatura, eh_gabarito, limite_gasto });
+      const { error } = await sb.from('fin_categories').insert({ contexto, tipo: 'despesa', nome, tag_id, expansivel, ordem, eh_meta, meta_valor, meta_data, meta_detalhar, eh_assinatura, eh_gabarito, limite_gasto });
       if (error) { alert('Erro ao criar categoria: ' + error.message); return; }
     }
     fecharFinCategoriaModal();
