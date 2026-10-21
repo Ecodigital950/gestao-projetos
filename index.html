@@ -496,6 +496,11 @@
   .drv-v-corpo img, .drv-v-corpo video { max-width: 100%; max-height: 100%; border-radius: 6px; }
   .drv-v-corpo iframe { width: 100%; height: 100%; border: 0; border-radius: 6px; background: #fff; }
   .drv-v-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: 1px solid var(--card-border); color: #fff; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; padding: 0; }
+  #drv-menu { display: none; position: fixed; z-index: 2100; min-width: 210px; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,0.55); }
+  #drv-menu.aberto { display: block; }
+  #drv-menu button { display: flex; align-items: center; gap: 10px; width: 100%; background: transparent; border: 0; color: inherit; padding: 9px 10px; border-radius: 7px; cursor: pointer; font-size: 13.5px; text-align: left; }
+  #drv-menu button:hover { background: rgba(255,255,255,0.08); }
+  #drv-menu button small { display: block; color: var(--muted); font-size: 11px; }
   .drv-v-nav.esq { left: 14px; } .drv-v-nav.dir { right: 14px; }
   .drv-v-sem { text-align: center; color: var(--muted); font-size: 13.5px; }
   .drv-v-sem i { font-size: 56px; display: block; margin-bottom: 10px; }
@@ -1536,12 +1541,15 @@
 <div id="drv-viewer">
   <div class="drv-v-topo">
     <div class="drv-v-titulo"><span id="drv-v-nome"></span><small id="drv-v-info"></small></div>
+    <a id="drv-v-editar" class="row-action" style="text-decoration:none; display:none;" target="_blank" rel="noopener"><i class="ti ti-edit"></i> <span>Editar no Drive</span></a>
     <a id="drv-v-baixar" class="row-action" style="text-decoration:none;" download><i class="ti ti-download"></i> Baixar</a>
     <span id="drv-v-excluir" class="row-action danger" style="cursor:pointer;" onclick="driveExcluirDoVisualizador()"><i class="ti ti-trash"></i> Excluir</span>
     <button class="row-action" onclick="fecharVisualizadorAnexo()" style="font-size:18px; line-height:1; padding:2px 8px;" title="Fechar (Esc)">✕</button>
   </div>
   <div class="drv-v-corpo" id="drv-v-corpo"></div>
 </div>
+
+<div id="drv-menu"></div>
 
 <div id="criativo-status-dropdown-popover" class="criativo-status-dropdown-popover"></div>
 <div id="criativo-video-preview-popover" class="criativos-video-preview-popover"></div>
@@ -4440,7 +4448,7 @@
       const tipo = driveTipo(a), l = driveLinks[a.id];
       const tarefa = k === 'p' && a.task_id ? (tasksCache.find(t => t.id === a.task_id) || {}).titulo : '';
       const meta = [driveFmtBytes(a.tamanho), tarefa ? 'tarefa: ' + tarefa : ''].filter(Boolean).join(' · ');
-      return `<div class="drv-item" onclick="abrirVisualizadorAnexo('${k}', ${i})" title="${escapeHtml(a.nome)}">
+      return `<div class="drv-item" onclick="driveMenuAnexo(event, '${k}', ${i})" title="${escapeHtml(a.nome)}">
         <div class="drv-thumb">${tipo === 'img' && l ? `<img loading="lazy" src="${l.u}" alt="">` : `<i class="ti ${driveIcone(tipo)}"></i>`}</div>
         <div class="drv-nome">${escapeHtml(a.nome)}</div>
         <div class="drv-meta">${escapeHtml(meta) || '&nbsp;'}</div>
@@ -4572,6 +4580,39 @@
     if ((c.taskId || c.projectId) === (tid || pid)) await driveCarregarLista(k);
   }
 
+  // ---- Menu do arquivo: Visualizar / Editar no Drive ----
+  let driveMenuAlvo = null;
+  function driveUrlEdicao(a) {
+    const ext = ((a.nome || '').split('.').pop() || '').toLowerCase(), id = a.drive_file_id;
+    if (['doc', 'docx', 'odt'].includes(ext)) return { url: `https://docs.google.com/document/d/${id}/edit`, rotulo: 'Editar no Drive', sub: 'Abre o editor do Google em nova aba' };
+    if (['xls', 'xlsx', 'ods'].includes(ext)) return { url: `https://docs.google.com/spreadsheets/d/${id}/edit`, rotulo: 'Editar no Drive', sub: 'Abre o editor do Google em nova aba' };
+    if (['ppt', 'pptx', 'odp'].includes(ext)) return { url: `https://docs.google.com/presentation/d/${id}/edit`, rotulo: 'Editar no Drive', sub: 'Abre o editor do Google em nova aba' };
+    return { url: `https://drive.google.com/file/d/${id}/view`, rotulo: 'Abrir no Drive', sub: 'Abre no Google Drive em nova aba' };
+  }
+  function driveMenuAnexo(ev, k, i) {
+    ev.stopPropagation();
+    const a = DRV[k] && DRV[k].lista[i];
+    if (!a) return;
+    driveMenuAlvo = { k, i };
+    const m = document.getElementById('drv-menu');
+    // Só o dono do espaço está logado na conta Google dona do Drive.
+    const ed = currentPapel === 'dono' ? driveUrlEdicao(a) : null;
+    m.innerHTML = `<button type="button" onclick="driveMenuVisualizar()"><i class="ti ti-eye"></i><span>Visualizar<small>Abre aqui no gestor</small></span></button>` +
+      (ed ? `<button type="button" onclick="driveMenuEditar()"><i class="ti ti-edit"></i><span>${ed.rotulo}<small>${ed.sub}</small></span></button>` : '');
+    m.classList.add('aberto');
+    const w = m.offsetWidth, h = m.offsetHeight;
+    m.style.left = Math.max(8, Math.min(ev.clientX, innerWidth - w - 8)) + 'px';
+    m.style.top = Math.max(8, Math.min(ev.clientY, innerHeight - h - 8)) + 'px';
+  }
+  function driveFecharMenu() { document.getElementById('drv-menu').classList.remove('aberto'); }
+  function driveMenuVisualizar() { const t = driveMenuAlvo; driveFecharMenu(); if (t) abrirVisualizadorAnexo(t.k, t.i); }
+  function driveMenuEditar() {
+    const t = driveMenuAlvo; driveFecharMenu();
+    const a = t && DRV[t.k].lista[t.i];
+    if (a) window.open(driveUrlEdicao(a).url, '_blank', 'noopener');
+  }
+  document.addEventListener('click', e => { if (!e.target.closest('#drv-menu')) driveFecharMenu(); });
+
   // ---- Visualizador ----
   async function abrirVisualizadorAnexo(k, i) {
     driveVis = { k, i };
@@ -4591,6 +4632,11 @@
     const baixar = document.getElementById('drv-v-baixar');
     baixar.href = url + '&d=1';
     baixar.setAttribute('download', a.nome);
+    const edBtn = document.getElementById('drv-v-editar');
+    if (currentPapel === 'dono') {
+      const ed = driveUrlEdicao(a);
+      edBtn.href = ed.url; edBtn.querySelector('span').textContent = ed.rotulo; edBtn.style.display = '';
+    } else edBtn.style.display = 'none';
     let html;
     if (tipo === 'img') html = `<img src="${url}" alt="${escapeHtml(a.nome)}">`;
     else if (tipo === 'video') html = `<video src="${url}" controls autoplay playsinline></video>`;
@@ -4627,7 +4673,7 @@
   }
   document.addEventListener('keydown', e => {
     if (!document.getElementById('drv-viewer').classList.contains('aberto')) return;
-    if (e.key === 'Escape') { e.stopPropagation(); fecharVisualizadorAnexo(); }
+    if (e.key === 'Escape') { e.stopPropagation(); if (document.getElementById('drv-menu').classList.contains('aberto')) driveFecharMenu(); else fecharVisualizadorAnexo(); }
     else if (e.key === 'ArrowLeft') driveNavegar(-1);
     else if (e.key === 'ArrowRight') driveNavegar(1);
   }, true);
