@@ -4596,7 +4596,7 @@
     else if (tipo === 'video') html = `<video src="${url}" controls autoplay playsinline></video>`;
     else if (tipo === 'audio') html = `<audio src="${url}" controls autoplay></audio>`;
     else if (tipo === 'pdf' || tipo === 'texto') html = `<iframe src="${url}" title="${escapeHtml(a.nome)}"></iframe>`;
-    else if (tipo === 'office') html = `<iframe src="https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(url)}" title="${escapeHtml(a.nome)}"></iframe>`;
+    else if (tipo === 'office') html = `<iframe src="https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}" title="${escapeHtml(a.nome)}"></iframe>`;
     else html = `<div class="drv-v-sem"><i class="ti ti-file"></i>Sem pré-visualização para este tipo de arquivo.<br>Use o botão Baixar.</div>`;
     if (c.lista.length > 1) {
       html += `<button class="drv-v-nav esq" onclick="driveNavegar(-1)" title="Anterior (←)">‹</button><button class="drv-v-nav dir" onclick="driveNavegar(1)" title="Próximo (→)">›</button>`;
