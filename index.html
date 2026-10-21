@@ -466,6 +466,39 @@
   .tm-fin-row input { font-size: 12px; padding: 5px 6px; }
   .tm-fin-row input.tm-fin-valor { text-align: right; }
   .tm-fin-tipo { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; font-weight: 700; user-select: none; }
+  /* ---- Anexos (Google Drive) ---- */
+  .drv-box { background: rgba(255,255,255,0.03); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; margin-bottom: 16px; }
+  .drv-topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
+  .drv-drop { border: 1.5px dashed var(--card-border); border-radius: 10px; padding: 12px; text-align: center; font-size: 12.5px; color: var(--muted); cursor: pointer; transition: border-color .15s, background .15s; }
+  .drv-drop:hover, .drv-drop.sobre { border-color: var(--info); background: rgba(56,189,248,0.06); color: var(--text); }
+  .drv-drop.off { cursor: default; opacity: .75; }
+  .drv-drop.off:hover { border-color: var(--card-border); background: transparent; color: var(--muted); }
+  .drv-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; margin-top: 10px; }
+  .drv-item { position: relative; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; cursor: pointer; background: rgba(255,255,255,0.03); display: flex; flex-direction: column; }
+  .drv-item:hover { border-color: var(--info); }
+  .drv-thumb { height: 72px; display: flex; align-items: center; justify-content: center; font-size: 28px; color: var(--muted); background: rgba(0,0,0,0.25); overflow: hidden; }
+  .drv-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .drv-nome { font-size: 11.5px; padding: 5px 7px 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drv-meta { font-size: 10.5px; color: var(--muted); padding: 0 7px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drv-env { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .drv-env-row { font-size: 12px; }
+  .drv-env-row .barra { height: 4px; border-radius: 3px; background: rgba(255,255,255,0.08); margin-top: 3px; overflow: hidden; }
+  .drv-env-row .barra > div { height: 100%; width: 0; background: var(--info); transition: width .2s; }
+  .drv-env-row.erro { color: var(--neg); }
+  #drv-viewer, #drv-proj-overlay { display: none; position: fixed; inset: 0; z-index: 2000; }
+  #drv-viewer.aberto { display: flex; flex-direction: column; background: rgba(5,8,16,0.94); }
+  #drv-proj-overlay { z-index: 1000; background: rgba(0,0,0,0.55); align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  #drv-proj-overlay.aberto { display: flex; }
+  .drv-v-topo { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--card-border); }
+  .drv-v-titulo { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .drv-v-titulo small { display: block; font-weight: 400; font-size: 11.5px; color: var(--muted); }
+  .drv-v-corpo { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; padding: 12px; }
+  .drv-v-corpo img, .drv-v-corpo video { max-width: 100%; max-height: 100%; border-radius: 6px; }
+  .drv-v-corpo iframe { width: 100%; height: 100%; border: 0; border-radius: 6px; background: #fff; }
+  .drv-v-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: 1px solid var(--card-border); color: #fff; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .drv-v-nav.esq { left: 14px; } .drv-v-nav.dir { right: 14px; }
+  .drv-v-sem { text-align: center; color: var(--muted); font-size: 13.5px; }
+  .drv-v-sem i { font-size: 56px; display: block; margin-bottom: 10px; }
   /* ---- Caixa de giro: valor atual editável + histórico de alterações ---- */
   .fin-caixa-giro-card { margin-bottom: 16px; }
   .fin-caixa-giro-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
@@ -1109,6 +1142,14 @@
             <label class="tm-section-label">Descrição</label>
             <textarea id="tm-descricao" class="tm-box tm-descricao-area" placeholder="Adicione uma descrição..." style="width:100%; margin-bottom:16px;" onblur="salvarCampoTarefaModal('descricao', this.value.trim())"></textarea>
 
+            <div class="drv-box">
+              <div class="drv-topo">
+                <label class="tm-section-label" style="margin:0;"><i class="ti ti-paperclip"></i> Anexos</label>
+                <span id="tm-anexos-contador" style="font-size:11px; color:var(--muted);"></span>
+              </div>
+              <div id="tm-anexos-area"></div>
+            </div>
+
             <div class="tm-fin-box">
               <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
                 <label class="tm-section-label" style="margin:0;"><i class="ti ti-coin"></i> Financeiro</label>
@@ -1183,7 +1224,7 @@
         <div class="card">
           <p class="placeholder" style="margin-bottom:12px;">A cor e a imagem de fundo aparecem atrás do Kanban quando você filtra as Tarefas por esse projeto — igual o fundo de quadro do Trello. Itens marcados como "origem financeira" ficam de fora do Kanban e só servem pra identificar receitas/despesas no Financeiro.</p>
           <table>
-            <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th><th>Cor de fundo <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('fundoquadro', event)"></i></th><th>Imagem de fundo (URL)</th><th>Acesso</th><th>Ações</th></tr></thead>
+            <thead><tr><th>Nome</th><th>Status</th><th>Início</th><th>Fim</th><th>Cor de fundo <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('fundoquadro', event)"></i></th><th>Imagem de fundo (URL)</th><th>Arquivos</th><th>Acesso</th><th>Ações</th></tr></thead>
             <tbody id="projetos-tbody"></tbody>
           </table>
           <p class="empty-note" id="projetos-empty" style="display:none;">Nenhum projeto cadastrado ainda.</p>
@@ -1209,6 +1250,11 @@
             <div><button onclick="alterarMinhaSenha()">Alterar senha</button></div>
           </div>
           <div id="minha-senha-msg" class="login-msg"></div>
+        </div>
+        <div class="card" id="card-drive">
+          <h3 style="margin-top:0;"><i class="ti ti-brand-google-drive"></i> Google Drive</h3>
+          <p class="placeholder" style="margin-bottom:12px;">Os arquivos enviados nos projetos e nas tarefas ficam guardados no Drive, numa pasta "Gestor de Projetos" com uma subpasta para cada projeto, e abrem aqui dentro, sem precisar entrar no Drive.</p>
+          <div id="drive-status"></div>
         </div>
         <div class="card" id="card-solicitacoes" style="display:none;">
           <h3 style="margin-top:0;">Solicitações de acesso <span id="solic-badge" style="display:none;margin-left:8px;background:var(--neg);color:#fff;border-radius:10px;padding:1px 8px;font-size:12px;font-weight:600;vertical-align:middle;"></span></h3>
@@ -1475,6 +1521,28 @@
   </div>
 </div>
 
+<!-- Arquivos do projeto (Google Drive) -->
+<div id="drv-proj-overlay" onclick="if(event.target===this) fecharArquivosProjeto()">
+  <div class="card tarefa-modal-card" style="width:560px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+      <h3 style="margin:0;"><i class="ti ti-folder"></i> Arquivos — <span id="drv-proj-nome"></span></h3>
+      <button class="row-action" onclick="fecharArquivosProjeto()" style="font-size:16px; line-height:1; padding:2px 6px;">✕</button>
+    </div>
+    <div id="drv-proj-area"></div>
+  </div>
+</div>
+
+<!-- Visualizador de arquivos (sem sair do gestor) -->
+<div id="drv-viewer">
+  <div class="drv-v-topo">
+    <div class="drv-v-titulo"><span id="drv-v-nome"></span><small id="drv-v-info"></small></div>
+    <a id="drv-v-baixar" class="row-action" style="text-decoration:none;" download><i class="ti ti-download"></i> Baixar</a>
+    <span id="drv-v-excluir" class="row-action danger" style="cursor:pointer;" onclick="driveExcluirDoVisualizador()"><i class="ti ti-trash"></i> Excluir</span>
+    <button class="row-action" onclick="fecharVisualizadorAnexo()" style="font-size:18px; line-height:1; padding:2px 8px;" title="Fechar (Esc)">✕</button>
+  </div>
+  <div class="drv-v-corpo" id="drv-v-corpo"></div>
+</div>
+
 <div id="criativo-status-dropdown-popover" class="criativo-status-dropdown-popover"></div>
 <div id="criativo-video-preview-popover" class="criativos-video-preview-popover"></div>
 
@@ -1498,6 +1566,7 @@
   let currentProfile = null;
   let currentWorkspaceId = null;
   let currentWorkspaceNome = '';
+  let currentPapel = null;
 
   // IDs de quem está no meu espaço (o superadmin enxerga todos os perfis,
   // mas as listas internas devem mostrar só a equipe do espaço atual).
@@ -1765,6 +1834,7 @@
     const espaco = (meusEspacos || []).find(m => m.papel === 'dono') || (meusEspacos || [])[0];
     currentWorkspaceId = espaco ? espaco.workspace_id : null;
     currentWorkspaceNome = espaco && espaco.workspaces ? espaco.workspaces.nome : '';
+    currentPapel = espaco ? espaco.papel : null;
     if (!currentWorkspaceId) {
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('app-screen').style.display = 'none';
@@ -1792,6 +1862,7 @@
     renderNav();
     const firstModule = MODULES.find(m => currentPermissions.has(m));
     if (firstModule) showView(firstModule);
+    driveCarregarStatus().then(driveTratarRetorno);
     renderPermissoesChecklist('novo-user-permissoes', []); // nada marcado por padrão — acesso explícito, não implícito
     // Delegação (sobrevive ao innerHTML ser reescrito a cada render do
     // checklist): mostra/esconde "Quais projetos ela vai enxergar?"
@@ -1895,6 +1966,7 @@
       tr.innerHTML = `<td><input type="text" value="${escapeHtml(p.nome)}" style="width:160px;" onblur="salvarNomeProjeto('${p.id}', this.value.trim(), this)"><br>${badgeCentroCusto}</td><td>${escapeHtml(p.status)}</td><td>${p.data_inicio || '-'}</td><td>${p.data_fim || '-'}</td>
         <td><input type="color" value="${p.cor_fundo || '#0f1526'}" style="height:28px; padding:1px; width:44px;" onchange="salvarCorFundoProjeto('${p.id}', this.value)"></td>
         <td><input type="text" value="${escapeHtml(p.imagem_fundo_url || '')}" placeholder="https://..." style="width:160px;" onblur="salvarImagemFundoProjeto('${p.id}', this.value.trim())"></td>
+        <td>${p.eh_centro_custo ? '<span class="fin-card-sub">—</span>' : `<span class="row-action" style="cursor:pointer;" onclick="abrirArquivosProjeto('${p.id}')"><i class="ti ti-folder"></i> Arquivos</span>`}</td>
         <td>${podeCompartilhar ? `<span class="row-action" style="cursor:pointer;" onclick="abrirProjAcessoModal('${p.id}')"><i class="ti ti-users"></i> Compartilhar</span>` : '<span class="fin-card-sub">—</span>'}</td>
         <td><span class="row-action danger" style="cursor:pointer;" onclick="excluirProjeto('${p.id}', '${escapeHtml(p.nome).replace(/'/g, "\\'")}')"><i class="ti ti-trash"></i> Excluir</span></td>`;
       tbody.appendChild(tr);
@@ -4158,6 +4230,7 @@
     renderEtiquetasModal();
     renderResponsaveisModal();
     carregarLancamentosTarefa(id);
+    driveMontarAnexosTarefa(id);
     document.getElementById('tarefa-modal-overlay').classList.add('aberto');
   }
 
@@ -4229,6 +4302,336 @@
     renderLancamentosTarefa();
   }
 
+  // =====================================================================
+  // Google Drive: anexos em tarefas e projetos, com visualizador interno.
+  // O arquivo vai direto do navegador pro Drive (sessão de upload criada
+  // pela função "drive"); pra abrir, a função "drive" entrega o arquivo
+  // com link assinado de 2h — quem não tem acesso ao projeto não recebe
+  // link (RLS da tabela anexos).
+  // =====================================================================
+  const DRIVE_FN = SUPABASE_URL + '/functions/v1/drive';
+  let driveConexao = null;
+  const DRV = {
+    t: { pre: 'drvt', area: 'tm-anexos-area', projectId: null, taskId: null, lista: [], envios: [] },
+    p: { pre: 'drvp', area: 'drv-proj-area', projectId: null, taskId: null, lista: [], envios: [] }
+  };
+  const driveLinks = {}; // id do anexo -> { u: url assinada, t: quando pegou }
+  let driveVis = { k: null, i: -1 };
+
+  async function driveChamar(body) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw Object.assign(new Error('Sessão expirada. Entre de novo.'), { codigo: 'nao_autenticado' });
+    const r = await fetch(DRIVE_FN, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token, 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify(body)
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw Object.assign(new Error(j.erro || ('erro_' + r.status)), { codigo: j.erro });
+    return j;
+  }
+  function driveMsgErro(e) {
+    const c = (e && (e.codigo || e.message)) || '';
+    if (c === 'drive_nao_conectado' || c === 'drive_desconectado') return 'Drive desconectado. Reconecte em Configurações.';
+    if (c === 'sem_permissao' || c === 'sem_acesso_projeto' || c === 'sem_acesso_tarefa') return 'Você não tem permissão para isso neste projeto.';
+    if (c === 'rede') return 'Falha de conexão durante o envio.';
+    return 'Erro: ' + (e && e.message ? e.message : c);
+  }
+  function driveFmtBytes(n) {
+    if (n === null || n === undefined || n === '') return '';
+    const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0, v = Number(n);
+    while (v >= 1024 && i < 4) { v /= 1024; i++; }
+    return (i ? v.toFixed(v >= 10 ? 0 : 1) : v) + ' ' + u[i];
+  }
+  function driveTipo(a) {
+    const m = (a.mime || '').toLowerCase(), ext = ((a.nome || '').split('.').pop() || '').toLowerCase();
+    if (m.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'avif'].includes(ext)) return 'img';
+    if (m === 'application/pdf' || ext === 'pdf') return 'pdf';
+    if (m.startsWith('video/') || ['mp4', 'mov', 'webm', 'm4v', 'mkv'].includes(ext)) return 'video';
+    if (m.startsWith('audio/') || ['mp3', 'wav', 'm4a', 'ogg', 'aac'].includes(ext)) return 'audio';
+    if (m.startsWith('text/') || ['txt', 'md', 'csv', 'json'].includes(ext)) return 'texto';
+    if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp'].includes(ext)) return 'office';
+    return 'outro';
+  }
+  function driveIcone(tipo) {
+    return { img: 'ti-photo', pdf: 'ti-file-text', video: 'ti-video', audio: 'ti-music', texto: 'ti-file-text', office: 'ti-file-text' }[tipo] || 'ti-file';
+  }
+
+  // ---- Conexão (Configurações) ----
+  async function driveCarregarStatus() {
+    if (!currentWorkspaceId) return;
+    const { data } = await sb.from('drive_conexoes').select('email,created_at').eq('workspace_id', currentWorkspaceId).maybeSingle();
+    driveConexao = data || null;
+    driveRenderStatus();
+    if (tarefaModalId) driveMontarAnexosTarefa(tarefaModalId);
+  }
+  function driveRenderStatus() {
+    const el = document.getElementById('drive-status');
+    if (!el) return;
+    const dono = currentPapel === 'dono';
+    if (driveConexao) {
+      el.innerHTML = `<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span style="color:var(--pos);font-weight:600;"><i class="ti ti-circle-check"></i> Conectado</span>
+          <span>${escapeHtml(driveConexao.email || '')}</span>
+          ${dono ? '<button type="button" class="secondary" onclick="driveDesconectar()">Desconectar</button>' : ''}
+        </div>
+        <p class="placeholder" style="margin-top:8px;">Desconectar não apaga nada do Drive — só deixa de abrir os arquivos aqui dentro.</p>`;
+    } else {
+      el.innerHTML = dono
+        ? `<button type="button" onclick="driveConectar()"><i class="ti ti-brand-google-drive"></i> Conectar Google Drive</button>
+           <p class="placeholder" style="margin-top:8px;">Você entra com a sua conta Google e autoriza o acesso somente aos arquivos que o gestor criar. O resto do seu Drive continua invisível pra ele.</p>`
+        : '<p class="placeholder">Ainda não conectado. Quem é dono deste espaço precisa conectar o Drive.</p>';
+    }
+  }
+  async function driveConectar() {
+    try {
+      const r = await driveChamar({ acao: 'autorizar', volta: location.origin + location.pathname });
+      location.href = r.url;
+    } catch (e) {
+      alert(e.codigo === 'google_nao_configurado'
+        ? 'O Google ainda não foi configurado neste sistema (faltam o Client ID e o Secret).'
+        : 'Não foi possível iniciar a conexão: ' + e.message);
+    }
+  }
+  async function driveDesconectar() {
+    if (!confirm('Desconectar o Google Drive? Os arquivos continuam no Drive, mas deixam de abrir no gestor até você reconectar.')) return;
+    try { await driveChamar({ acao: 'desconectar' }); } catch (e) { alert(driveMsgErro(e)); return; }
+    await driveCarregarStatus();
+  }
+  function driveTratarRetorno() {
+    const q = new URLSearchParams(location.search);
+    const d = q.get('drive');
+    if (!d) return;
+    q.delete('drive');
+    history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash);
+    if (currentPermissions.has('configuracoes')) showView('configuracoes');
+    alert(d === 'ok' ? 'Google Drive conectado!' : d === 'cancelado' ? 'Conexão cancelada.' : 'Não foi possível conectar o Drive. Tente de novo.');
+  }
+  function driveIrConfig() { fecharTarefaModal(); fecharArquivosProjeto(); showView('configuracoes'); }
+
+  // ---- Área de anexos (tarefa e projeto compartilham o mesmo código) ----
+  function driveRenderArea(k) {
+    const c = DRV[k], el = document.getElementById(c.area);
+    if (!el) return;
+    if (!driveConexao) {
+      el.innerHTML = `<div class="drv-drop off"><i class="ti ti-brand-google-drive"></i> Google Drive não conectado. ${currentPapel === 'dono'
+        ? '<a href="#" onclick="driveIrConfig(); return false;">Conectar em Configurações</a>'
+        : 'Peça ao dono do espaço para conectar em Configurações.'}</div>`;
+      return;
+    }
+    el.innerHTML = `<div class="drv-drop" id="${c.pre}-drop" onclick="document.getElementById('${c.pre}-file').click()"
+        ondragover="driveArrastar(event,'${k}',true)" ondragleave="driveArrastar(event,'${k}',false)" ondrop="driveSoltar(event,'${k}')">
+        <i class="ti ti-cloud-upload"></i> Arraste arquivos aqui ou clique para enviar
+      </div>
+      <input type="file" multiple id="${c.pre}-file" style="display:none;" onchange="driveEscolhidos('${k}', this)">
+      <div class="drv-env" id="${c.pre}-env"></div>
+      <div class="drv-lista" id="${c.pre}-lista"></div>`;
+    driveRenderEnvios(k);
+    driveRenderLista(k);
+  }
+  function driveRenderLista(k) {
+    const c = DRV[k], el = document.getElementById(c.pre + '-lista');
+    if (k === 't') {
+      const ct = document.getElementById('tm-anexos-contador');
+      if (ct) ct.textContent = c.lista.length ? c.lista.length + (c.lista.length === 1 ? ' arquivo' : ' arquivos') : '';
+    }
+    if (!el) return;
+    el.innerHTML = c.lista.map((a, i) => {
+      const tipo = driveTipo(a), l = driveLinks[a.id];
+      const tarefa = k === 'p' && a.task_id ? (tasksCache.find(t => t.id === a.task_id) || {}).titulo : '';
+      const meta = [driveFmtBytes(a.tamanho), tarefa ? 'tarefa: ' + tarefa : ''].filter(Boolean).join(' · ');
+      return `<div class="drv-item" onclick="abrirVisualizadorAnexo('${k}', ${i})" title="${escapeHtml(a.nome)}">
+        <div class="drv-thumb">${tipo === 'img' && l ? `<img loading="lazy" src="${l.u}" alt="">` : `<i class="ti ${driveIcone(tipo)}"></i>`}</div>
+        <div class="drv-nome">${escapeHtml(a.nome)}</div>
+        <div class="drv-meta">${escapeHtml(meta) || '&nbsp;'}</div>
+      </div>`;
+    }).join('');
+  }
+  function driveRenderEnvios(k) {
+    const c = DRV[k], el = document.getElementById(c.pre + '-env');
+    if (!el) return;
+    el.innerHTML = c.envios.map(e => `<div class="drv-env-row ${e.erro ? 'erro' : ''}">
+        ${escapeHtml(e.nome)} — ${e.erro ? escapeHtml(e.erro) + ` <span class="row-action" style="cursor:pointer;" onclick="driveDispensarEnvio('${k}','${e.id}')">dispensar</span>` : e.pct + '%'}
+        ${e.erro ? '' : `<div class="barra"><div style="width:${e.pct}%"></div></div>`}
+      </div>`).join('');
+  }
+  function driveDispensarEnvio(k, id) { DRV[k].envios = DRV[k].envios.filter(e => e.id !== id); driveRenderEnvios(k); }
+
+  async function driveGarantirLinks(lista) {
+    const agora = Date.now();
+    const falt = lista.filter(a => !driveLinks[a.id] || agora - driveLinks[a.id].t > 100 * 60 * 1000).map(a => a.id);
+    if (!falt.length) return;
+    const r = await driveChamar({ acao: 'links', anexo_ids: falt });
+    Object.entries(r.links || {}).forEach(([id, u]) => { driveLinks[id] = { u, t: agora }; });
+  }
+  async function driveCarregarLista(k) {
+    const c = DRV[k];
+    if (!driveConexao) return;
+    const chave = c.taskId || c.projectId;
+    let q = sb.from('anexos').select('*').order('created_at', { ascending: false });
+    q = c.taskId ? q.eq('task_id', c.taskId) : q.eq('project_id', c.projectId);
+    const { data, error } = await q;
+    if (error || (c.taskId || c.projectId) !== chave) return;
+    c.lista = data || [];
+    driveRenderLista(k);
+    try {
+      await driveGarantirLinks(c.lista.filter(a => driveTipo(a) === 'img'));
+      if ((c.taskId || c.projectId) === chave) driveRenderLista(k);
+    } catch (e) { console.warn('links do Drive', e); }
+  }
+  function driveMontarAnexosTarefa(taskId) {
+    const t = tasksCache.find(x => x.id === taskId), c = DRV.t;
+    c.taskId = taskId; c.projectId = t ? t.project_id : null; c.lista = []; c.envios = [];
+    const area = document.getElementById(c.area);
+    if (!area) return;
+    const ct = document.getElementById('tm-anexos-contador');
+    if (ct) ct.textContent = '';
+    if (!c.projectId) {
+      area.innerHTML = '<p class="placeholder" style="margin:0;">Escolha um projeto para esta tarefa para poder anexar arquivos.</p>';
+      return;
+    }
+    driveRenderArea('t');
+    driveCarregarLista('t');
+  }
+  async function abrirArquivosProjeto(projectId) {
+    const p = (typeof projectsCache !== 'undefined' && projectsCache.find(x => x.id === projectId)) || (await sb.from('projects').select('id,nome').eq('id', projectId).maybeSingle()).data;
+    if (!p) return;
+    const c = DRV.p;
+    c.projectId = projectId; c.taskId = null; c.lista = []; c.envios = [];
+    document.getElementById('drv-proj-nome').textContent = p.nome;
+    document.getElementById('drv-proj-overlay').classList.add('aberto');
+    driveRenderArea('p');
+    driveCarregarLista('p');
+  }
+  function fecharArquivosProjeto() { document.getElementById('drv-proj-overlay').classList.remove('aberto'); DRV.p.projectId = null; }
+
+  // ---- Envio ----
+  function driveArrastar(e, k, on) {
+    e.preventDefault();
+    const el = document.getElementById(DRV[k].pre + '-drop');
+    if (el) el.classList.toggle('sobre', on);
+  }
+  function driveSoltar(e, k) { e.preventDefault(); driveArrastar(e, k, false); driveEnviar(k, [...e.dataTransfer.files]); }
+  function driveEscolhidos(k, input) { const f = [...input.files]; input.value = ''; driveEnviar(k, f); }
+
+  function drivePutChunks(url, file, onPct) {
+    const CH = 16 * 1024 * 1024; // múltiplo de 256 KiB, como o Drive exige
+    const total = file.size;
+    const enviar = (ini, fim) => new Promise((ok, err) => {
+      const x = new XMLHttpRequest();
+      x.open('PUT', url);
+      if (total > 0) x.setRequestHeader('Content-Range', `bytes ${ini}-${fim - 1}/${total}`);
+      x.upload.onprogress = ev => { if (ev.lengthComputable && total > 0) onPct(Math.min(99, Math.round((ini + ev.loaded) / total * 100))); };
+      x.onload = () => ok({ status: x.status, texto: x.responseText });
+      x.onerror = () => err(Object.assign(new Error('rede'), { codigo: 'rede' }));
+      x.send(total > 0 ? file.slice(ini, fim) : null);
+    });
+    return (async () => {
+      if (total === 0) {
+        const r = await enviar(0, 0);
+        if (r.status === 200 || r.status === 201) return JSON.parse(r.texto);
+        throw new Error('Drive recusou o arquivo (' + r.status + ')');
+      }
+      let ini = 0;
+      while (ini < total) {
+        const fim = Math.min(ini + CH, total);
+        let r, tent = 0;
+        for (;;) {
+          try { r = await enviar(ini, fim); break; }
+          catch (e) { if (++tent > 2) throw e; await new Promise(s => setTimeout(s, 1500 * tent)); }
+        }
+        if (r.status === 308) { ini = fim; continue; }
+        if (r.status === 200 || r.status === 201) { onPct(100); return JSON.parse(r.texto); }
+        throw new Error('Drive recusou o envio (' + r.status + ')');
+      }
+      throw new Error('Envio incompleto');
+    })();
+  }
+  async function driveEnviar(k, files) {
+    const c = DRV[k];
+    if (!files.length || !c.projectId) return;
+    const pid = c.projectId, tid = c.taskId;
+    for (const f of files) {
+      const env = { id: 'e' + Math.random().toString(36).slice(2), nome: f.name, pct: 0, erro: null };
+      c.envios.push(env);
+      driveRenderEnvios(k);
+      try {
+        const ini = await driveChamar({ acao: 'iniciar_upload', project_id: pid, task_id: tid, nome: f.name, mime: f.type || 'application/octet-stream', tamanho: f.size });
+        const resp = await drivePutChunks(ini.url, f, p => { env.pct = p; driveRenderEnvios(k); });
+        const { error } = await sb.from('anexos').insert({
+          workspace_id: currentWorkspaceId, project_id: pid, task_id: tid || null,
+          drive_file_id: resp.id, nome: f.name, mime: resp.mimeType || f.type || null, tamanho: f.size
+        });
+        if (error) throw error;
+        c.envios = c.envios.filter(x => x !== env);
+      } catch (e) {
+        env.erro = driveMsgErro(e);
+      }
+      driveRenderEnvios(k);
+    }
+    if ((c.taskId || c.projectId) === (tid || pid)) await driveCarregarLista(k);
+  }
+
+  // ---- Visualizador ----
+  async function abrirVisualizadorAnexo(k, i) {
+    driveVis = { k, i };
+    document.getElementById('drv-viewer').classList.add('aberto');
+    await driveRenderVisualizador();
+  }
+  async function driveRenderVisualizador() {
+    const { k, i } = driveVis, c = DRV[k], a = c && c.lista[i];
+    const corpo = document.getElementById('drv-v-corpo');
+    if (!a) { fecharVisualizadorAnexo(); return; }
+    document.getElementById('drv-v-nome').textContent = a.nome;
+    document.getElementById('drv-v-info').textContent = [driveFmtBytes(a.tamanho), (i + 1) + ' de ' + c.lista.length].filter(Boolean).join(' · ');
+    corpo.innerHTML = '<div class="drv-v-sem"><i class="ti ti-loader-2"></i>Carregando...</div>';
+    try { await driveGarantirLinks([a]); } catch (e) { corpo.innerHTML = `<div class="drv-v-sem"><i class="ti ti-alert-triangle"></i>${escapeHtml(driveMsgErro(e))}</div>`; return; }
+    if (driveVis.k !== k || driveVis.i !== i) return;
+    const url = driveLinks[a.id].u, tipo = driveTipo(a);
+    const baixar = document.getElementById('drv-v-baixar');
+    baixar.href = url + '&d=1';
+    baixar.setAttribute('download', a.nome);
+    let html;
+    if (tipo === 'img') html = `<img src="${url}" alt="${escapeHtml(a.nome)}">`;
+    else if (tipo === 'video') html = `<video src="${url}" controls autoplay playsinline></video>`;
+    else if (tipo === 'audio') html = `<audio src="${url}" controls autoplay></audio>`;
+    else if (tipo === 'pdf' || tipo === 'texto') html = `<iframe src="${url}" title="${escapeHtml(a.nome)}"></iframe>`;
+    else if (tipo === 'office') html = `<iframe src="https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(url)}" title="${escapeHtml(a.nome)}"></iframe>`;
+    else html = `<div class="drv-v-sem"><i class="ti ti-file"></i>Sem pré-visualização para este tipo de arquivo.<br>Use o botão Baixar.</div>`;
+    if (c.lista.length > 1) {
+      html += `<button class="drv-v-nav esq" onclick="driveNavegar(-1)" title="Anterior (←)">‹</button><button class="drv-v-nav dir" onclick="driveNavegar(1)" title="Próximo (→)">›</button>`;
+    }
+    corpo.innerHTML = html;
+  }
+  function driveNavegar(d) {
+    const c = DRV[driveVis.k];
+    if (!c || !c.lista.length) return;
+    driveVis.i = (driveVis.i + d + c.lista.length) % c.lista.length;
+    driveRenderVisualizador();
+  }
+  function fecharVisualizadorAnexo() {
+    document.getElementById('drv-viewer').classList.remove('aberto');
+    document.getElementById('drv-v-corpo').innerHTML = '';
+    driveVis = { k: null, i: -1 };
+  }
+  async function driveExcluirDoVisualizador() {
+    const { k, i } = driveVis, c = DRV[k], a = c && c.lista[i];
+    if (!a) return;
+    if (!confirm(`Excluir "${a.nome}"? O arquivo também será apagado do Google Drive.`)) return;
+    try { await driveChamar({ acao: 'excluir', anexo_id: a.id }); }
+    catch (e) { alert(driveMsgErro(e)); return; }
+    c.lista.splice(i, 1);
+    driveRenderLista(k);
+    if (!c.lista.length) fecharVisualizadorAnexo();
+    else { driveVis.i = Math.min(i, c.lista.length - 1); driveRenderVisualizador(); }
+  }
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('drv-viewer').classList.contains('aberto')) return;
+    if (e.key === 'Escape') { e.stopPropagation(); fecharVisualizadorAnexo(); }
+    else if (e.key === 'ArrowLeft') driveNavegar(-1);
+    else if (e.key === 'ArrowRight') driveNavegar(1);
+  }, true);
+
   function fecharTarefaModal() {
     document.getElementById('tarefa-modal-overlay').classList.remove('aberto');
     tarefaModalId = null;
@@ -4244,6 +4647,7 @@
     if (campo === 'coluna_id') await tratarMovimentoParaColuna(idAlvo, valor);
     await carregarTarefas();
     if (tarefaModalId === idAlvo) { renderChecklistModal(); renderEtiquetasModal(); }
+    if (campo === 'project_id' && tarefaModalId === idAlvo) driveMontarAnexosTarefa(idAlvo);
   }
 
   // ---- Etiquetas da tarefa (dentro do modal) ----
