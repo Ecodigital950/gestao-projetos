@@ -496,6 +496,11 @@
   .drv-v-corpo img, .drv-v-corpo video { max-width: 100%; max-height: 100%; border-radius: 6px; }
   .drv-v-corpo iframe { width: 100%; height: 100%; border: 0; border-radius: 6px; background: #fff; }
   .drv-v-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: 1px solid var(--card-border); color: #fff; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .lk-oculta { display: none !important; }
+  .lk-view { white-space: pre-wrap; word-break: break-word; overflow: auto; cursor: text; outline: none; }
+  .lk-view:focus-visible { box-shadow: 0 0 0 2px var(--info); }
+  .lk-view a { color: #8ab4f8; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+  .lk-view a:hover { color: #aecbfa; }
   #drv-menu { display: none; position: fixed; z-index: 2100; min-width: 210px; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,0.55); }
   #drv-menu.aberto { display: block; }
   #drv-menu button { display: flex; align-items: center; gap: 10px; width: 100%; background: transparent; border: 0; color: inherit; padding: 9px 10px; border-radius: 7px; cursor: pointer; font-size: 13.5px; text-align: left; }
@@ -7666,6 +7671,68 @@
   function escapeHtml(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
+
+  // ---- Links clicáveis nos campos de texto longo ----
+  // Fora de edição, o campo mostra o texto com os links em azul claro e clicáveis
+  // (abrem em nova aba). Clicar no texto (fora do link) volta pra edição.
+  const LK_URL = /https?:\/\/[^\s<>"']+/g;
+  function lkHtml(txt) {
+    let out = '', ult = 0, m;
+    LK_URL.lastIndex = 0;
+    while ((m = LK_URL.exec(txt))) {
+      let url = m[0], resto = '';
+      const fim = url.match(/[.,;:!?)\]]+$/);
+      if (fim) { resto = fim[0]; url = url.slice(0, -resto.length); }
+      out += escapeHtml(txt.slice(ult, m.index)) +
+        `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>` + escapeHtml(resto);
+      ult = m.index + m[0].length;
+    }
+    return out + escapeHtml(txt.slice(ult));
+  }
+  function lkAtualizar(ta) {
+    const v = ta._lkView;
+    if (!v) return;
+    LK_URL.lastIndex = 0;
+    if (document.activeElement !== ta && LK_URL.test(ta.value)) {
+      const cs = getComputedStyle(ta);
+      ['padding', 'border', 'borderRadius', 'background', 'color', 'fontSize', 'fontFamily', 'lineHeight', 'minHeight', 'maxHeight', 'margin', 'boxSizing'].forEach(p => { v.style[p] = cs[p]; });
+      v.style.width = ta.style.width || '100%';
+      if (ta.offsetHeight > 0) v.style.minHeight = ta.offsetHeight + 'px';
+      v.innerHTML = lkHtml(ta.value);
+      v.style.display = 'block';
+      ta.classList.add('lk-oculta');
+    } else {
+      v.style.display = 'none';
+      ta.classList.remove('lk-oculta');
+    }
+  }
+  function lkAtivar(ta) {
+    if (!ta || ta._lkView) return;
+    const v = document.createElement('div');
+    v.className = 'lk-view';
+    v.tabIndex = 0;
+    v.style.display = 'none';
+    ta.insertAdjacentElement('afterend', v);
+    ta._lkView = v;
+    const editar = () => {
+      v.style.display = 'none';
+      ta.classList.remove('lk-oculta');
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+    };
+    const focoOriginal = ta.focus.bind(ta);
+    ta.focus = (...a) => { v.style.display = 'none'; ta.classList.remove('lk-oculta'); focoOriginal(...a); };
+    v.addEventListener('click', e => { if (!e.target.closest('a')) editar(); });
+    v.addEventListener('focus', editar);
+    ta.addEventListener('blur', () => lkAtualizar(ta));
+    const d = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+    Object.defineProperty(ta, 'value', { configurable: true, get() { return d.get.call(this); }, set(x) { d.set.call(this, x); lkAtualizar(this); } });
+    lkAtualizar(ta);
+  }
+  function lkAtivarTodos() {
+    ['tm-descricao', 'fin-notas', 'fin-notas-mes', 'tarefa-nota-rapida', 'criativo-texto-modal-valor'].forEach(id => lkAtivar(document.getElementById(id)));
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', lkAtivarTodos); else lkAtivarTodos();
 
   // ---- Criativos: planilha horizontal por criativo, filtrável por
   // projeto. Todo campo é digitado à mão por enquanto (Bruno pretende ligar
