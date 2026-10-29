@@ -496,6 +496,88 @@
   .drv-v-corpo img, .drv-v-corpo video { max-width: 100%; max-height: 100%; border-radius: 6px; }
   .drv-v-corpo iframe { width: 100%; height: 100%; border: 0; border-radius: 6px; background: #fff; }
   .drv-v-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); border: 1px solid var(--card-border); color: #fff; width: 38px; height: 38px; border-radius: 50%; cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; padding: 0; }
+  /* ---- Spy (ofertas minerads) ---- */
+  .spy-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .spy-head h2 { margin: 0 0 2px; }
+  .spy-head-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .spy-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .spy-kpi { position: relative; overflow: hidden; border-radius: 14px; padding: 14px 16px; color: #fff; background: linear-gradient(135deg, var(--a), var(--b)); box-shadow: 0 6px 18px rgba(0,0,0,0.28); }
+  .spy-kpi .l { font-size: 12px; opacity: .88; letter-spacing: .02em; }
+  .spy-kpi .v { font-size: 28px; font-weight: 700; line-height: 1.15; margin-top: 4px; }
+  .spy-kpi .s { font-size: 11.5px; opacity: .88; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .spy-kpi i.bg { position: absolute; right: -6px; bottom: -12px; font-size: 78px; opacity: .17; }
+  .spy-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .spy-search { position: relative; flex: 0 1 280px; min-width: 180px; }
+  .spy-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+  .spy-search input { width: 100%; padding-left: 32px; }
+  .spy-chips { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; min-width: 200px; }
+  .spy-chip { background: transparent; color: var(--text); border: 1px solid var(--cc); font-weight: 500; font-size: 12.5px; padding: 6px 12px; border-radius: 999px; display: inline-flex; align-items: center; gap: 7px; }
+  .spy-chip b { font-weight: 700; opacity: .9; }
+  .spy-chip.on { background: var(--cc); color: #0b1220; }
+  .spy-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .spy-seg { display: inline-flex; border: 1px solid var(--card-border); border-radius: 10px; overflow: hidden; }
+  .spy-seg button { background: transparent; color: var(--muted); border: 0; border-radius: 0; font-weight: 500; font-size: 13px; padding: 8px 13px; display: inline-flex; align-items: center; gap: 6px; }
+  .spy-seg button.on { background: var(--info); color: #06111f; font-weight: 600; }
+  .spy-tabela-wrap { overflow: auto; max-height: 72vh; border: 1px solid var(--card-border); border-radius: 14px; background: var(--card); }
+  .spy-tabela { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; font-size: 13px; }
+  .spy-tabela th { position: sticky; top: 0; z-index: 3; text-align: left; padding: 11px 12px; font-weight: 600; font-size: 12px; letter-spacing: .03em; color: #fff; background: linear-gradient(135deg, #1e3a8a, #4f46e5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .spy-tabela td { padding: 8px 8px; border-bottom: 1px solid var(--card-border); vertical-align: middle; overflow: hidden; }
+  .spy-tabela tbody tr:nth-child(even) td { background: rgba(255,255,255,0.025); }
+  .spy-tabela tbody tr:hover td { background: rgba(56,189,248,0.07); }
+  .spy-tabela td:first-child { box-shadow: inset 4px 0 0 var(--c); }
+  .spy-in { width: 100%; background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 7px 8px; color: var(--text); font-size: 13px; min-width: 0; }
+  .spy-in:hover { border-color: var(--card-border); }
+  .spy-in:focus { background: #0f1526; border-color: var(--info); outline: none; }
+  .spy-in.box { background: #0f1526; border-color: var(--card-border); padding: 9px 11px; font-size: 14px; }
+  .spy-moeda { display: flex; align-items: center; gap: 4px; }
+  .spy-moeda span { color: var(--muted); font-size: 12px; padding-left: 6px; }
+  .spy-linkcell { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .spy-linkcell a { display: inline-flex; align-items: center; gap: 5px; min-width: 0; color: #8ab4f8; text-decoration: none; background: rgba(138,180,248,0.1); border-radius: 7px; padding: 5px 9px; font-size: 12.5px; }
+  .spy-linkcell a:hover { background: rgba(138,180,248,0.2); text-decoration: underline; }
+  .spy-linkcell a span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spy-linkcell.tem input, .spy-linkcell:not(.tem) a, .spy-linkcell:not(.tem) .spy-ic { display: none; }
+  .spy-ic { background: transparent; color: var(--muted); border: 1px solid transparent; border-radius: 6px; padding: 5px 7px; font-size: 14px; line-height: 1; flex-shrink: 0; }
+  .spy-ic:hover { color: var(--info); background: rgba(56,189,248,0.1); opacity: 1; }
+  .spy-ic.danger:hover { color: var(--neg); background: rgba(248,113,113,0.12); }
+  .spy-pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid; font-size: 12.5px; font-weight: 600; padding: 6px 11px; border-radius: 999px; white-space: nowrap; max-width: 100%; }
+  .spy-pill i { font-size: 11px; opacity: .8; }
+  .spy-thumb { position: relative; width: 56px; height: 56px; border-radius: 10px; overflow: hidden; cursor: pointer; background: rgba(255,255,255,0.05); border: 1px dashed var(--card-border); display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 22px; }
+  .spy-thumb:hover { border-color: var(--info); color: var(--info); }
+  .spy-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .spy-thumb span { position: absolute; right: 3px; bottom: 3px; background: rgba(0,0,0,0.7); color: #fff; font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 999px; }
+  .spy-galeria { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+  .spy-card { position: relative; background: var(--card); border: 1px solid var(--card-border); border-radius: 16px; overflow: hidden; cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s; border-top: 4px solid var(--c); }
+  .spy-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,0.4); border-color: var(--c); }
+  .spy-card-img { position: relative; height: 170px; background: linear-gradient(135deg, var(--c), #1e1b4b); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .spy-card-img img { width: 100%; height: 100%; object-fit: cover; }
+  .spy-card-img .ini { font-size: 64px; font-weight: 800; color: rgba(255,255,255,0.35); }
+  .spy-card-img .st { position: absolute; left: 10px; top: 10px; }
+  .spy-card-img .n { position: absolute; right: 10px; bottom: 10px; background: rgba(0,0,0,0.7); color: #fff; font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; }
+  .spy-card-body { padding: 12px 14px 14px; }
+  .spy-card-nome { font-weight: 700; font-size: 15px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spy-card-nicho { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; min-height: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spy-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .spy-ads { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: 13px; color: #fbbf24; background: rgba(251,191,36,0.12); border-radius: 999px; padding: 4px 10px; }
+  .spy-card-meta a { color: #8ab4f8; background: rgba(138,180,248,0.1); border-radius: 999px; padding: 4px 10px; font-size: 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+  .spy-card-meta a:hover { background: rgba(138,180,248,0.22); }
+  .spy-vazio { text-align: center; padding: 56px 16px; color: var(--muted); border: 1px dashed var(--card-border); border-radius: 16px; }
+  .spy-vazio i { font-size: 52px; display: block; margin-bottom: 8px; color: var(--info); opacity: .7; }
+  .spy-overlay { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); align-items: flex-start; justify-content: center; padding: 40px 16px; overflow-y: auto; }
+  .spy-overlay.aberto { display: flex; }
+  .spy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .spy-grid .full { grid-column: 1 / -1; }
+  .spy-lb { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
+  .spy-lista-edit { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  .spy-lista-edit .linha { display: flex; align-items: center; gap: 8px; }
+  .spy-lista-edit .linha input[type=text] { flex: 1; min-width: 0; }
+  .spy-lista-edit input[type=color] { width: 38px; height: 34px; padding: 2px; flex-shrink: 0; cursor: pointer; }
+  .spy-lista-edit .cont { color: var(--muted); font-size: 12px; width: 70px; text-align: right; flex-shrink: 0; }
+  #spy-pop { display: none; position: fixed; z-index: 2100; min-width: 190px; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,0.55); }
+  #spy-pop.aberto { display: block; }
+  #spy-pop button { display: flex; align-items: center; gap: 9px; width: 100%; background: transparent; border: 0; color: inherit; padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 13.5px; text-align: left; font-weight: 500; }
+  #spy-pop button:hover { background: rgba(255,255,255,0.08); }
+  #spy-pop .sep { height: 1px; background: var(--card-border); margin: 4px 0; }
+  @media (max-width: 640px) { .spy-grid { grid-template-columns: 1fr; } }
   .lk-oculta { display: none !important; }
   .lk-view { white-space: pre-wrap; word-break: break-word; overflow: auto; cursor: text; outline: none; }
   .lk-view:focus-visible { box-shadow: 0 0 0 2px var(--info); }
@@ -1052,6 +1134,29 @@
           <p class="empty-note" id="criativos-empty" style="display:none;">Nenhum criativo cadastrado ainda.</p>
         </div>
       </div>
+      <div id="view-spy" class="view">
+        <div class="spy-head">
+          <div>
+            <h2>Spy</h2>
+            <p class="placeholder" style="margin:0;">Ofertas minerad&#97;s: ads ativos, links, status e imagens, tudo num lugar só.</p>
+          </div>
+          <div class="spy-head-btns">
+            <button type="button" onclick="spyNovaOferta()"><i class="ti ti-plus"></i> Nova oferta</button>
+            <button type="button" class="secondary" onclick="spyAbrirColunas()"><i class="ti ti-columns"></i> Colunas</button>
+            <button type="button" class="secondary" onclick="spyAbrirStatus()"><i class="ti ti-palette"></i> Status</button>
+          </div>
+        </div>
+        <div class="spy-kpis" id="spy-kpis"></div>
+        <div class="spy-toolbar">
+          <div class="spy-search"><i class="ti ti-search"></i><input type="text" id="spy-busca" placeholder="Buscar oferta, nicho, link..." oninput="spyRenderConteudo()"></div>
+          <div class="spy-chips" id="spy-chips"></div>
+          <div class="spy-seg">
+            <button type="button" id="spy-v-tabela" onclick="spyTrocarVisao('tabela')"><i class="ti ti-table"></i> Tabela</button>
+            <button type="button" id="spy-v-galeria" onclick="spyTrocarVisao('galeria')"><i class="ti ti-layout-grid"></i> Galeria</button>
+          </div>
+        </div>
+        <div id="spy-conteudo"></div>
+      </div>
       <div id="view-tarefas" class="view">
         <h2>Tarefas</h2>
         <div class="tarefas-topo-row">
@@ -1299,7 +1404,7 @@
         <div class="card">
           <p class="placeholder" style="margin-bottom:12px;">Gerencie quais seções cada usuário pode acessar.</p>
           <table>
-            <thead><tr><th>Usuário</th><th>Dashboard</th><th>Financeiro</th><th>Tarefas</th><th>Projetos</th><th>Criativos</th><th>Config.</th><th>Criar usuários <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('gerenciarusuarios', event)"></i></th><th></th></tr></thead>
+            <thead><tr><th>Usuário</th><th>Dashboard</th><th>Financeiro</th><th>Tarefas</th><th>Projetos</th><th>Criativos</th><th>Spy</th><th>Config.</th><th>Criar usuários <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('gerenciarusuarios', event)"></i></th><th></th></tr></thead>
             <tbody id="usuarios-tbody"></tbody>
           </table>
         </div>
@@ -1554,6 +1659,49 @@
   <div class="drv-v-corpo" id="drv-v-corpo"></div>
 </div>
 
+<!-- Spy: detalhes da oferta + imagens (Drive) -->
+<div id="spy-modal-overlay" class="spy-overlay" onclick="if(event.target===this) spyFecharModal()">
+  <div class="card" style="width:min(700px,100%);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="margin:0;"><i class="ti ti-spy"></i> Oferta</h3>
+      <button class="row-action" onclick="spyFecharModal()" style="font-size:16px; line-height:1; padding:2px 6px;">✕</button>
+    </div>
+    <div id="spy-modal-corpo"></div>
+  </div>
+</div>
+<!-- Spy: colunas extras -->
+<div id="spy-colunas-overlay" class="spy-overlay" onclick="if(event.target===this) spyFecharColunas()">
+  <div class="card" style="width:min(560px,100%);">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0;"><i class="ti ti-columns"></i> Colunas</h3>
+      <button class="row-action" onclick="spyFecharColunas()" style="font-size:16px; line-height:1; padding:2px 6px;">✕</button>
+    </div>
+    <p class="placeholder">Já vêm prontas: Imagem, Nome, Nicho, Link da oferta, Ads ativos, Link do ads e Status. Aqui você cria as suas.</p>
+    <div id="spy-colunas-lista" class="spy-lista-edit"></div>
+    <div class="linha" style="display:flex; gap:8px; flex-wrap:wrap;">
+      <input type="text" id="spy-col-nome" placeholder="Nome da nova coluna" style="flex:1; min-width:160px;" onkeydown="if(event.key==='Enter') spyColAdicionar()">
+      <select id="spy-col-tipo"><option value="texto">Texto</option><option value="numero">Número</option><option value="moeda">Moeda (R$)</option><option value="link">Link</option><option value="data">Data</option></select>
+      <button type="button" onclick="spyColAdicionar()"><i class="ti ti-plus"></i> Adicionar</button>
+    </div>
+  </div>
+</div>
+<!-- Spy: status -->
+<div id="spy-status-overlay" class="spy-overlay" onclick="if(event.target===this) spyFecharStatus()">
+  <div class="card" style="width:min(520px,100%);">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0;"><i class="ti ti-palette"></i> Status</h3>
+      <button class="row-action" onclick="spyFecharStatus()" style="font-size:16px; line-height:1; padding:2px 6px;">✕</button>
+    </div>
+    <p class="placeholder">Renomeie, troque a cor ou crie novos status. Excluir um status deixa as ofertas dele sem status.</p>
+    <div id="spy-status-lista" class="spy-lista-edit"></div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <input type="text" id="spy-st-nome" placeholder="Novo status (ex: Escalando)" style="flex:1; min-width:160px;" onkeydown="if(event.key==='Enter') spyStatusAdicionar()">
+      <button type="button" onclick="spyStatusAdicionar()"><i class="ti ti-plus"></i> Adicionar</button>
+    </div>
+  </div>
+</div>
+<div id="spy-pop"></div>
+
 <div id="drv-menu"></div>
 
 <div id="criativo-status-dropdown-popover" class="criativo-status-dropdown-popover"></div>
@@ -1568,8 +1716,8 @@
   const CHEGOU_POR_LINK_DE_SENHA = /[#&?]type=(recovery|invite)\b/.test(location.hash + location.search);
   const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const MODULES = ["dashboard", "financeiro", "tarefas", "projetos", "criativos", "configuracoes"];
-  const MODULE_LABELS = { dashboard: "Dashboard", financeiro: "Financeiro", tarefas: "Tarefas", projetos: "Projetos", criativos: "Criativos", configuracoes: "Configurações" };
+  const MODULES = ["dashboard", "financeiro", "tarefas", "projetos", "criativos", "spy", "configuracoes"];
+  const MODULE_LABELS = { dashboard: "Dashboard", financeiro: "Financeiro", tarefas: "Tarefas", projetos: "Projetos", criativos: "Criativos", spy: "Spy", configuracoes: "Configurações" };
   // Só o texto do menu lateral muda pra "Kanban" — o módulo continua se
   // chamando "tarefas" por baixo (permissões, título da tela, etc ficam
   // como estavam, só o rótulo do menu lateral é diferente).
@@ -1907,7 +2055,7 @@
     }
   }
 
-  const MODULE_ICONS = { dashboard: 'ti-layout-dashboard', financeiro: 'ti-currency-dollar', tarefas: 'ti-checklist', projetos: 'ti-folder', criativos: 'ti-movie', configuracoes: 'ti-settings' };
+  const MODULE_ICONS = { dashboard: 'ti-layout-dashboard', financeiro: 'ti-currency-dollar', tarefas: 'ti-checklist', projetos: 'ti-folder', criativos: 'ti-movie', spy: 'ti-spy', configuracoes: 'ti-settings' };
 
   function renderNav() {
     const nav = document.getElementById('nav');
@@ -1949,6 +2097,7 @@
     if (modulo === 'financeiro' && document.getElementById('fin-projeto').value) carregarFinanceiro();
     if (modulo === 'tarefas') carregarTarefas();
     if (modulo === 'criativos') carregarCriativos();
+    if (modulo === 'spy') carregarSpy();
   }
 
   // ---- Projetos ----
@@ -4326,7 +4475,8 @@
   let driveConexao = null;
   const DRV = {
     t: { pre: 'drvt', area: 'tm-anexos-area', projectId: null, taskId: null, lista: [], envios: [] },
-    p: { pre: 'drvp', area: 'drv-proj-area', projectId: null, taskId: null, lista: [], envios: [] }
+    p: { pre: 'drvp', area: 'drv-proj-area', projectId: null, taskId: null, lista: [], envios: [] },
+    s: { pre: 'drvs', area: 'spy-anexos-area', projectId: null, taskId: null, spyId: null, lista: [], envios: [] }
   };
   const driveLinks = {}; // id do anexo -> { u: url assinada, t: quando pegou }
   let driveVis = { k: null, i: -1 };
@@ -4480,16 +4630,16 @@
   async function driveCarregarLista(k) {
     const c = DRV[k];
     if (!driveConexao) return;
-    const chave = c.taskId || c.projectId;
+    const chave = c.spyId || c.taskId || c.projectId;
     let q = sb.from('anexos').select('*').order('created_at', { ascending: false });
-    q = c.taskId ? q.eq('task_id', c.taskId) : q.eq('project_id', c.projectId);
+    q = c.spyId ? q.eq('spy_id', c.spyId) : (c.taskId ? q.eq('task_id', c.taskId) : q.eq('project_id', c.projectId));
     const { data, error } = await q;
-    if (error || (c.taskId || c.projectId) !== chave) return;
+    if (error || (c.spyId || c.taskId || c.projectId) !== chave) return;
     c.lista = data || [];
     driveRenderLista(k);
     try {
       await driveGarantirLinks(c.lista.filter(a => driveTipo(a) === 'img'));
-      if ((c.taskId || c.projectId) === chave) driveRenderLista(k);
+      if ((c.spyId || c.taskId || c.projectId) === chave) driveRenderLista(k);
     } catch (e) { console.warn('links do Drive', e); }
   }
   function driveMontarAnexosTarefa(taskId) {
@@ -4562,17 +4712,17 @@
   }
   async function driveEnviar(k, files) {
     const c = DRV[k];
-    if (!files.length || !c.projectId) return;
-    const pid = c.projectId, tid = c.taskId;
+    if (!files.length || !(c.projectId || c.spyId)) return;
+    const pid = c.projectId, tid = c.taskId, sid = c.spyId;
     for (const f of files) {
       const env = { id: 'e' + Math.random().toString(36).slice(2), nome: f.name, pct: 0, erro: null };
       c.envios.push(env);
       driveRenderEnvios(k);
       try {
-        const ini = await driveChamar({ acao: 'iniciar_upload', project_id: pid, task_id: tid, nome: f.name, mime: f.type || 'application/octet-stream', tamanho: f.size });
+        const ini = await driveChamar({ acao: 'iniciar_upload', project_id: pid, task_id: tid, spy_id: sid, nome: f.name, mime: f.type || 'application/octet-stream', tamanho: f.size });
         const resp = await drivePutChunks(ini.url, f, p => { env.pct = p; driveRenderEnvios(k); });
         const { error } = await sb.from('anexos').insert({
-          workspace_id: currentWorkspaceId, project_id: pid, task_id: tid || null,
+          workspace_id: currentWorkspaceId, project_id: pid || null, task_id: tid || null, spy_id: sid || null,
           drive_file_id: resp.id, nome: f.name, mime: resp.mimeType || f.type || null, tamanho: f.size
         });
         if (error) throw error;
@@ -4582,7 +4732,7 @@
       }
       driveRenderEnvios(k);
     }
-    if ((c.taskId || c.projectId) === (tid || pid)) await driveCarregarLista(k);
+    if ((c.spyId || c.taskId || c.projectId) === (sid || tid || pid)) await driveCarregarLista(k);
   }
 
   // ---- Menu do arquivo: Visualizar / Editar no Drive ----
@@ -7671,6 +7821,418 @@
   function escapeHtml(str) {
     return String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
+
+  // ================= Spy: ofertas mineradas =================
+  // Tabela colorida + galeria. Colunas fixas (nome, nicho, link da oferta, ads
+  // ativos, link do ads, status) e colunas extras criadas pelo usuário
+  // (spy_colunas, valores em spy_ofertas.campos_extra). Imagens: várias por
+  // oferta, no Drive (Gestor de Projetos / Spy / <Oferta>), via tabela anexos.
+  const SPY_STATUS_PADRAO = [['Validado', '#34d399'], ['Em análise', '#fbbf24'], ['Descartado', '#f87171']];
+  const SPY_PALETA = ['#34d399', '#fbbf24', '#f87171', '#38bdf8', '#a78bfa', '#f472b6', '#fb923c', '#2dd4bf'];
+  let spyOfertas = [], spyStatus = [], spyColExtra = [], spyAnexos = {};
+  let spyVisao = (() => { try { return localStorage.getItem('spyVisao') === 'galeria' ? 'galeria' : 'tabela'; } catch (e) { return 'tabela'; } })();
+  let spyFiltroStatus = null, spyModalId = null, spyCarregando = false;
+
+  const spyCor = c => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : '#8992ab');
+  const spyAnexoSel = 'id,spy_id,nome,mime,tamanho,created_at,drive_file_id';
+
+  function spyStatusDe(o) { return spyStatus.find(s => s.id === o.status_id) || null; }
+  function spyNormLink(v) {
+    v = String(v || '').trim();
+    if (!v) return null;
+    return /^https?:\/\//i.test(v) ? v : 'https://' + v.replace(/^[a-z][a-z0-9+.-]*:\/*/i, '');
+  }
+  function spyLinkRotulo(u) {
+    if (!u) return '';
+    try { const x = new URL(u); return x.hostname.replace(/^www\./, '') + (x.pathname.length > 1 ? x.pathname : ''); } catch (e) { return u; }
+  }
+  function spyNum(s) {
+    s = String(s ?? '').trim();
+    if (!s) return null;
+    s = s.replace(/[^\d,.\-]/g, '');
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+    const n = Number(s);
+    return isFinite(n) ? n : null;
+  }
+  function spyValorTxt(v, tipo) {
+    if (v === null || v === undefined || v === '') return '';
+    if (tipo === 'moeda') return formatValorBR(v);
+    if (tipo === 'numero') return String(v).replace('.', ',');
+    return String(v);
+  }
+  function spyColunasDef() {
+    return [
+      { key: 'capa', label: 'Imagem', w: 84 },
+      { key: 'nome', label: 'Nome da oferta', tipo: 'texto', w: 250 },
+      { key: 'nicho', label: 'Nicho', tipo: 'texto', w: 170 },
+      { key: 'link_oferta', label: 'Link da oferta', tipo: 'link', w: 210 },
+      { key: 'ads_ativos', label: 'Ads ativos', tipo: 'numero', w: 110 },
+      { key: 'link_ads', label: 'Link do ads', tipo: 'link', w: 210 },
+      { key: 'status', label: 'Status', tipo: 'status', w: 160 }
+    ].concat(spyColExtra.map(c => ({ key: 'x:' + c.id, label: c.nome, tipo: c.tipo, extra: c.id, w: 170 })));
+  }
+  function spyGetVal(o, c) { return c.extra ? (o.campos_extra || {})[c.extra] : o[c.key]; }
+
+  // ---- Carregar ----
+  async function carregarSpy() {
+    if (spyCarregando) return;
+    spyCarregando = true;
+    try {
+      const [st, cols, of, ax] = await Promise.all([
+        sb.from('spy_status').select('*').order('ordem').order('created_at'),
+        sb.from('spy_colunas').select('*').order('ordem').order('created_at'),
+        sb.from('spy_ofertas').select('*').order('created_at', { ascending: false }),
+        sb.from('anexos').select(spyAnexoSel).not('spy_id', 'is', null).order('created_at')
+      ]);
+      if (of.error || st.error) { alert('Erro ao carregar o Spy: ' + (of.error || st.error).message); return; }
+      let status = st.data || [];
+      if (!status.length) {
+        await sb.from('spy_status').insert(SPY_STATUS_PADRAO.map(([nome, cor], ordem) => ({ nome, cor, ordem })));
+        status = (await sb.from('spy_status').select('*').order('ordem').order('created_at')).data || [];
+      }
+      spyStatus = status;
+      spyColExtra = cols.data || [];
+      spyOfertas = of.data || [];
+      spyAgruparAnexos(ax.data || []);
+      spyRender();
+      await spyCarregarCapas();
+      const ativo = document.activeElement;
+      if (!(ativo && ativo.closest && ativo.closest('#spy-conteudo'))) spyRenderConteudo();
+    } finally { spyCarregando = false; }
+  }
+  function spyAgruparAnexos(lista) {
+    spyAnexos = {};
+    lista.forEach(a => { (spyAnexos[a.spy_id] = spyAnexos[a.spy_id] || []).push(a); });
+  }
+  async function spyCarregarCapas() {
+    const caps = [];
+    spyOfertas.forEach(o => { const a = (spyAnexos[o.id] || []).find(x => driveTipo(x) === 'img'); if (a) caps.push(a); });
+    try { for (let i = 0; i < caps.length; i += 150) await driveGarantirLinks(caps.slice(i, i + 150)); }
+    catch (e) { console.warn('capas do Spy', e); }
+  }
+  async function spyRecarregarAnexos() {
+    const { data } = await sb.from('anexos').select(spyAnexoSel).not('spy_id', 'is', null).order('created_at');
+    spyAgruparAnexos(data || []);
+    await spyCarregarCapas();
+  }
+  function spyCapaUrl(o) {
+    const a = (spyAnexos[o.id] || []).find(x => driveTipo(x) === 'img');
+    return a && driveLinks[a.id] ? driveLinks[a.id].u : null;
+  }
+
+  // ---- Render geral ----
+  function spyRender() { spyRenderKpis(); spyRenderChips(); spyRenderConteudo(); }
+  function spyTrocarVisao(v) {
+    spyVisao = v;
+    try { localStorage.setItem('spyVisao', v); } catch (e) {}
+    spyRenderConteudo();
+  }
+  function spyRenderKpis() {
+    const el = document.getElementById('spy-kpis');
+    if (!el) return;
+    const n = spyOfertas.length;
+    const ads = spyOfertas.reduce((s, o) => s + (Number(o.ads_ativos) || 0), 0);
+    const comAds = spyOfertas.filter(o => Number(o.ads_ativos) > 0).length;
+    const top = spyOfertas.reduce((m, o) => ((Number(o.ads_ativos) || 0) > (m ? Number(m.ads_ativos) || 0 : 0) ? o : m), null);
+    const cards = [
+      ['Ofertas', n, comAds + ' com ads ativos', 'ti-spy', '#38bdf8', '#6366f1'],
+      ['Total de ads ativos', ads.toLocaleString('pt-BR'), 'somando todas as ofertas', 'ti-ad-2', '#a78bfa', '#ec4899'],
+      ['Média de ads por oferta', n ? (ads / n).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) : '0', 'entre todas as ofertas', 'ti-chart-bar', '#34d399', '#06b6d4'],
+      ['Mais escalada', top ? (Number(top.ads_ativos) || 0).toLocaleString('pt-BR') + ' ads' : '-', top ? (top.nome || 'Sem nome') : 'nenhuma ainda', 'ti-flame', '#fbbf24', '#f97316']
+    ];
+    el.innerHTML = cards.map(([l, v, s, ic, a, b]) => `<div class="spy-kpi" style="--a:${a};--b:${b}"><i class="ti ${ic} bg"></i><div class="l">${escapeHtml(l)}</div><div class="v">${escapeHtml(String(v))}</div><div class="s">${escapeHtml(s)}</div></div>`).join('');
+  }
+  function spyRenderChips() {
+    const el = document.getElementById('spy-chips');
+    if (!el) return;
+    const chip = (id, nome, cor, n) => `<button type="button" class="spy-chip ${spyFiltroStatus === id ? 'on' : ''}" style="--cc:${cor}" onclick="spyFiltrarStatus(${id ? `'${id}'` : 'null'})"><span class="spy-dot" style="background:${spyFiltroStatus === id ? '#0b1220' : cor}"></span>${escapeHtml(nome)} <b>${n}</b></button>`;
+    el.innerHTML = chip(null, 'Todas', '#8992ab', spyOfertas.length) +
+      spyStatus.map(s => chip(s.id, s.nome, spyCor(s.cor), spyOfertas.filter(o => o.status_id === s.id).length)).join('');
+  }
+  function spyFiltrarStatus(id) {
+    spyFiltroStatus = (spyFiltroStatus === id) ? null : id;
+    spyRenderChips();
+    spyRenderConteudo();
+  }
+  function spyListaFiltrada() {
+    const q = (document.getElementById('spy-busca') ? document.getElementById('spy-busca').value : '').trim().toLowerCase();
+    return spyOfertas.filter(o => {
+      if (spyFiltroStatus && o.status_id !== spyFiltroStatus) return false;
+      if (!q) return true;
+      const s = spyStatusDe(o);
+      const txt = [o.nome, o.nicho, o.link_oferta, o.link_ads, s && s.nome, ...Object.values(o.campos_extra || {})].join(' ').toLowerCase();
+      return txt.includes(q);
+    });
+  }
+  function spyRenderConteudo() {
+    const el = document.getElementById('spy-conteudo');
+    if (!el) return;
+    document.getElementById('spy-v-tabela').classList.toggle('on', spyVisao === 'tabela');
+    document.getElementById('spy-v-galeria').classList.toggle('on', spyVisao === 'galeria');
+    if (!spyOfertas.length) {
+      el.innerHTML = `<div class="spy-vazio"><i class="ti ti-spy"></i>Nenhuma oferta no Spy ainda.<br><button type="button" style="margin-top:12px;" onclick="spyNovaOferta()"><i class="ti ti-plus"></i> Cadastrar a primeira oferta</button></div>`;
+      return;
+    }
+    const lista = spyListaFiltrada();
+    if (!lista.length) { el.innerHTML = '<div class="spy-vazio"><i class="ti ti-search"></i>Nenhuma oferta encontrada com esse filtro.</div>'; return; }
+    el.innerHTML = spyVisao === 'galeria' ? spyHtmlGaleria(lista) : spyHtmlTabela(lista);
+  }
+
+  // ---- Células e campos ----
+  function spyPillHtml(o) {
+    const s = spyStatusDe(o), cor = s ? spyCor(s.cor) : '#8992ab';
+    return `<button type="button" class="spy-pill" data-spy-pill="${o.id}" style="background:${cor}22;color:${cor};border-color:${cor}66" onclick="spyAbrirStatusPop(event,'${o.id}')"><span class="spy-dot" style="background:${cor}"></span>${escapeHtml(s ? s.nome : 'Sem status')}<i class="ti ti-chevron-down"></i></button>`;
+  }
+  function spyThumbHtml(o) {
+    const url = spyCapaUrl(o), n = (spyAnexos[o.id] || []).length;
+    return `<div class="spy-thumb" onclick="spyAbrirModal('${o.id}')" title="Abrir detalhes e imagens">${url ? `<img loading="lazy" src="${url}" alt="">` : '<i class="ti ti-photo"></i>'}${n > 1 ? `<span>${n}</span>` : ''}</div>`;
+  }
+  function spyCampo(o, c, cls) {
+    const v = spyGetVal(o, c), args = `'${o.id}','${c.key}','${c.tipo}','${c.extra || ''}'`, k = cls || '';
+    if (c.tipo === 'link') {
+      return `<div class="spy-linkcell ${v ? 'tem' : ''}"><a href="${escapeHtml(v || '#')}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(v || '')}"><i class="ti ti-external-link"></i><span>${escapeHtml(spyLinkRotulo(v))}</span></a><button type="button" class="spy-ic" title="Editar link" onclick="spyEditarLink(this)"><i class="ti ti-pencil"></i></button><input type="text" class="spy-in ${k}" value="${escapeHtml(v || '')}" placeholder="Colar link..." onblur="spyLinkBlur(this,${args})"></div>`;
+    }
+    if (c.tipo === 'data') return `<input type="date" class="spy-in ${k}" value="${escapeHtml(v || '')}" onchange="spyCampoChange(this,${args})">`;
+    const inp = `<input type="text" class="spy-in ${k}" ${c.tipo === 'numero' || c.tipo === 'moeda' ? 'inputmode="decimal"' : ''} value="${escapeHtml(spyValorTxt(v, c.tipo))}" placeholder="${escapeHtml(c.label)}" onchange="spyCampoChange(this,${args})">`;
+    return c.tipo === 'moeda' ? `<div class="spy-moeda"><span>R$</span>${inp}</div>` : inp;
+  }
+  function spyCelula(o, c) {
+    if (c.key === 'capa') return spyThumbHtml(o);
+    if (c.key === 'status') return spyPillHtml(o);
+    return spyCampo(o, c, '');
+  }
+  function spyHtmlTabela(lista) {
+    const cols = spyColunasDef(), larg = cols.reduce((s, c) => s + c.w, 0) + 56;
+    let h = `<div class="spy-tabela-wrap"><table class="spy-tabela" style="min-width:${larg}px"><thead><tr>${cols.map(c => `<th style="width:${c.w}px">${escapeHtml(c.label)}</th>`).join('')}<th style="width:56px"></th></tr></thead><tbody>`;
+    lista.forEach(o => {
+      const s = spyStatusDe(o);
+      h += `<tr data-spy-row="${o.id}" style="--c:${s ? spyCor(s.cor) : '#475069'}">${cols.map(c => `<td>${spyCelula(o, c)}</td>`).join('')}<td><button type="button" class="spy-ic" style="display:inline-block" title="Abrir detalhes e imagens" onclick="spyAbrirModal('${o.id}')"><i class="ti ti-eye"></i></button></td></tr>`;
+    });
+    return h + '</tbody></table></div>';
+  }
+  function spyHtmlGaleria(lista) {
+    return '<div class="spy-galeria">' + lista.map(o => {
+      const s = spyStatusDe(o), url = spyCapaUrl(o), n = (spyAnexos[o.id] || []).length;
+      const lk = (u, ic, t) => u ? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><i class="ti ${ic}"></i> ${t}</a>` : '';
+      return `<div class="spy-card" data-spy-card="${o.id}" style="--c:${s ? spyCor(s.cor) : '#475069'}" onclick="spyAbrirModal('${o.id}')">
+        <div class="spy-card-img">${url ? `<img loading="lazy" src="${url}" alt="">` : `<span class="ini">${escapeHtml((o.nome || '?').trim().charAt(0).toUpperCase() || '?')}</span>`}<span class="st">${spyPillHtml(o)}</span>${n ? `<span class="n"><i class="ti ti-photo"></i> ${n}</span>` : ''}</div>
+        <div class="spy-card-body"><div class="spy-card-nome">${escapeHtml(o.nome || 'Sem nome')}</div><div class="spy-card-nicho">${escapeHtml(o.nicho || '')}</div>
+        <div class="spy-card-meta"><span class="spy-ads"><i class="ti ti-ad-2"></i> ${(Number(o.ads_ativos) || 0).toLocaleString('pt-BR')} ads</span>${lk(o.link_oferta, 'ti-link', 'Oferta')}${lk(o.link_ads, 'ti-external-link', 'Ads')}</div></div></div>`;
+    }).join('') + '</div>';
+  }
+
+  // ---- Salvar campos ----
+  async function spySalvarCampo(id, key, bruto, tipo, extraId) {
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o) return null;
+    let valor;
+    if (tipo === 'link') valor = spyNormLink(bruto);
+    else if (tipo === 'numero' || tipo === 'moeda') valor = spyNum(bruto);
+    else if (tipo === 'data') valor = bruto || null;
+    else valor = String(bruto || '').trim() || null;
+    if (key === 'ads_ativos' && valor !== null) valor = Math.max(0, Math.round(valor));
+    const patch = { updated_at: new Date().toISOString() };
+    if (extraId) {
+      const ex = { ...(o.campos_extra || {}) };
+      if (valor === null) delete ex[extraId]; else ex[extraId] = valor;
+      o.campos_extra = ex; patch.campos_extra = ex;
+    } else {
+      if (key === 'nome') valor = valor || '';
+      o[key] = valor; patch[key] = valor;
+    }
+    const { error } = await sb.from('spy_ofertas').update(patch).eq('id', id);
+    if (error) alert('Erro ao salvar: ' + error.message);
+    spyRenderKpis();
+    return valor;
+  }
+  async function spyCampoChange(el, id, key, tipo, extraId) {
+    const v = await spySalvarCampo(id, key, el.value, tipo, extraId);
+    if (tipo === 'numero' || tipo === 'moeda') el.value = spyValorTxt(v, tipo);
+  }
+  function spyEditarLink(btn) {
+    const cell = btn.closest('.spy-linkcell');
+    cell.classList.remove('tem');
+    const inp = cell.querySelector('input');
+    inp.focus(); inp.select();
+  }
+  async function spyLinkBlur(el, id, key, tipo, extraId) {
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o) return;
+    const novo = spyNormLink(el.value), atual = spyGetVal(o, { key, extra: extraId || null }) || null;
+    if (novo !== atual) await spySalvarCampo(id, key, novo, 'link', extraId);
+    const cell = el.closest('.spy-linkcell'), a = cell.querySelector('a');
+    a.href = novo || '#'; a.title = novo || '';
+    a.querySelector('span').textContent = spyLinkRotulo(novo);
+    el.value = novo || '';
+    cell.classList.toggle('tem', !!novo);
+  }
+
+  // ---- Status (pílula + popover) ----
+  function spyAbrirStatusPop(ev, id) {
+    ev.stopPropagation();
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o) return;
+    const pop = document.getElementById('spy-pop');
+    pop.innerHTML = spyStatus.map(s => `<button type="button" onclick="spyEscolherStatus('${id}','${s.id}')"><span class="spy-dot" style="background:${spyCor(s.cor)}"></span>${escapeHtml(s.nome)}${o.status_id === s.id ? '<i class="ti ti-check" style="margin-left:auto"></i>' : ''}</button>`).join('') +
+      `<button type="button" onclick="spyEscolherStatus('${id}',null)"><span class="spy-dot" style="background:#8992ab"></span>Sem status</button><div class="sep"></div><button type="button" onclick="spyFecharPop(); spyAbrirStatus()"><i class="ti ti-plus"></i> Novo status...</button>`;
+    pop.classList.add('aberto');
+    const r = ev.currentTarget.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(r.left, innerWidth - pop.offsetWidth - 8)) + 'px';
+    pop.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - pop.offsetHeight - 8)) + 'px';
+  }
+  function spyFecharPop() { document.getElementById('spy-pop').classList.remove('aberto'); }
+  async function spyEscolherStatus(id, statusId) {
+    spyFecharPop();
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o) return;
+    o.status_id = statusId;
+    const cor = spyStatusDe(o) ? spyCor(spyStatusDe(o).cor) : '#475069';
+    document.querySelectorAll(`[data-spy-pill="${id}"]`).forEach(b => { b.outerHTML = spyPillHtml(o); });
+    document.querySelectorAll(`[data-spy-row="${id}"],[data-spy-card="${id}"]`).forEach(e => e.style.setProperty('--c', cor));
+    spyRenderChips();
+    const { error } = await sb.from('spy_ofertas').update({ status_id: statusId, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) alert('Erro ao salvar status: ' + error.message);
+  }
+
+  // ---- Oferta: criar, abrir, excluir ----
+  async function spyNovaOferta() {
+    const padrao = spyStatus.find(s => /an[aá]lise/i.test(s.nome)) || spyStatus[0];
+    const { data, error } = await sb.from('spy_ofertas').insert({ status_id: padrao ? padrao.id : null }).select().single();
+    if (error) { alert('Erro ao criar a oferta: ' + error.message); return; }
+    spyOfertas.unshift(data);
+    spyRender();
+    spyAbrirModal(data.id);
+    setTimeout(() => { const i = document.querySelector('#spy-modal-corpo input'); if (i) i.focus(); }, 60);
+  }
+  function spyModalHtml(o) {
+    const cols = spyColunasDef().filter(c => c.key !== 'capa');
+    return `<div class="spy-grid">${cols.map(c => `<div class="${c.key === 'nome' ? 'full' : ''}"><label class="spy-lb">${escapeHtml(c.label)}</label>${c.key === 'status' ? spyPillHtml(o) : spyCampo(o, c, 'box')}</div>`).join('')}</div>
+      <div class="drv-box"><div class="drv-topo"><strong style="font-size:13px;"><i class="ti ti-photo"></i> Imagens e arquivos</strong><span class="placeholder" style="margin:0;font-size:11.5px;">Guardados no seu Drive</span></div><div id="spy-anexos-area"></div></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+        <button type="button" class="secondary" style="color:var(--neg);border-color:rgba(248,113,113,0.4);" onclick="spyExcluirOferta('${o.id}')"><i class="ti ti-trash"></i> Excluir oferta</button>
+        <button type="button" onclick="spyFecharModal()">Concluir</button>
+      </div>`;
+  }
+  function spyAbrirModal(id) {
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o) return;
+    spyModalId = id;
+    const c = DRV.s;
+    c.spyId = id; c.projectId = null; c.taskId = null; c.lista = []; c.envios = [];
+    document.getElementById('spy-modal-corpo').innerHTML = spyModalHtml(o);
+    document.getElementById('spy-modal-overlay').classList.add('aberto');
+    driveRenderArea('s');
+    driveCarregarLista('s');
+  }
+  async function spyFecharModal() {
+    if (!spyModalId) return;
+    spyModalId = null;
+    document.getElementById('spy-modal-overlay').classList.remove('aberto');
+    DRV.s.spyId = null;
+    await spyRecarregarAnexos();
+    spyRender();
+  }
+  async function spyExcluirOferta(id) {
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o || !confirm(`Excluir a oferta "${o.nome || 'Sem nome'}"? As imagens continuam guardadas no seu Drive, só deixam de aparecer aqui.`)) return;
+    const { error } = await sb.from('spy_ofertas').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    spyOfertas = spyOfertas.filter(x => x.id !== id);
+    delete spyAnexos[id];
+    spyModalId = null; DRV.s.spyId = null;
+    document.getElementById('spy-modal-overlay').classList.remove('aberto');
+    spyRender();
+  }
+
+  // ---- Colunas extras ----
+  function spyAbrirColunas() { spyRenderColunasModal(); document.getElementById('spy-colunas-overlay').classList.add('aberto'); }
+  function spyFecharColunas() { document.getElementById('spy-colunas-overlay').classList.remove('aberto'); spyRender(); }
+  function spyRenderColunasModal() {
+    const tipos = { texto: 'Texto', numero: 'Número', moeda: 'Moeda (R$)', link: 'Link', data: 'Data' };
+    document.getElementById('spy-colunas-lista').innerHTML = spyColExtra.length
+      ? spyColExtra.map(c => `<div class="linha"><input type="text" value="${escapeHtml(c.nome)}" onchange="spyColRenomear('${c.id}', this.value)"><span class="cont" style="width:90px;">${tipos[c.tipo] || c.tipo}</span><button type="button" class="spy-ic danger" title="Excluir coluna" onclick="spyColExcluir('${c.id}')"><i class="ti ti-trash"></i></button></div>`).join('')
+      : '<p class="placeholder" style="margin:0;">Nenhuma coluna criada ainda.</p>';
+  }
+  async function spyColAdicionar() {
+    const nome = document.getElementById('spy-col-nome').value.trim(), tipo = document.getElementById('spy-col-tipo').value;
+    if (!nome) { document.getElementById('spy-col-nome').focus(); return; }
+    const { data, error } = await sb.from('spy_colunas').insert({ nome, tipo, ordem: spyColExtra.length }).select().single();
+    if (error) { alert('Erro ao criar a coluna: ' + error.message); return; }
+    spyColExtra.push(data);
+    document.getElementById('spy-col-nome').value = '';
+    spyRenderColunasModal();
+  }
+  async function spyColRenomear(id, nome) {
+    nome = nome.trim();
+    const c = spyColExtra.find(x => x.id === id);
+    if (!c || !nome) { spyRenderColunasModal(); return; }
+    c.nome = nome;
+    const { error } = await sb.from('spy_colunas').update({ nome }).eq('id', id);
+    if (error) alert('Erro ao renomear: ' + error.message);
+  }
+  async function spyColExcluir(id) {
+    const c = spyColExtra.find(x => x.id === id);
+    if (!c || !confirm(`Excluir a coluna "${c.nome}"? Os valores digitados nela deixam de aparecer.`)) return;
+    const { error } = await sb.from('spy_colunas').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    spyColExtra = spyColExtra.filter(x => x.id !== id);
+    spyRenderColunasModal();
+  }
+
+  // ---- Gerenciar status ----
+  function spyAbrirStatus() { spyRenderStatusModal(); document.getElementById('spy-status-overlay').classList.add('aberto'); setTimeout(() => document.getElementById('spy-st-nome').focus(), 50); }
+  function spyFecharStatus() { document.getElementById('spy-status-overlay').classList.remove('aberto'); spyRender(); }
+  function spyRenderStatusModal() {
+    document.getElementById('spy-status-lista').innerHTML = spyStatus.map(s => {
+      const n = spyOfertas.filter(o => o.status_id === s.id).length;
+      return `<div class="linha"><input type="color" value="${spyCor(s.cor)}" onchange="spyStatusCor('${s.id}', this.value)"><input type="text" value="${escapeHtml(s.nome)}" onchange="spyStatusRenomear('${s.id}', this.value)"><span class="cont">${n} ${n === 1 ? 'oferta' : 'ofertas'}</span><button type="button" class="spy-ic danger" title="Excluir status" onclick="spyStatusExcluir('${s.id}')"><i class="ti ti-trash"></i></button></div>`;
+    }).join('');
+  }
+  async function spyStatusAdicionar() {
+    const inp = document.getElementById('spy-st-nome'), nome = inp.value.trim();
+    if (!nome) { inp.focus(); return; }
+    const cor = SPY_PALETA[spyStatus.length % SPY_PALETA.length];
+    const { data, error } = await sb.from('spy_status').insert({ nome, cor, ordem: spyStatus.length }).select().single();
+    if (error) { alert(error.code === '23505' ? 'Já existe um status com esse nome.' : 'Erro ao criar o status: ' + error.message); return; }
+    spyStatus.push(data);
+    inp.value = '';
+    spyRenderStatusModal();
+  }
+  async function spyStatusRenomear(id, nome) {
+    nome = nome.trim();
+    const s = spyStatus.find(x => x.id === id);
+    if (!s || !nome || nome === s.nome) { spyRenderStatusModal(); return; }
+    const { error } = await sb.from('spy_status').update({ nome }).eq('id', id);
+    if (error) { alert(error.code === '23505' ? 'Já existe um status com esse nome.' : 'Erro ao renomear: ' + error.message); spyRenderStatusModal(); return; }
+    s.nome = nome;
+  }
+  async function spyStatusCor(id, cor) {
+    const s = spyStatus.find(x => x.id === id);
+    if (!s) return;
+    s.cor = cor;
+    const { error } = await sb.from('spy_status').update({ cor }).eq('id', id);
+    if (error) alert('Erro ao salvar a cor: ' + error.message);
+  }
+  async function spyStatusExcluir(id) {
+    const s = spyStatus.find(x => x.id === id);
+    if (!s || !confirm(`Excluir o status "${s.nome}"? As ofertas dele ficam sem status.`)) return;
+    const { error } = await sb.from('spy_status').delete().eq('id', id);
+    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    spyStatus = spyStatus.filter(x => x.id !== id);
+    spyOfertas.forEach(o => { if (o.status_id === id) o.status_id = null; });
+    if (spyFiltroStatus === id) spyFiltroStatus = null;
+    spyRenderStatusModal();
+  }
+
+  document.addEventListener('click', e => { if (!e.target.closest('#spy-pop')) spyFecharPop(); });
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape' || document.getElementById('drv-viewer').classList.contains('aberto')) return;
+    if (document.getElementById('spy-pop').classList.contains('aberto')) { spyFecharPop(); return; }
+    if (document.getElementById('spy-status-overlay').classList.contains('aberto')) spyFecharStatus();
+    else if (document.getElementById('spy-colunas-overlay').classList.contains('aberto')) spyFecharColunas();
+    else if (spyModalId) spyFecharModal();
+  });
 
   // ---- Links clicáveis nos campos de texto longo ----
   // Fora de edição, o campo mostra o texto com os links em azul claro e clicáveis
