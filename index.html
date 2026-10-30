@@ -573,6 +573,32 @@
   .spy-lista-edit .linha input[type=text] { flex: 1; min-width: 0; }
   .spy-lista-edit input[type=color] { width: 38px; height: 34px; padding: 2px; flex-shrink: 0; cursor: pointer; }
   .spy-lista-edit .cont { color: var(--muted); font-size: 12px; width: 70px; text-align: right; flex-shrink: 0; }
+  .spy-crumb { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; font-size: 14px; }
+  .spy-crumb .lk { background: transparent; color: var(--info); border: 0; padding: 4px 6px; font-weight: 600; font-size: 14px; }
+  .spy-crumb .atual { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; font-size: 16px; color: var(--c); }
+  .spy-crumb .sep { color: var(--muted); }
+  .spy-crumb .acoes { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .spy-pasta-tr td { cursor: pointer; background: linear-gradient(90deg, color-mix(in srgb, var(--c) 18%, transparent), transparent) !important; border-bottom: 1px solid var(--card-border); padding: 0 !important; }
+  .spy-pasta-tr:hover td { background: linear-gradient(90deg, color-mix(in srgb, var(--c) 30%, transparent), rgba(255,255,255,0.03)) !important; }
+  .spy-pasta-bar { display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 18px; }
+  .spy-pasta-bar > i.ti-folder { font-size: 26px; color: var(--c); }
+  .spy-pasta-bar b { font-size: 14.5px; }
+  .spy-pasta-bar span { color: var(--muted); font-size: 12.5px; }
+  .spy-pasta-bar .ads { color: #fbbf24; font-weight: 600; }
+  .spy-pasta-bar .fim { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+  .spy-pasta-card { cursor: pointer; background: linear-gradient(135deg, color-mix(in srgb, var(--c) 28%, var(--card)), var(--card)); border: 1px solid var(--card-border); border-top: 4px solid var(--c); border-radius: 16px; padding: 18px 16px; transition: transform .15s, box-shadow .15s; position: relative; }
+  .spy-pasta-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,0.4); }
+  .spy-pasta-card > i.ti-folder { font-size: 54px; color: var(--c); display: block; margin-bottom: 8px; }
+  .spy-pasta-card .nome { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spy-pasta-card .sub { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .spy-pasta-card .ed { position: absolute; right: 8px; top: 8px; }
+  .spy-add-lista { max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+  .spy-add-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 9px; cursor: pointer; border: 1px solid transparent; }
+  .spy-add-item:hover { background: rgba(255,255,255,0.05); }
+  .spy-add-item.on { background: rgba(56,189,248,0.12); border-color: rgba(56,189,248,0.4); }
+  .spy-add-item input { width: 16px; height: 16px; flex-shrink: 0; padding: 0; }
+  .spy-add-item .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+  .spy-add-item .tg { font-size: 11px; color: var(--muted); white-space: nowrap; }
   #spy-pop { display: none; position: fixed; z-index: 2100; min-width: 190px; background: var(--card); border: 1px solid var(--card-border); border-radius: 10px; padding: 6px; box-shadow: 0 12px 32px rgba(0,0,0,0.55); }
   #spy-pop.aberto { display: block; }
   #spy-pop button { display: flex; align-items: center; gap: 9px; width: 100%; background: transparent; border: 0; color: inherit; padding: 8px 10px; border-radius: 7px; cursor: pointer; font-size: 13.5px; text-align: left; font-weight: 500; }
@@ -1143,10 +1169,12 @@
           </div>
           <div class="spy-head-btns">
             <button type="button" onclick="spyNovaOferta()"><i class="ti ti-plus"></i> Nova oferta</button>
+            <button type="button" class="secondary" id="spy-btn-pasta" onclick="spyAbrirPastaModal(null)"><i class="ti ti-folder-plus"></i> Nova pasta</button>
             <button type="button" class="secondary" onclick="spyAbrirColunas()"><i class="ti ti-columns"></i> Colunas</button>
             <button type="button" class="secondary" onclick="spyAbrirStatus()"><i class="ti ti-palette"></i> Status</button>
           </div>
         </div>
+        <div class="spy-crumb" id="spy-crumb" style="display:none;"></div>
         <div class="spy-kpis" id="spy-kpis"></div>
         <div class="spy-toolbar">
           <div class="spy-search"><i class="ti ti-search"></i><input type="text" id="spy-busca" placeholder="Buscar oferta, nicho, link..." oninput="spyRenderConteudo()"></div>
@@ -1698,6 +1726,39 @@
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <input type="text" id="spy-st-nome" placeholder="Novo status (ex: Escalando)" style="flex:1; min-width:160px;" onkeydown="if(event.key==='Enter') spyStatusAdicionar()">
       <button type="button" onclick="spyStatusAdicionar()"><i class="ti ti-plus"></i> Adicionar</button>
+    </div>
+  </div>
+</div>
+<!-- Spy: pasta (criar/editar) -->
+<div id="spy-pasta-overlay" class="spy-overlay" onclick="if(event.target===this) spyFecharPastaModal()">
+  <div class="card" style="width:min(440px,100%);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0;"><i class="ti ti-folder"></i> <span id="spy-pasta-titulo">Nova pasta</span></h3>
+      <button class="row-action" onclick="spyFecharPastaModal()" style="font-size:16px; line-height:1; padding:2px 6px;">✕</button>
+    </div>
+    <label class="spy-lb">Nome da pasta</label>
+    <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <input type="color" id="spy-pasta-cor" value="#a78bfa" style="width:44px; height:40px; padding:2px; cursor:pointer;">
+      <input type="text" id="spy-pasta-nome" placeholder="Ex: Receitas, Infantil, Para escalar..." style="flex:1;" onkeydown="if(event.key==='Enter') spySalvarPasta()">
+    </div>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+      <button type="button" class="secondary" id="spy-pasta-excluir" style="color:var(--neg);border-color:rgba(248,113,113,0.4);display:none;" onclick="spyExcluirPasta()"><i class="ti ti-trash"></i> Excluir pasta</button>
+      <button type="button" id="spy-pasta-salvar" style="margin-left:auto;" onclick="spySalvarPasta()">Criar pasta</button>
+    </div>
+  </div>
+</div>
+<!-- Spy: adicionar ofertas à pasta -->
+<div id="spy-add-overlay" class="spy-overlay" onclick="if(event.target===this) spyFecharAdd()">
+  <div class="card" style="width:min(560px,100%);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <h3 style="margin:0;"><i class="ti ti-folder-plus"></i> Adicionar ofertas em <span id="spy-add-pasta"></span></h3>
+      <button class="row-action" onclick="spyFecharAdd()" style="font-size:16px; line-height:1; padding:2px 6px;">✕</button>
+    </div>
+    <div class="spy-search" style="flex:none; max-width:none; margin-bottom:10px;"><i class="ti ti-search"></i><input type="text" id="spy-add-busca" placeholder="Buscar oferta..." oninput="spyRenderAdd()"></div>
+    <div id="spy-add-lista" class="spy-add-lista"></div>
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
+      <button type="button" class="secondary" onclick="spyFecharAdd()">Cancelar</button>
+      <button type="button" id="spy-add-ok" onclick="spyAddConfirmar()">Adicionar</button>
     </div>
   </div>
 </div>
@@ -7830,7 +7891,7 @@
   // oferta, no Drive (Gestor de Projetos / Spy / <Oferta>), via tabela anexos.
   const SPY_STATUS_PADRAO = [['Validado', '#34d399'], ['Em análise', '#fbbf24'], ['Descartado', '#f87171']];
   const SPY_PALETA = ['#34d399', '#fbbf24', '#f87171', '#38bdf8', '#a78bfa', '#f472b6', '#fb923c', '#2dd4bf'];
-  let spyOfertas = [], spyStatus = [], spyColExtra = [], spyAnexos = {};
+  let spyOfertas = [], spyStatus = [], spyColExtra = [], spyAnexos = {}, spyPastas = [], spyPastaAtual = null, spyPastaEditId = null, spyAddSel = new Set();
   let spyVisao = (() => { try { return localStorage.getItem('spyVisao') === 'galeria' ? 'galeria' : 'tabela'; } catch (e) { return 'tabela'; } })();
   let spyFiltroStatus = null, spyModalId = null, spyCarregando = false;
 
@@ -7882,11 +7943,12 @@
     if (spyCarregando) return;
     spyCarregando = true;
     try {
-      const [st, cols, of, ax] = await Promise.all([
+      const [st, cols, of, ax, pas] = await Promise.all([
         sb.from('spy_status').select('*').order('ordem').order('created_at'),
         sb.from('spy_colunas').select('*').order('ordem').order('created_at'),
         sb.from('spy_ofertas').select('*').order('created_at', { ascending: false }),
-        sb.from('anexos').select(spyAnexoSel).not('spy_id', 'is', null).order('created_at')
+        sb.from('anexos').select(spyAnexoSel).not('spy_id', 'is', null).order('created_at'),
+        sb.from('spy_pastas').select('*').order('created_at')
       ]);
       if (of.error || st.error) { spyAlert('Erro ao carregar o Spy: ' + (of.error || st.error).message); return; }
       let status = st.data || [];
@@ -7897,6 +7959,8 @@
       spyStatus = status;
       spyColExtra = cols.data || [];
       spyOfertas = of.data || [];
+      spyPastas = pas.data || [];
+      if (spyPastaAtual && !spyPastas.some(p => p.id === spyPastaAtual)) spyPastaAtual = null;
       spyAgruparAnexos(ax.data || []);
       spyRender();
       await spyCarregarCapas();
@@ -7925,7 +7989,8 @@
   }
 
   // ---- Render geral ----
-  function spyRender() { spyRenderKpis(); spyRenderChips(); spyRenderConteudo(); }
+  function spyRender() { spyRenderCrumb(); spyRenderKpis(); spyRenderChips(); spyRenderConteudo(); }
+  function spyEscopo() { return spyPastaAtual ? spyOfertas.filter(o => o.pasta_id === spyPastaAtual) : spyOfertas; }
   function spyTrocarVisao(v) {
     spyVisao = v;
     try { localStorage.setItem('spyVisao', v); } catch (e) {}
@@ -7934,10 +7999,11 @@
   function spyRenderKpis() {
     const el = document.getElementById('spy-kpis');
     if (!el) return;
-    const n = spyOfertas.length;
-    const ads = spyOfertas.reduce((s, o) => s + (Number(o.ads_ativos) || 0), 0);
-    const comAds = spyOfertas.filter(o => Number(o.ads_ativos) > 0).length;
-    const top = spyOfertas.reduce((m, o) => ((Number(o.ads_ativos) || 0) > (m ? Number(m.ads_ativos) || 0 : 0) ? o : m), null);
+    const esc = spyEscopo();
+    const n = esc.length;
+    const ads = esc.reduce((s, o) => s + (Number(o.ads_ativos) || 0), 0);
+    const comAds = esc.filter(o => Number(o.ads_ativos) > 0).length;
+    const top = esc.reduce((m, o) => ((Number(o.ads_ativos) || 0) > (m ? Number(m.ads_ativos) || 0 : 0) ? o : m), null);
     const cards = [
       ['Ofertas', n, comAds + ' com ads ativos', 'ti-spy', '#38bdf8', '#6366f1'],
       ['Total de ads ativos', ads.toLocaleString('pt-BR'), 'somando todas as ofertas', 'ti-ad-2', '#a78bfa', '#ec4899'],
@@ -7950,8 +8016,9 @@
     const el = document.getElementById('spy-chips');
     if (!el) return;
     const chip = (id, nome, cor, n) => `<button type="button" class="spy-chip ${spyFiltroStatus === id ? 'on' : ''}" style="--cc:${cor}" onclick="spyFiltrarStatus(${id ? `'${id}'` : 'null'})"><span class="spy-dot" style="background:${spyFiltroStatus === id ? '#0b1220' : cor}"></span>${escapeHtml(nome)} <b>${n}</b></button>`;
-    el.innerHTML = chip(null, 'Todas', '#8992ab', spyOfertas.length) +
-      spyStatus.map(s => chip(s.id, s.nome, spyCor(s.cor), spyOfertas.filter(o => o.status_id === s.id).length)).join('');
+    const esc = spyEscopo();
+    el.innerHTML = chip(null, 'Todas', '#8992ab', esc.length) +
+      spyStatus.map(s => chip(s.id, s.nome, spyCor(s.cor), esc.filter(o => o.status_id === s.id).length)).join('');
   }
   function spyFiltrarStatus(id) {
     spyFiltroStatus = (spyFiltroStatus === id) ? null : id;
@@ -7960,7 +8027,10 @@
   }
   function spyListaFiltrada() {
     const q = (document.getElementById('spy-busca') ? document.getElementById('spy-busca').value : '').trim().toLowerCase();
+    const filtrando = !!q || !!spyFiltroStatus;
     return spyOfertas.filter(o => {
+      if (spyPastaAtual) { if (o.pasta_id !== spyPastaAtual) return false; }
+      else if (!filtrando && o.pasta_id) return false;
       if (spyFiltroStatus && o.status_id !== spyFiltroStatus) return false;
       if (!q) return true;
       const s = spyStatusDe(o);
@@ -7973,13 +8043,19 @@
     if (!el) return;
     document.getElementById('spy-v-tabela').classList.toggle('on', spyVisao === 'tabela');
     document.getElementById('spy-v-galeria').classList.toggle('on', spyVisao === 'galeria');
-    if (!spyOfertas.length) {
+    if (!spyOfertas.length && !spyPastas.length) {
       el.innerHTML = `<div class="spy-vazio"><i class="ti ti-spy"></i>Nenhuma oferta no Spy ainda.<br><button type="button" style="margin-top:12px;" onclick="spyNovaOferta()"><i class="ti ti-plus"></i> Cadastrar a primeira oferta</button></div>`;
       return;
     }
     const lista = spyListaFiltrada();
-    if (!lista.length) { el.innerHTML = '<div class="spy-vazio"><i class="ti ti-search"></i>Nenhuma oferta encontrada com esse filtro.</div>'; return; }
-    el.innerHTML = spyVisao === 'galeria' ? spyHtmlGaleria(lista) : spyHtmlTabela(lista);
+    const pastas = spyPastasVisiveis();
+    if (!lista.length && !pastas.length) {
+      el.innerHTML = spyPastaAtual
+        ? `<div class="spy-vazio"><i class="ti ti-folder"></i>Essa pasta está vazia.<br><button type="button" style="margin-top:12px;" onclick="spyAbrirAdd()"><i class="ti ti-plus"></i> Adicionar ofertas</button></div>`
+        : '<div class="spy-vazio"><i class="ti ti-search"></i>Nenhuma oferta encontrada com esse filtro.</div>';
+      return;
+    }
+    el.innerHTML = spyVisao === 'galeria' ? spyHtmlGaleria(lista, pastas) : spyHtmlTabela(lista, pastas);
   }
 
   // ---- Células e campos ----
@@ -8005,17 +8081,25 @@
     if (c.key === 'status') return spyPillHtml(o);
     return spyCampo(o, c, '');
   }
-  function spyHtmlTabela(lista) {
-    const cols = spyColunasDef(), larg = cols.reduce((s, c) => s + c.w, 0) + 56;
-    let h = `<div class="spy-tabela-wrap"><table class="spy-tabela" style="min-width:${larg}px"><thead><tr>${cols.map(c => `<th style="width:${c.w}px">${escapeHtml(c.label)}</th>`).join('')}<th style="width:56px"></th></tr></thead><tbody>`;
+  function spyHtmlTabela(lista, pastas) {
+    const cols = spyColunasDef(), larg = cols.reduce((s, c) => s + c.w, 0) + 96;
+    let h = `<div class="spy-tabela-wrap"><table class="spy-tabela" style="min-width:${larg}px"><thead><tr>${cols.map(c => `<th style="width:${c.w}px">${escapeHtml(c.label)}</th>`).join('')}<th style="width:96px"></th></tr></thead><tbody>`;
+    (pastas || []).forEach(p => {
+      const e = spyPastaStats(p.id);
+      h += `<tr class="spy-pasta-tr" style="--c:${spyCor(p.cor)}" onclick="spyAbrirPasta('${p.id}')"><td colspan="${cols.length + 1}"><div class="spy-pasta-bar"><i class="ti ti-folder"></i><b>${escapeHtml(p.nome)}</b><span>${e.n} ${e.n === 1 ? 'oferta' : 'ofertas'}</span><span class="ads"><i class="ti ti-ad-2"></i> ${e.ads.toLocaleString('pt-BR')} ads</span><span class="fim"><button type="button" class="spy-ic" title="Editar pasta" onclick="event.stopPropagation(); spyAbrirPastaModal('${p.id}')"><i class="ti ti-pencil"></i></button></span></div></td></tr>`;
+    });
     lista.forEach(o => {
       const s = spyStatusDe(o);
-      h += `<tr data-spy-row="${o.id}" style="--c:${s ? spyCor(s.cor) : '#475069'}">${cols.map(c => `<td>${spyCelula(o, c)}</td>`).join('')}<td><button type="button" class="spy-ic" style="display:inline-block" title="Abrir detalhes e imagens" onclick="spyAbrirModal('${o.id}')"><i class="ti ti-eye"></i></button></td></tr>`;
+      h += `<tr data-spy-row="${o.id}" style="--c:${s ? spyCor(s.cor) : '#475069'}">${cols.map(c => `<td>${spyCelula(o, c)}</td>`).join('')}<td style="white-space:nowrap"><button type="button" class="spy-ic" style="display:inline-block" title="Abrir detalhes e imagens" onclick="spyAbrirModal('${o.id}')"><i class="ti ti-eye"></i></button><button type="button" class="spy-ic" style="display:inline-block" title="${o.pasta_id ? 'Mudar de pasta ou tirar da pasta' : 'Colocar em uma pasta'}" onclick="spyAbrirPastaPop(event,'${o.id}')"><i class="ti ti-folder${o.pasta_id ? '' : '-plus'}"></i></button></td></tr>`;
     });
     return h + '</tbody></table></div>';
   }
-  function spyHtmlGaleria(lista) {
-    return '<div class="spy-galeria">' + lista.map(o => {
+  function spyHtmlGaleria(lista, pastas) {
+    const cardsPasta = (pastas || []).map(p => {
+      const e = spyPastaStats(p.id);
+      return `<div class="spy-pasta-card" style="--c:${spyCor(p.cor)}" onclick="spyAbrirPasta('${p.id}')"><button type="button" class="spy-ic ed" title="Editar pasta" onclick="event.stopPropagation(); spyAbrirPastaModal('${p.id}')"><i class="ti ti-pencil"></i></button><i class="ti ti-folder"></i><div class="nome">${escapeHtml(p.nome)}</div><div class="sub">${e.n} ${e.n === 1 ? 'oferta' : 'ofertas'} · ${e.ads.toLocaleString('pt-BR')} ads</div></div>`;
+    }).join('');
+    return '<div class="spy-galeria">' + cardsPasta + lista.map(o => {
       const s = spyStatusDe(o), url = spyCapaUrl(o), n = (spyAnexos[o.id] || []).length;
       const lk = (u, ic, t) => u ? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><i class="ti ${ic}"></i> ${t}</a>` : '';
       return `<div class="spy-card" data-spy-card="${o.id}" style="--c:${s ? spyCor(s.cor) : '#475069'}" onclick="spyAbrirModal('${o.id}')">
@@ -8101,7 +8185,7 @@
   // ---- Oferta: criar, abrir, excluir ----
   async function spyNovaOferta() {
     const padrao = spyStatus.find(s => /an[aá]lise/i.test(s.nome)) || spyStatus[0];
-    const { data, error } = await sb.from('spy_ofertas').insert({ status_id: padrao ? padrao.id : null }).select().single();
+    const { data, error } = await sb.from('spy_ofertas').insert({ status_id: padrao ? padrao.id : null, pasta_id: spyPastaAtual }).select().single();
     if (error) { spyAlert('Erro ao criar a oferta: ' + error.message); return; }
     spyOfertas.unshift(data);
     spyRender();
@@ -8110,7 +8194,8 @@
   }
   function spyModalHtml(o) {
     const cols = spyColunasDef().filter(c => c.key !== 'capa');
-    return `<div class="spy-grid">${cols.map(c => `<div class="${c.key === 'nome' ? 'full' : ''}"><label class="spy-lb">${escapeHtml(c.label)}</label>${c.key === 'status' ? spyPillHtml(o) : spyCampo(o, c, 'box')}</div>`).join('')}</div>
+    const selPasta = `<div><label class="spy-lb">Pasta</label><select class="spy-in box" onchange="spyMoverOferta('${o.id}', this.value || null)"><option value="">Sem pasta</option>${spyPastas.map(p => `<option value="${p.id}" ${o.pasta_id === p.id ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`).join('')}</select></div>`;
+    return `<div class="spy-grid">${cols.map(c => `<div class="${c.key === 'nome' ? 'full' : ''}"><label class="spy-lb">${escapeHtml(c.label)}</label>${c.key === 'status' ? spyPillHtml(o) : spyCampo(o, c, 'box')}</div>`).join('')}${selPasta}</div>
       <div class="drv-box"><div class="drv-topo"><strong style="font-size:13px;"><i class="ti ti-photo"></i> Imagens e arquivos</strong><span class="placeholder" style="margin:0;font-size:11.5px;">Guardados no seu Drive</span></div><div id="spy-anexos-area"></div></div>
       <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
         <button type="button" class="secondary" style="color:var(--neg);border-color:rgba(248,113,113,0.4);" onclick="spyExcluirOferta('${o.id}')"><i class="ti ti-trash"></i> Excluir oferta</button>
@@ -8228,11 +8313,138 @@
     spyRenderStatusModal();
   }
 
+  // ---- Pastas: ficam no mesmo nível das ofertas ----
+  function spyPastaStats(id) {
+    const l = spyOfertas.filter(o => o.pasta_id === id);
+    return { n: l.length, ads: l.reduce((s, o) => s + (Number(o.ads_ativos) || 0), 0) };
+  }
+  function spyPastasVisiveis() {
+    const q = (document.getElementById('spy-busca') ? document.getElementById('spy-busca').value : '').trim();
+    return (!spyPastaAtual && !q && !spyFiltroStatus) ? spyPastas : [];
+  }
+  function spyAbrirPasta(id) {
+    spyPastaAtual = id;
+    spyFiltroStatus = null;
+    const b = document.getElementById('spy-busca'); if (b) b.value = '';
+    spyRender();
+  }
+  function spyRenderCrumb() {
+    const el = document.getElementById('spy-crumb'), btn = document.getElementById('spy-btn-pasta');
+    if (!el) return;
+    const p = spyPastas.find(x => x.id === spyPastaAtual);
+    if (btn) btn.style.display = p ? 'none' : '';
+    if (!p) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.style.display = 'flex';
+    el.style.setProperty('--c', spyCor(p.cor));
+    el.innerHTML = `<button type="button" class="lk" onclick="spyAbrirPasta(null)"><i class="ti ti-arrow-left"></i> Spy</button><span class="sep">/</span><span class="atual"><i class="ti ti-folder"></i>${escapeHtml(p.nome)}</span>
+      <span class="acoes"><button type="button" class="secondary" onclick="spyAbrirAdd()"><i class="ti ti-plus"></i> Adicionar ofertas</button><button type="button" class="secondary" onclick="spyAbrirPastaModal('${p.id}')"><i class="ti ti-pencil"></i> Editar pasta</button></span>`;
+  }
+  function spyAbrirPastaModal(id) {
+    spyPastaEditId = id;
+    const p = id ? spyPastas.find(x => x.id === id) : null;
+    document.getElementById('spy-pasta-titulo').textContent = p ? 'Editar pasta' : 'Nova pasta';
+    document.getElementById('spy-pasta-nome').value = p ? p.nome : '';
+    document.getElementById('spy-pasta-cor').value = p ? spyCor(p.cor) : SPY_PALETA[(spyPastas.length + 4) % SPY_PALETA.length];
+    document.getElementById('spy-pasta-salvar').textContent = p ? 'Salvar' : 'Criar pasta';
+    document.getElementById('spy-pasta-excluir').style.display = p ? '' : 'none';
+    document.getElementById('spy-pasta-overlay').classList.add('aberto');
+    setTimeout(() => { const i = document.getElementById('spy-pasta-nome'); i.focus(); i.select(); }, 50);
+  }
+  function spyFecharPastaModal() { document.getElementById('spy-pasta-overlay').classList.remove('aberto'); spyPastaEditId = null; }
+  async function spySalvarPasta() {
+    const nome = document.getElementById('spy-pasta-nome').value.trim(), cor = document.getElementById('spy-pasta-cor').value;
+    if (!nome) { document.getElementById('spy-pasta-nome').focus(); return; }
+    if (spyPastaEditId) {
+      const p = spyPastas.find(x => x.id === spyPastaEditId);
+      const { error } = await sb.from('spy_pastas').update({ nome, cor }).eq('id', spyPastaEditId);
+      if (error) { spyAlert('Erro ao salvar a pasta: ' + error.message); return; }
+      if (p) { p.nome = nome; p.cor = cor; }
+      spyFecharPastaModal();
+      spyRender();
+      return;
+    }
+    const { data, error } = await sb.from('spy_pastas').insert({ nome, cor }).select().single();
+    if (error) { spyAlert('Erro ao criar a pasta: ' + error.message); return; }
+    spyPastas.push(data);
+    spyFecharPastaModal();
+    spyAbrirPasta(data.id);
+    spyAbrirAdd();
+  }
+  async function spyExcluirPasta() {
+    const id = spyPastaEditId, p = spyPastas.find(x => x.id === id);
+    if (!p || !confirm(`Excluir a pasta "${p.nome}"? As ofertas dela não são apagadas: voltam para a lista principal.`)) return;
+    const { error } = await sb.from('spy_pastas').delete().eq('id', id);
+    if (error) { spyAlert('Erro ao excluir a pasta: ' + error.message); return; }
+    spyPastas = spyPastas.filter(x => x.id !== id);
+    spyOfertas.forEach(o => { if (o.pasta_id === id) o.pasta_id = null; });
+    if (spyPastaAtual === id) spyPastaAtual = null;
+    spyFecharPastaModal();
+    spyRender();
+  }
+  async function spyMoverOferta(id, pastaId) {
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o) return;
+    const antes = o.pasta_id;
+    o.pasta_id = pastaId || null;
+    const { error } = await sb.from('spy_ofertas').update({ pasta_id: o.pasta_id, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { o.pasta_id = antes; spyAlert('Erro ao mover a oferta: ' + error.message); return; }
+    if (!document.getElementById('spy-modal-overlay').classList.contains('aberto')) spyRender();
+  }
+  function spyAbrirPastaPop(ev, id) {
+    ev.stopPropagation();
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o) return;
+    const pop = document.getElementById('spy-pop');
+    pop.innerHTML = (o.pasta_id ? `<button type="button" onclick="spyFecharPop(); spyMoverOferta('${id}', null)"><i class="ti ti-corner-up-left"></i> Tirar da pasta</button><div class="sep"></div>` : '') +
+      (spyPastas.length ? spyPastas.map(p => `<button type="button" onclick="spyFecharPop(); spyMoverOferta('${id}','${p.id}')"><i class="ti ti-folder" style="color:${spyCor(p.cor)}"></i>${escapeHtml(p.nome)}${o.pasta_id === p.id ? '<i class="ti ti-check" style="margin-left:auto"></i>' : ''}</button>`).join('') : '<button type="button" disabled style="opacity:.6">Nenhuma pasta criada</button>') +
+      `<div class="sep"></div><button type="button" onclick="spyFecharPop(); spyAbrirPastaModal(null)"><i class="ti ti-folder-plus"></i> Nova pasta...</button>`;
+    pop.classList.add('aberto');
+    const r = ev.currentTarget.getBoundingClientRect();
+    pop.style.left = Math.max(8, Math.min(r.left - 60, innerWidth - pop.offsetWidth - 8)) + 'px';
+    pop.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - pop.offsetHeight - 8)) + 'px';
+  }
+  // Adicionar várias ofertas de uma vez à pasta aberta
+  function spyAbrirAdd() {
+    const p = spyPastas.find(x => x.id === spyPastaAtual);
+    if (!p) return;
+    spyAddSel = new Set();
+    document.getElementById('spy-add-pasta').textContent = '"' + p.nome + '"';
+    document.getElementById('spy-add-busca').value = '';
+    spyRenderAdd();
+    document.getElementById('spy-add-overlay').classList.add('aberto');
+    setTimeout(() => document.getElementById('spy-add-busca').focus(), 50);
+  }
+  function spyFecharAdd() { document.getElementById('spy-add-overlay').classList.remove('aberto'); spyRender(); }
+  function spyRenderAdd() {
+    const q = document.getElementById('spy-add-busca').value.trim().toLowerCase();
+    const lista = spyOfertas.filter(o => o.pasta_id !== spyPastaAtual && (!q || (o.nome + ' ' + (o.nicho || '')).toLowerCase().includes(q)));
+    document.getElementById('spy-add-lista').innerHTML = lista.length ? lista.map(o => {
+      const outra = o.pasta_id ? spyPastas.find(p => p.id === o.pasta_id) : null, on = spyAddSel.has(o.id);
+      return `<label class="spy-add-item ${on ? 'on' : ''}"><input type="checkbox" ${on ? 'checked' : ''} onchange="spyAddToggle('${o.id}')"><span class="nm">${escapeHtml(o.nome || 'Sem nome')}</span>${outra ? `<span class="tg"><i class="ti ti-folder"></i> ${escapeHtml(outra.nome)}</span>` : ''}<span class="tg">${(Number(o.ads_ativos) || 0)} ads</span></label>`;
+    }).join('') : '<p class="placeholder" style="margin:8px 0;">Nenhuma oferta para adicionar.</p>';
+    const n = spyAddSel.size, b = document.getElementById('spy-add-ok');
+    b.textContent = n ? `Adicionar ${n} ${n === 1 ? 'oferta' : 'ofertas'}` : 'Adicionar';
+    b.disabled = !n; b.style.opacity = n ? '' : '.5';
+  }
+  function spyAddToggle(id) { if (spyAddSel.has(id)) spyAddSel.delete(id); else spyAddSel.add(id); spyRenderAdd(); }
+  async function spyAddConfirmar() {
+    const ids = [...spyAddSel];
+    if (!ids.length || !spyPastaAtual) return;
+    const { error } = await sb.from('spy_ofertas').update({ pasta_id: spyPastaAtual, updated_at: new Date().toISOString() }).in('id', ids);
+    if (error) { spyAlert('Erro ao adicionar as ofertas: ' + error.message); return; }
+    spyOfertas.forEach(o => { if (spyAddSel.has(o.id)) o.pasta_id = spyPastaAtual; });
+    spyAddSel = new Set();
+    document.getElementById('spy-add-overlay').classList.remove('aberto');
+    spyRender();
+  }
+
   document.addEventListener('click', e => { if (!e.target.closest('#spy-pop')) spyFecharPop(); });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape' || document.getElementById('drv-viewer').classList.contains('aberto')) return;
     if (document.getElementById('spy-pop').classList.contains('aberto')) { spyFecharPop(); return; }
-    if (document.getElementById('spy-status-overlay').classList.contains('aberto')) spyFecharStatus();
+    if (document.getElementById('spy-add-overlay').classList.contains('aberto')) spyFecharAdd();
+    else if (document.getElementById('spy-pasta-overlay').classList.contains('aberto')) spyFecharPastaModal();
+    else if (document.getElementById('spy-status-overlay').classList.contains('aberto')) spyFecharStatus();
     else if (document.getElementById('spy-colunas-overlay').classList.contains('aberto')) spyFecharColunas();
     else if (spyModalId) spyFecharModal();
   });
