@@ -7834,6 +7834,8 @@
   let spyVisao = (() => { try { return localStorage.getItem('spyVisao') === 'galeria' ? 'galeria' : 'tabela'; } catch (e) { return 'tabela'; } })();
   let spyFiltroStatus = null, spyModalId = null, spyCarregando = false;
 
+  // Erro de permissão do banco numa tela que funcionava = sessão vencida (aba aberta há muito tempo).
+  const spyAlert = m => alert(/permission denied|JWT|not authenticated/i.test(String(m)) ? 'Sua sessão expirou. Recarregue a página (Cmd+Shift+R) e entre de novo.' : m);
   const spyCor = c => (/^#[0-9a-f]{6}$/i.test(c || '') ? c : '#8992ab');
   const spyAnexoSel = 'id,spy_id,nome,mime,tamanho,created_at,drive_file_id';
 
@@ -7886,7 +7888,7 @@
         sb.from('spy_ofertas').select('*').order('created_at', { ascending: false }),
         sb.from('anexos').select(spyAnexoSel).not('spy_id', 'is', null).order('created_at')
       ]);
-      if (of.error || st.error) { alert('Erro ao carregar o Spy: ' + (of.error || st.error).message); return; }
+      if (of.error || st.error) { spyAlert('Erro ao carregar o Spy: ' + (of.error || st.error).message); return; }
       let status = st.data || [];
       if (!status.length) {
         await sb.from('spy_status').insert(SPY_STATUS_PADRAO.map(([nome, cor], ordem) => ({ nome, cor, ordem })));
@@ -8043,7 +8045,7 @@
       o[key] = valor; patch[key] = valor;
     }
     const { error } = await sb.from('spy_ofertas').update(patch).eq('id', id);
-    if (error) alert('Erro ao salvar: ' + error.message);
+    if (error) spyAlert('Erro ao salvar: ' + error.message);
     spyRenderKpis();
     return valor;
   }
@@ -8093,14 +8095,14 @@
     document.querySelectorAll(`[data-spy-row="${id}"],[data-spy-card="${id}"]`).forEach(e => e.style.setProperty('--c', cor));
     spyRenderChips();
     const { error } = await sb.from('spy_ofertas').update({ status_id: statusId, updated_at: new Date().toISOString() }).eq('id', id);
-    if (error) alert('Erro ao salvar status: ' + error.message);
+    if (error) spyAlert('Erro ao salvar status: ' + error.message);
   }
 
   // ---- Oferta: criar, abrir, excluir ----
   async function spyNovaOferta() {
     const padrao = spyStatus.find(s => /an[aá]lise/i.test(s.nome)) || spyStatus[0];
     const { data, error } = await sb.from('spy_ofertas').insert({ status_id: padrao ? padrao.id : null }).select().single();
-    if (error) { alert('Erro ao criar a oferta: ' + error.message); return; }
+    if (error) { spyAlert('Erro ao criar a oferta: ' + error.message); return; }
     spyOfertas.unshift(data);
     spyRender();
     spyAbrirModal(data.id);
@@ -8138,7 +8140,7 @@
     const o = spyOfertas.find(x => x.id === id);
     if (!o || !confirm(`Excluir a oferta "${o.nome || 'Sem nome'}"? As imagens continuam guardadas no seu Drive, só deixam de aparecer aqui.`)) return;
     const { error } = await sb.from('spy_ofertas').delete().eq('id', id);
-    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    if (error) { spyAlert('Erro ao excluir: ' + error.message); return; }
     spyOfertas = spyOfertas.filter(x => x.id !== id);
     delete spyAnexos[id];
     spyModalId = null; DRV.s.spyId = null;
@@ -8159,7 +8161,7 @@
     const nome = document.getElementById('spy-col-nome').value.trim(), tipo = document.getElementById('spy-col-tipo').value;
     if (!nome) { document.getElementById('spy-col-nome').focus(); return; }
     const { data, error } = await sb.from('spy_colunas').insert({ nome, tipo, ordem: spyColExtra.length }).select().single();
-    if (error) { alert('Erro ao criar a coluna: ' + error.message); return; }
+    if (error) { spyAlert('Erro ao criar a coluna: ' + error.message); return; }
     spyColExtra.push(data);
     document.getElementById('spy-col-nome').value = '';
     spyRenderColunasModal();
@@ -8170,13 +8172,13 @@
     if (!c || !nome) { spyRenderColunasModal(); return; }
     c.nome = nome;
     const { error } = await sb.from('spy_colunas').update({ nome }).eq('id', id);
-    if (error) alert('Erro ao renomear: ' + error.message);
+    if (error) spyAlert('Erro ao renomear: ' + error.message);
   }
   async function spyColExcluir(id) {
     const c = spyColExtra.find(x => x.id === id);
     if (!c || !confirm(`Excluir a coluna "${c.nome}"? Os valores digitados nela deixam de aparecer.`)) return;
     const { error } = await sb.from('spy_colunas').delete().eq('id', id);
-    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    if (error) { spyAlert('Erro ao excluir: ' + error.message); return; }
     spyColExtra = spyColExtra.filter(x => x.id !== id);
     spyRenderColunasModal();
   }
@@ -8195,7 +8197,7 @@
     if (!nome) { inp.focus(); return; }
     const cor = SPY_PALETA[spyStatus.length % SPY_PALETA.length];
     const { data, error } = await sb.from('spy_status').insert({ nome, cor, ordem: spyStatus.length }).select().single();
-    if (error) { alert(error.code === '23505' ? 'Já existe um status com esse nome.' : 'Erro ao criar o status: ' + error.message); return; }
+    if (error) { spyAlert(error.code === '23505' ? 'Já existe um status com esse nome.' : 'Erro ao criar o status: ' + error.message); return; }
     spyStatus.push(data);
     inp.value = '';
     spyRenderStatusModal();
@@ -8205,7 +8207,7 @@
     const s = spyStatus.find(x => x.id === id);
     if (!s || !nome || nome === s.nome) { spyRenderStatusModal(); return; }
     const { error } = await sb.from('spy_status').update({ nome }).eq('id', id);
-    if (error) { alert(error.code === '23505' ? 'Já existe um status com esse nome.' : 'Erro ao renomear: ' + error.message); spyRenderStatusModal(); return; }
+    if (error) { spyAlert(error.code === '23505' ? 'Já existe um status com esse nome.' : 'Erro ao renomear: ' + error.message); spyRenderStatusModal(); return; }
     s.nome = nome;
   }
   async function spyStatusCor(id, cor) {
@@ -8213,13 +8215,13 @@
     if (!s) return;
     s.cor = cor;
     const { error } = await sb.from('spy_status').update({ cor }).eq('id', id);
-    if (error) alert('Erro ao salvar a cor: ' + error.message);
+    if (error) spyAlert('Erro ao salvar a cor: ' + error.message);
   }
   async function spyStatusExcluir(id) {
     const s = spyStatus.find(x => x.id === id);
     if (!s || !confirm(`Excluir o status "${s.nome}"? As ofertas dele ficam sem status.`)) return;
     const { error } = await sb.from('spy_status').delete().eq('id', id);
-    if (error) { alert('Erro ao excluir: ' + error.message); return; }
+    if (error) { spyAlert('Erro ao excluir: ' + error.message); return; }
     spyStatus = spyStatus.filter(x => x.id !== id);
     spyOfertas.forEach(o => { if (o.status_id === id) o.status_id = null; });
     if (spyFiltroStatus === id) spyFiltroStatus = null;
