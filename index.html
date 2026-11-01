@@ -8128,8 +8128,17 @@
       if (key === 'nome') valor = valor || '';
       o[key] = valor; patch[key] = valor;
     }
-    const { error } = await sb.from('spy_ofertas').update(patch).eq('id', id);
+    const { data: salvo, error } = await sb.from('spy_ofertas').update(patch).eq('id', id).select('campos_extra').maybeSingle();
     if (error) spyAlert('Erro ao salvar: ' + error.message);
+    // O banco preenche sozinho a "Data da mineração" quando os ads ativos mudam: espelha na tela.
+    if (!error && salvo && salvo.campos_extra) {
+      const antes = o.campos_extra || {};
+      Object.keys(salvo.campos_extra).forEach(k => {
+        if (salvo.campos_extra[k] === antes[k]) return;
+        document.querySelectorAll(`input[onchange*="'${id}','x:${k}'"]`).forEach(i => { i.value = salvo.campos_extra[k] || ''; });
+      });
+      o.campos_extra = salvo.campos_extra;
+    }
     spyRenderKpis();
     return valor;
   }
