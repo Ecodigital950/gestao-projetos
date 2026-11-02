@@ -500,6 +500,14 @@
   .spy-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
   .spy-head h2 { margin: 0 0 2px; }
   .spy-head-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .spy-auto { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; padding: 9px 14px; border: 1px solid var(--line, #2a3350); border-radius: 12px; background: rgba(255,255,255,0.03); font-size: 13px; color: var(--muted); }
+  .spy-auto:empty { display: none; }
+  .spy-auto .ponto { width: 9px; height: 9px; border-radius: 50%; background: #34d399; flex: none; }
+  .spy-auto.pausado .ponto { background: #8992ab; }
+  .spy-auto.alerta .ponto { background: #fbbf24; }
+  .spy-auto b { color: var(--c); font-weight: 700; }
+  .spy-auto .sp { margin-left: auto; }
+  .spy-auto button { padding: 5px 11px; font-size: 12px; }
   .spy-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
   .spy-kpi { position: relative; overflow: hidden; border-radius: 14px; padding: 14px 16px; color: #fff; background: linear-gradient(135deg, var(--a), var(--b)); box-shadow: 0 6px 18px rgba(0,0,0,0.28); }
   .spy-kpi .l { font-size: 12px; opacity: .88; letter-spacing: .02em; }
@@ -1175,6 +1183,7 @@
           </div>
         </div>
         <div class="spy-crumb" id="spy-crumb" style="display:none;"></div>
+        <div class="spy-auto" id="spy-auto"></div>
         <div class="spy-kpis" id="spy-kpis"></div>
         <div class="spy-toolbar">
           <div class="spy-search"><i class="ti ti-search"></i><input type="text" id="spy-busca" placeholder="Buscar oferta, nicho, link..." oninput="spyRenderConteudo()"></div>
@@ -7963,10 +7972,54 @@
       if (spyPastaAtual && !spyPastas.some(p => p.id === spyPastaAtual)) spyPastaAtual = null;
       spyAgruparAnexos(ax.data || []);
       spyRender();
+      spyCarregarAuto();
       await spyCarregarCapas();
       const ativo = document.activeElement;
       if (!(ativo && ativo.closest && ativo.closest('#spy-conteudo'))) spyRenderConteudo();
     } finally { spyCarregando = false; }
+  }
+  // ---- Atualização automática dos ads ativos (leitor do Mac, todo dia às 20h) ----
+  let spyAutoAtivo = true;
+  async function spyCarregarAuto() {
+    const el = document.getElementById('spy-auto');
+    if (!el) return;
+    try {
+      const [cfg, lg] = await Promise.all([
+        sb.from('spy_sync_cfg').select('ativo').maybeSingle(),
+        sb.from('spy_sync_log').select('finalizado_em,total,ok,falhas,conferir,abortado,detalhe').order('finalizado_em', { ascending: false }).limit(1)
+      ]);
+      if (cfg.error && lg.error) { el.innerHTML = ''; return; }
+      spyAutoAtivo = cfg.data ? !!cfg.data.ativo : true;
+      const u = (lg.data || [])[0];
+      let classe = '', texto;
+      if (!spyAutoAtivo) {
+        classe = 'pausado';
+        texto = '<b>Atualização automática pausada</b>' + (u ? ' · última leitura ' + spyAutoQuando(u.finalizado_em) : '');
+      } else if (!u) {
+        classe = 'alerta';
+        texto = '<b>Atualização automática</b> · todo dia às 20h · ainda não rodou';
+      } else {
+        const horas = (Date.now() - new Date(u.finalizado_em).getTime()) / 36e5;
+        const problema = u.abortado || u.falhas > 0 || u.conferir > 0 || horas > 36;
+        if (problema) classe = 'alerta';
+        texto = '<b>Atualização automática</b> · todo dia às 20h · última leitura ' + spyAutoQuando(u.finalizado_em) +
+          ' · ' + u.ok + ' ok' + (u.falhas ? ' · ' + u.falhas + ' falhas' : '') + (u.conferir ? ' · ' + u.conferir + ' para conferir' : '') +
+          (u.abortado ? ' · <b>interrompida</b>' : '') + (horas > 36 ? ' · <b>sem leitura há mais de 1 dia</b>' : '');
+      }
+      el.className = 'spy-auto ' + classe;
+      el.innerHTML = '<span class="ponto"></span><span>' + texto + '</span><span class="sp"></span>' +
+        '<button type="button" class="secondary" onclick="spyAutoAlternar()">' + (spyAutoAtivo ? 'Pausar' : 'Retomar') + '</button>';
+    } catch (e) { console.warn('spy auto', e); el.innerHTML = ''; }
+  }
+  function spyAutoQuando(iso) {
+    return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+  async function spyAutoAlternar() {
+    const novo = !spyAutoAtivo;
+    let { data, error } = await sb.from('spy_sync_cfg').update({ ativo: novo, atualizado_em: new Date().toISOString() }).not('workspace_id', 'is', null).select('ativo');
+    if (!error && (!data || !data.length)) ({ error } = await sb.from('spy_sync_cfg').insert({ ativo: novo }));
+    if (error) { spyAlert('Não foi possível alterar: ' + error.message); return; }
+    spyCarregarAuto();
   }
   function spyAgruparAnexos(lista) {
     spyAnexos = {};
