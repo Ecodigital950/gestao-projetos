@@ -500,6 +500,27 @@
   .spy-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
   .spy-head h2 { margin: 0 0 2px; }
   .spy-head-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+  .spy-adscell { display: flex; align-items: center; gap: 4px; min-width: 0; }
+  .spy-adsnum { background: rgba(56,189,248,0.1); color: var(--info); border: 1px solid transparent; border-radius: 7px; padding: 5px 11px; font-size: 13px; font-weight: 700; min-width: 44px; cursor: pointer; }
+  .spy-adsnum:hover { background: rgba(56,189,248,0.22); border-color: rgba(56,189,248,0.45); }
+  .spy-hist-resumo { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .spy-hist-resumo > div { background: #0f1526; border: 1px solid var(--card-border); border-radius: 10px; padding: 9px 12px; }
+  .spy-hist-resumo .l { font-size: 11px; color: var(--muted); }
+  .spy-hist-resumo .v { font-size: 20px; font-weight: 800; color: var(--c); }
+  .spy-hist-resumo .s { font-size: 11px; color: var(--muted); }
+  .spy-cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .spy-cal-nav b { text-transform: capitalize; font-size: 15px; }
+  .spy-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .spy-cal .dw { text-align: center; font-size: 11px; color: var(--muted); padding: 2px 0; }
+  .spy-cal .dia { min-height: 58px; border: 1px solid var(--card-border); border-radius: 8px; padding: 4px 6px; background: #0f1526; display: flex; flex-direction: column; justify-content: space-between; }
+  .spy-cal .dia.vazio { background: transparent; border-color: transparent; }
+  .spy-cal .dia .d { font-size: 10.5px; color: var(--muted); }
+  .spy-cal .dia .n { font-size: 16px; font-weight: 800; color: var(--c); line-height: 1.1; }
+  .spy-cal .dia .dl { font-size: 10.5px; font-weight: 700; }
+  .spy-cal .dia.tem { border-color: rgba(56,189,248,0.4); background: rgba(56,189,248,0.08); }
+  .spy-cal .dia.hoje { box-shadow: 0 0 0 1px var(--info) inset; }
+  .spy-cal .up, .spy-hist-resumo .up { color: #34d399; } .spy-cal .down, .spy-hist-resumo .down { color: #f87171; } .spy-cal .eq, .spy-hist-resumo .eq { color: var(--muted); }
+  .spy-cal .dia .mn { font-size: 9.5px; color: #fbbf24; }
   .spy-auto { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; padding: 9px 14px; border: 1px solid var(--line, #2a3350); border-radius: 12px; background: rgba(255,255,255,0.03); font-size: 13px; color: var(--muted); }
   .spy-auto:empty { display: none; }
   .spy-auto .ponto { width: 9px; height: 9px; border-radius: 50%; background: #34d399; flex: none; }
@@ -1705,6 +1726,16 @@
       <button class="row-action" onclick="spyFecharModal()" style="font-size:16px; line-height:1; padding:2px 6px;">✕</button>
     </div>
     <div id="spy-modal-corpo"></div>
+  </div>
+</div>
+<!-- Spy: histórico de ads ativos (calendário) -->
+<div id="spy-hist-overlay" class="spy-overlay" onclick="if(event.target===this) spyFecharHistorico()">
+  <div class="card" style="width:min(680px,100%);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0;" id="spy-hist-titulo"><i class="ti ti-calendar-stats"></i> Histórico de ads ativos</h3>
+      <button class="row-action" onclick="spyFecharHistorico()" style="font-size:16px; line-height:1; padding:2px 6px;">✕</button>
+    </div>
+    <div id="spy-hist-corpo"></div>
   </div>
 </div>
 <!-- Spy: colunas extras -->
@@ -8021,6 +8052,104 @@
     if (error) { spyAlert('Não foi possível alterar: ' + error.message); return; }
     spyCarregarAuto();
   }
+  // ---- Histórico de ads ativos: clique no número abre o calendário ----
+  let spyHist = { id: null, dias: {}, mes: null, carregando: false, erro: null };
+  const spyDiaBR = iso => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  const spyDiaTxt = d => d.split('-').reverse().join('/');
+  function spyEditarAds(btn) {
+    const cell = btn.closest('.spy-adscell');
+    cell.querySelector('.spy-adsnum').style.display = 'none';
+    btn.style.display = 'none';
+    const i = cell.querySelector('input');
+    i.style.display = '';
+    i.focus(); i.select();
+  }
+  function spyAdsBlur(inp) {
+    setTimeout(() => {
+      const cell = inp.closest('.spy-adscell');
+      if (!cell) return;
+      const b = cell.querySelector('.spy-adsnum');
+      b.textContent = inp.value || '–';
+      b.style.display = '';
+      cell.querySelector('.spy-ic').style.display = '';
+      inp.style.display = 'none';
+    }, 350);
+  }
+  async function spyAbrirHistorico(id) {
+    if (!spyOfertas.some(x => x.id === id)) return;
+    spyHist = { id, dias: {}, mes: null, carregando: true, erro: null };
+    document.getElementById('spy-hist-overlay').classList.add('aberto');
+    spyRenderHist();
+    const { data, error } = await sb.from('spy_historico').select('ads_ativos,lido_em,fonte').eq('oferta_id', id).order('lido_em', { ascending: true }).limit(5000);
+    if (spyHist.id !== id) return;
+    spyHist.carregando = false;
+    if (error) spyHist.erro = error.message;
+    (data || []).forEach(r => { spyHist.dias[spyDiaBR(r.lido_em)] = r; }); // um ponto por dia: a última leitura do dia
+    const chaves = Object.keys(spyHist.dias).sort();
+    const ref = chaves.length ? chaves[chaves.length - 1] : spyDiaBR(new Date().toISOString());
+    spyHist.mes = { a: +ref.slice(0, 4), m: +ref.slice(5, 7) };
+    spyRenderHist();
+  }
+  function spyFecharHistorico() { spyHist.id = null; document.getElementById('spy-hist-overlay').classList.remove('aberto'); }
+  function spyHistMes(delta) {
+    const m = spyHist.mes;
+    if (!m) return;
+    const d = new Date(m.a, m.m - 1 + delta, 1);
+    spyHist.mes = { a: d.getFullYear(), m: d.getMonth() + 1 };
+    spyRenderHist();
+  }
+  function spyRenderHist() {
+    const o = spyOfertas.find(x => x.id === spyHist.id);
+    if (!o) return;
+    document.getElementById('spy-hist-titulo').innerHTML = '<i class="ti ti-calendar-stats"></i> ' + escapeHtml(o.nome || 'Sem nome') + ' · ads ativos por dia';
+    const corpo = document.getElementById('spy-hist-corpo');
+    if (spyHist.carregando) { corpo.innerHTML = '<div class="placeholder">Carregando histórico...</div>'; return; }
+    if (spyHist.erro) { corpo.innerHTML = '<div class="placeholder">Erro ao carregar: ' + escapeHtml(spyHist.erro) + '</div>'; return; }
+    const ch = Object.keys(spyHist.dias).sort();
+    if (!ch.length) { corpo.innerHTML = '<div class="placeholder">Ainda não há leituras para esta oferta. A primeira leitura automática acontece às 20h.</div>'; return; }
+    const v = k => Number(spyHist.dias[k].ads_ativos);
+    const sinal = d => d > 0 ? '+' + d : String(d);
+    const cls = d => d > 0 ? 'up' : d < 0 ? 'down' : 'eq';
+    const ult = ch[ch.length - 1], ant = ch.length > 1 ? ch[ch.length - 2] : null;
+    const lim7 = new Date(new Date(ult + 'T12:00:00').getTime() - 7 * 864e5).toISOString().slice(0, 10);
+    const k7 = ch.filter(k => k <= lim7).pop();
+    const todos = ch.map(v);
+    const card = (l, val, sub) => `<div><div class="l">${l}</div><div class="v">${val}</div><div class="s">${sub}</div></div>`;
+    const resumo = '<div class="spy-hist-resumo">' +
+      card('Última leitura', v(ult).toLocaleString('pt-BR'), spyDiaTxt(ult)) +
+      card('Vs. leitura anterior', ant ? `<span class="${cls(v(ult) - v(ant))}">${sinal(v(ult) - v(ant))}</span>` : '–', ant ? 'desde ' + spyDiaTxt(ant) : 'só uma leitura') +
+      card('Em 7 dias', k7 ? `<span class="${cls(v(ult) - v(k7))}">${sinal(v(ult) - v(k7))}</span>` : '–', k7 ? 'desde ' + spyDiaTxt(k7) : 'sem leitura há 7 dias') +
+      card('Máximo / mínimo', Math.max(...todos).toLocaleString('pt-BR') + ' / ' + Math.min(...todos).toLocaleString('pt-BR'), ch.length + ' dias com leitura') +
+      '</div>';
+    // gráfico dos últimos 30 pontos
+    const serie = ch.slice(-30);
+    let grafico = '';
+    if (serie.length >= 2) {
+      const W = 600, H = 110, P = 10, vs = serie.map(v), mx = Math.max(...vs), mn = Math.min(...vs), span = (mx - mn) || 1;
+      const x = i => P + i * (W - 2 * P) / (serie.length - 1), y = n => H - P - ((n - mn) / span) * (H - 2 * P);
+      const pts = serie.map((k, i) => x(i).toFixed(1) + ',' + y(v(k)).toFixed(1)).join(' ');
+      const pontos = serie.map((k, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v(k)).toFixed(1)}" r="3.5" fill="#38bdf8"><title>${spyDiaTxt(k)}: ${v(k)} ads</title></circle>`).join('');
+      grafico = `<div style="margin-bottom:14px;"><div class="placeholder" style="margin:0 0 4px;font-size:11.5px;">Últimas ${serie.length} leituras</div><svg viewBox="0 0 ${W} ${H}" style="width:100%;height:110px;background:#0f1526;border:1px solid var(--card-border);border-radius:10px;"><polyline fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linejoin="round" points="${pts}"/>${pontos}</svg></div>`;
+    }
+    // calendário do mês
+    const { a, m } = spyHist.mes;
+    const pad = n => String(n).padStart(2, '0');
+    const primeiro = new Date(a, m - 1, 1).getDay(), ndias = new Date(a, m, 0).getDate();
+    const hoje = spyDiaBR(new Date().toISOString());
+    const prevDe = {}; ch.forEach((k, i) => { if (i) prevDe[k] = ch[i - 1]; });
+    let cel = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(d => `<div class="dw">${d}</div>`).join('');
+    for (let i = 0; i < primeiro; i++) cel += '<div class="dia vazio"></div>';
+    for (let d = 1; d <= ndias; d++) {
+      const k = `${a}-${pad(m)}-${pad(d)}`, r = spyHist.dias[k];
+      if (!r) { cel += `<div class="dia ${k === hoje ? 'hoje' : ''}"><span class="d">${d}</span></div>`; continue; }
+      const dl = prevDe[k] ? v(k) - v(prevDe[k]) : null;
+      cel += `<div class="dia tem ${k === hoje ? 'hoje' : ''}" title="${spyDiaTxt(k)}: ${v(k)} ads ativos${r.fonte === 'manual' ? ' (editado manualmente)' : r.fonte === 'inicial' ? ' (valor inicial)' : ''}"><span class="d">${d}${r.fonte === 'manual' ? ' <span class="mn">manual</span>' : ''}</span><span class="n">${v(k).toLocaleString('pt-BR')}</span>${dl === null ? '<span class="dl eq">início</span>' : `<span class="dl ${cls(dl)}">${dl === 0 ? '=' : (dl > 0 ? '▲ ' : '▼ ') + Math.abs(dl)}</span>`}</div>`;
+    }
+    const mesNome = new Date(a, m - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    corpo.innerHTML = resumo + grafico +
+      `<div class="spy-cal-nav"><button type="button" class="secondary" onclick="spyHistMes(-1)">‹</button><b>${mesNome}</b><button type="button" class="secondary" onclick="spyHistMes(1)">›</button></div><div class="spy-cal">${cel}</div>` +
+      '<div class="placeholder" style="margin:10px 0 0;font-size:11.5px;">A leitura automática roda todo dia às 20h. Quando há mais de uma leitura no dia, vale a última.</div>';
+  }
   function spyAgruparAnexos(lista) {
     spyAnexos = {};
     lista.forEach(a => { (spyAnexos[a.spy_id] = spyAnexos[a.spy_id] || []).push(a); });
@@ -8126,6 +8255,10 @@
       return `<div class="spy-linkcell ${v ? 'tem' : ''}"><a href="${escapeHtml(v || '#')}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(v || '')}"><i class="ti ti-external-link"></i><span>${escapeHtml(spyLinkRotulo(v))}</span></a><button type="button" class="spy-ic" title="Editar link" onclick="spyEditarLink(this)"><i class="ti ti-pencil"></i></button><input type="text" class="spy-in ${k}" value="${escapeHtml(v || '')}" placeholder="Colar link..." onblur="spyLinkBlur(this,${args})"></div>`;
     }
     if (c.tipo === 'data') return `<input type="date" class="spy-in ${k}" value="${escapeHtml(v || '')}" onchange="spyCampoChange(this,${args})">`;
+    if (c.key === 'ads_ativos' && k !== 'box') {
+      const txt = spyValorTxt(v, c.tipo);
+      return `<div class="spy-adscell"><button type="button" class="spy-adsnum" title="Ver o histórico por dia" onclick="spyAbrirHistorico('${o.id}')">${escapeHtml(txt || '–')}</button><button type="button" class="spy-ic" title="Editar o número manualmente" onclick="spyEditarAds(this)"><i class="ti ti-pencil"></i></button><input type="text" class="spy-in" inputmode="decimal" style="display:none" value="${escapeHtml(txt)}" placeholder="Ads ativos" onchange="spyCampoChange(this,${args})" onblur="spyAdsBlur(this)"></div>`;
+    }
     const inp = `<input type="text" class="spy-in ${k}" ${c.tipo === 'numero' || c.tipo === 'moeda' ? 'inputmode="decimal"' : ''} value="${escapeHtml(spyValorTxt(v, c.tipo))}" placeholder="${escapeHtml(c.label)}" onchange="spyCampoChange(this,${args})">`;
     return c.tipo === 'moeda' ? `<div class="spy-moeda"><span>R$</span>${inp}</div>` : inp;
   }
