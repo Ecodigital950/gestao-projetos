@@ -597,6 +597,51 @@
   .spy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
   .spy-grid .full { grid-column: 1 / -1; }
   .spy-lb { display: block; font-size: 11.5px; color: var(--muted); margin-bottom: 4px; }
+  /* Pipeline de ofertas (X1 Wpp) */
+  .ofp-barra-top { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .ofp-board { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 10px; align-items: flex-start; }
+  .ofp-col { min-width: 290px; max-width: 290px; flex-shrink: 0; background: rgba(255,255,255,0.025); border-radius: 12px; padding: 8px; }
+  .ofp-col-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; font-weight: 700; font-size: 13.5px; color: #fff; margin-bottom: 10px; }
+  .ofp-col-h .n { font-weight: 600; font-size: 12px; opacity: .8; }
+  .ofp-col-body { display: flex; flex-direction: column; gap: 10px; min-height: 60px; }
+  .ofp-col-body.sobre { outline: 2px dashed var(--info); outline-offset: 2px; border-radius: 8px; }
+  .ofp-card { background: var(--card); border: 1px solid var(--card-border); border-left: 4px solid var(--c, #38bdf8); border-radius: 10px; padding: 11px 12px; cursor: pointer; }
+  .ofp-card:hover { border-color: var(--info); }
+  .ofp-card-nome { font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+  .ofp-card-nicho { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .ofp-bar { height: 6px; background: rgba(255,255,255,0.08); border-radius: 99px; overflow: hidden; margin: 10px 0 4px; }
+  .ofp-bar i { display: block; height: 100%; background: var(--pos); border-radius: 99px; }
+  .ofp-prog { font-size: 11.5px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+  .ofp-falta { font-size: 11.5px; color: var(--warn, #fbbf24); margin-top: 4px; overflow-wrap: anywhere; }
+  .ofp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .ofp-chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: rgba(255,255,255,0.07); color: var(--muted); }
+  .ofp-chip.pos { background: rgba(52,211,153,0.15); color: var(--pos); }
+  .ofp-chip.neg { background: rgba(248,113,113,0.15); color: var(--neg); }
+  .ofp-tabela-wrap { overflow-x: auto; border: 1px solid var(--card-border); border-radius: 12px; }
+  .ofp-tabela { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 900px; }
+  .ofp-tabela th { text-align: left; font-size: 11.5px; color: var(--muted); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--card-border); white-space: nowrap; }
+  .ofp-tabela td { padding: 10px 12px; border-bottom: 1px solid var(--card-border); vertical-align: top; }
+  .ofp-tabela tr.lin { cursor: pointer; }
+  .ofp-tabela tr.lin:hover td { background: rgba(255,255,255,0.03); }
+  .ofp-tabela td.num { text-align: right; white-space: nowrap; }
+  .ofp-sec { margin: 18px 0 8px; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .ofp-passo { display: flex; align-items: center; gap: 9px; padding: 6px 4px; font-size: 13.5px; cursor: pointer; }
+  .ofp-passo input { width: 17px; height: 17px; flex-shrink: 0; }
+  .ofp-passo.feito span { color: var(--muted); text-decoration: line-through; }
+  .ofp-grupo { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 12px 0 2px; }
+  .ofp-ind { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .ofp-ind th { text-align: left; color: var(--muted); font-weight: 600; font-size: 11px; padding: 4px 4px; }
+  .ofp-ind td { padding: 3px 3px; }
+  .ofp-ind input { width: 100%; min-width: 0; }
+  .ofp-ind tfoot td { font-weight: 700; padding-top: 8px; }
+  .ofp-ed-col { border: 1px solid var(--card-border); border-left: 4px solid var(--c); border-radius: 10px; padding: 10px; margin-bottom: 12px; }
+  .ofp-ed-linha { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+  .ofp-ed-linha input[type=text] { flex: 1; min-width: 120px; }
+  .ofp-ed-linha input[type=color] { width: 36px; height: 34px; padding: 2px; cursor: pointer; }
+  .ofp-ed-passos { margin-left: 14px; }
+  .ofp-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: #1b2440; color: var(--text); border: 1px solid var(--info); border-radius: 10px; padding: 11px 16px; font-size: 13.5px; z-index: 3000; box-shadow: 0 8px 28px rgba(0,0,0,.5); max-width: min(560px, 92vw); display: none; }
+  .ofp-toast.on { display: block; }
+  .spy-teste-box { border: 1px dashed rgba(129,140,248,0.5); background: rgba(129,140,248,0.07); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
   .spy-lista-edit { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
   .spy-lista-edit .linha { display: flex; align-items: center; gap: 8px; }
   .spy-lista-edit .linha input[type=text] { flex: 1; min-width: 0; }
@@ -1229,6 +1274,7 @@
             <button type="button" id="tab-tarefas-kanban" class="tab-toggle active" onclick="mostrarVisaoTarefas('kanban')">Kanban</button>
             <button type="button" id="tab-tarefas-calendario" class="tab-toggle" onclick="mostrarVisaoTarefas('calendario')">Calendário</button>
             <button type="button" id="tab-tarefas-atividades" class="tab-toggle" onclick="mostrarVisaoTarefas('atividades')">Hoje</button>
+            <button type="button" id="tab-tarefas-ofertas" class="tab-toggle" style="display:none;" onclick="mostrarVisaoTarefas('ofertas')"><i class="ti ti-flask"></i> Ofertas</button>
           </div>
           <i class="ti ti-help-circle ajuda-icone" onclick="mostrarAjuda('hoje', event)"></i>
           <div class="etiqueta-filtro-wrap">
@@ -1254,6 +1300,22 @@
               <span style="color:var(--neg);">⚠ Atrasada</span>
             </div>
           </div>
+        </div>
+        <div id="tarefas-ofertas" style="display:none;">
+          <div class="ofp-barra-top">
+            <div>
+              <h3 style="margin:0;"><i class="ti ti-flask"></i> Ofertas em teste · X1 Wpp</h3>
+              <p class="placeholder" style="margin:2px 0 0;">Para colocar uma oferta aqui, clique em <b>Testar</b> no Spy.</p>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              <div class="spy-seg">
+                <button type="button" id="ofp-v-quadro" onclick="ofpTrocarVisao('quadro')"><i class="ti ti-layout-kanban"></i> Quadro</button>
+                <button type="button" id="ofp-v-tabela" onclick="ofpTrocarVisao('tabela')"><i class="ti ti-table"></i> Tabela</button>
+              </div>
+              <button type="button" class="secondary" onclick="ofpAbrirEditor()"><i class="ti ti-settings"></i> Editar etapas</button>
+            </div>
+          </div>
+          <div id="ofp-conteudo"><p class="empty-note">Carregando...</p></div>
         </div>
         <div id="tarefas-atividades" style="display:none;">
           <div class="card">
@@ -1803,6 +1865,28 @@
   </div>
 </div>
 <div id="spy-pop"></div>
+<!-- Pipeline de ofertas: detalhe da oferta -->
+<div id="ofp-modal-overlay" class="spy-overlay" onclick="if(event.target===this) ofpFecharModal()">
+  <div class="card" style="width:min(760px,100%);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0;" id="ofp-modal-titulo"><i class="ti ti-flask"></i> Oferta em teste</h3>
+      <button class="row-action" onclick="ofpFecharModal()" style="font-size:16px; line-height:1; padding:2px 6px;">✕</button>
+    </div>
+    <div id="ofp-modal-corpo"></div>
+  </div>
+</div>
+<!-- Pipeline de ofertas: editar colunas e etapas -->
+<div id="ofp-editar-overlay" class="spy-overlay" onclick="if(event.target===this) ofpFecharEditor()">
+  <div class="card" style="width:min(680px,100%);">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h3 style="margin:0;"><i class="ti ti-settings"></i> Editar etapas do pipeline</h3>
+      <button class="row-action" onclick="ofpFecharEditor()" style="font-size:16px; line-height:1; padding:2px 6px;">✕</button>
+    </div>
+    <p class="placeholder">Cada coluna é uma fase da oferta; os passos dentro dela são o que precisa ser feito. Renomeie, reordene, crie ou apague. Salva sozinho.</p>
+    <div id="ofp-editar-corpo"></div>
+  </div>
+</div>
+<div id="ofp-toast" class="ofp-toast"></div>
 
 <div id="drv-menu"></div>
 
@@ -2197,7 +2281,11 @@
 
     if (modulo === 'dashboard') carregarDashboard();
     if (modulo === 'financeiro' && document.getElementById('fin-projeto').value) carregarFinanceiro();
-    if (modulo === 'tarefas') carregarTarefas();
+    if (modulo === 'tarefas') {
+      const tabOf = document.getElementById('tab-tarefas-ofertas');
+      if (tabOf) tabOf.style.display = currentPermissions.has('spy') ? '' : 'none';
+      carregarTarefas();
+    }
     if (modulo === 'criativos') carregarCriativos();
     if (modulo === 'spy') carregarSpy();
   }
@@ -4062,10 +4150,14 @@
     document.getElementById('kanban-board-wrap').style.display = aba === 'kanban' ? 'block' : 'none';
     document.getElementById('tarefas-calendario').style.display = aba === 'calendario' ? 'block' : 'none';
     document.getElementById('tarefas-atividades').style.display = aba === 'atividades' ? 'block' : 'none';
+    document.getElementById('tarefas-ofertas').style.display = aba === 'ofertas' ? 'block' : 'none';
+    document.querySelector('.tarefas-topo-row').style.display = aba === 'ofertas' ? 'none' : '';
     document.getElementById('cal-nav').style.display = aba === 'calendario' ? 'flex' : 'none';
     document.getElementById('tab-tarefas-kanban').classList.toggle('active', aba === 'kanban');
     document.getElementById('tab-tarefas-calendario').classList.toggle('active', aba === 'calendario');
     document.getElementById('tab-tarefas-atividades').classList.toggle('active', aba === 'atividades');
+    document.getElementById('tab-tarefas-ofertas').classList.toggle('active', aba === 'ofertas');
+    if (aba === 'ofertas') ofpCarregar();
     if (aba === 'calendario') renderCalendarioTarefas();
     if (aba === 'atividades') carregarAtividadesHoje();
     if (aba === 'kanban') ajustarAlturaKanban();
@@ -8269,15 +8361,15 @@
     return spyCampo(o, c, '');
   }
   function spyHtmlTabela(lista, pastas) {
-    const cols = spyColunasDef(), larg = cols.reduce((s, c) => s + c.w, 0) + 96;
-    let h = `<div class="spy-tabela-wrap"><table class="spy-tabela" style="min-width:${larg}px"><thead><tr>${cols.map(c => `<th style="width:${c.w}px">${escapeHtml(c.label)}</th>`).join('')}<th style="width:96px"></th></tr></thead><tbody>`;
+    const cols = spyColunasDef(), larg = cols.reduce((s, c) => s + c.w, 0) + 130;
+    let h = `<div class="spy-tabela-wrap"><table class="spy-tabela" style="min-width:${larg}px"><thead><tr>${cols.map(c => `<th style="width:${c.w}px">${escapeHtml(c.label)}</th>`).join('')}<th style="width:130px"></th></tr></thead><tbody>`;
     (pastas || []).forEach(p => {
       const e = spyPastaStats(p.id);
       h += `<tr class="spy-pasta-tr" style="--c:${spyCor(p.cor)}" onclick="spyAbrirPasta('${p.id}')"><td colspan="${cols.length + 1}"><div class="spy-pasta-bar"><i class="ti ti-folder"></i><b>${escapeHtml(p.nome)}</b><span>${e.n} ${e.n === 1 ? 'oferta' : 'ofertas'}</span><span class="ads"><i class="ti ti-ad-2"></i> ${e.ads.toLocaleString('pt-BR')} ads</span><span class="fim"><button type="button" class="spy-ic" title="Editar pasta" onclick="event.stopPropagation(); spyAbrirPastaModal('${p.id}')"><i class="ti ti-pencil"></i></button></span></div></td></tr>`;
     });
     lista.forEach(o => {
       const s = spyStatusDe(o);
-      h += `<tr data-spy-row="${o.id}" style="--c:${s ? spyCor(s.cor) : '#475069'}">${cols.map(c => `<td>${spyCelula(o, c)}</td>`).join('')}<td style="white-space:nowrap"><button type="button" class="spy-ic" style="display:inline-block" title="Abrir detalhes e imagens" onclick="spyAbrirModal('${o.id}')"><i class="ti ti-eye"></i></button><button type="button" class="spy-ic" style="display:inline-block" title="${o.pasta_id ? 'Mudar de pasta ou tirar da pasta' : 'Colocar em uma pasta'}" onclick="spyAbrirPastaPop(event,'${o.id}')"><i class="ti ti-folder${o.pasta_id ? '' : '-plus'}"></i></button></td></tr>`;
+      h += `<tr data-spy-row="${o.id}" style="--c:${s ? spyCor(s.cor) : '#475069'}">${cols.map(c => `<td>${spyCelula(o, c)}</td>`).join('')}<td style="white-space:nowrap">${spyTesteBtn(o)}<button type="button" class="spy-ic" style="display:inline-block" title="Abrir detalhes e imagens" onclick="spyAbrirModal('${o.id}')"><i class="ti ti-eye"></i></button><button type="button" class="spy-ic" style="display:inline-block" title="${o.pasta_id ? 'Mudar de pasta ou tirar da pasta' : 'Colocar em uma pasta'}" onclick="spyAbrirPastaPop(event,'${o.id}')"><i class="ti ti-folder${o.pasta_id ? '' : '-plus'}"></i></button></td></tr>`;
     });
     return h + '</tbody></table></div>';
   }
@@ -8292,7 +8384,7 @@
       return `<div class="spy-card" data-spy-card="${o.id}" style="--c:${s ? spyCor(s.cor) : '#475069'}" onclick="spyAbrirModal('${o.id}')">
         <div class="spy-card-img">${url ? `<img loading="lazy" src="${url}" alt="">` : `<span class="ini">${escapeHtml((o.nome || '?').trim().charAt(0).toUpperCase() || '?')}</span>`}<span class="st">${spyPillHtml(o)}</span>${n ? `<span class="n"><i class="ti ti-photo"></i> ${n}</span>` : ''}</div>
         <div class="spy-card-body"><div class="spy-card-nome">${escapeHtml(o.nome || 'Sem nome')}</div><div class="spy-card-nicho">${escapeHtml(o.nicho || '')}</div>
-        <div class="spy-card-meta"><span class="spy-ads"><i class="ti ti-ad-2"></i> ${(Number(o.ads_ativos) || 0).toLocaleString('pt-BR')} ads</span>${lk(o.link_oferta, 'ti-link', 'Oferta')}${lk(o.link_ads, 'ti-external-link', 'Ads')}</div></div></div>`;
+        <div class="spy-card-meta"><span class="spy-ads"><i class="ti ti-ad-2"></i> ${(Number(o.ads_ativos) || 0).toLocaleString('pt-BR')} ads</span>${lk(o.link_oferta, 'ti-link', 'Oferta')}${lk(o.link_ads, 'ti-external-link', 'Ads')}<span style="margin-left:auto" onclick="event.stopPropagation()">${spyTesteBtn(o)}</span></div></div></div>`;
     }).join('') + '</div>';
   }
 
@@ -8392,6 +8484,7 @@
     const cols = spyColunasDef().filter(c => c.key !== 'capa');
     const selPasta = `<div><label class="spy-lb">Pasta</label><select class="spy-in box" onchange="spyMoverOferta('${o.id}', this.value || null)"><option value="">Sem pasta</option>${spyPastas.map(p => `<option value="${p.id}" ${o.pasta_id === p.id ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`).join('')}</select></div>`;
     return `<div class="spy-grid">${cols.map(c => `<div class="${c.key === 'nome' ? 'full' : ''}"><label class="spy-lb">${escapeHtml(c.label)}</label>${c.key === 'status' ? spyPillHtml(o) : spyCampo(o, c, 'box')}</div>`).join('')}${selPasta}</div>
+      <div class="spy-teste-box" id="spy-teste-box">${spyTesteBoxHtml(o)}</div>
       <div class="drv-box"><div class="drv-topo"><strong style="font-size:13px;"><i class="ti ti-photo"></i> Imagens e arquivos</strong><span class="placeholder" style="margin:0;font-size:11.5px;">Guardados no seu Drive</span></div><div id="spy-anexos-area"></div></div>
       <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
         <button type="button" class="secondary" style="color:var(--neg);border-color:rgba(248,113,113,0.4);" onclick="spyExcluirOferta('${o.id}')"><i class="ti ti-trash"></i> Excluir oferta</button>
@@ -8634,9 +8727,478 @@
     spyRender();
   }
 
+  // ================= Testar oferta (Spy → pipeline X1 Wpp) =================
+  const OFP_PADRAO = [
+    { nome: 'Preparando o teste', cor: '#fbbf24', resultado: null, passos: ['Criativos enviados ao Drive', 'Transcrição feita', 'Copy revisada e aprovada', 'Voz definida', 'Narração aprovada', 'Vídeos finais prontos'] },
+    { nome: 'Em teste', cor: '#818cf8', resultado: null, passos: [] },
+    { nome: 'Validada', cor: '#34d399', resultado: 'validada', passos: [] },
+    { nome: 'Descartada', cor: '#f87171', resultado: 'descartada', passos: [] }
+  ];
+  let ofpColunas = [], ofpPassos = [], ofpOfertas = [], ofpProg = {}, ofpCri = {}, ofpPastas = {}, ofpStatus = [], ofpModalId = null, ofpCarregando = false;
+  let ofpVisao = (() => { try { return localStorage.getItem('ofpVisao') === 'tabela' ? 'tabela' : 'quadro'; } catch (e) { return 'quadro'; } })();
+
+  function ofpToast(msg, ms) {
+    const t = document.getElementById('ofp-toast');
+    t.textContent = msg; t.classList.add('on');
+    clearTimeout(ofpToast._t);
+    ofpToast._t = setTimeout(() => t.classList.remove('on'), ms || 5000);
+  }
+  async function driveX1Chamar(body) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw Object.assign(new Error('Sessão expirada. Entre de novo.'), { codigo: 'nao_autenticado' });
+    const r = await fetch(SUPABASE_URL + '/functions/v1/drive-x1', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token, 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify(body)
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw Object.assign(new Error(j.erro || ('erro_' + r.status)), { codigo: j.erro });
+    return j;
+  }
+
+  // Garante que existam colunas/passos (primeiro uso em um espaço novo).
+  async function ofpGarantirPadrao() {
+    const { data: cs, error } = await sb.from('oferta_colunas').select('*').order('ordem').order('created_at');
+    if (error) throw error;
+    if (cs && cs.length) return;
+    for (let i = 0; i < OFP_PADRAO.length; i++) {
+      const p = OFP_PADRAO[i];
+      const { data: c, error: e1 } = await sb.from('oferta_colunas').insert({ nome: p.nome, cor: p.cor, resultado: p.resultado, ordem: i }).select().single();
+      if (e1) throw e1;
+      if (p.passos.length) {
+        const { error: e2 } = await sb.from('oferta_passos').insert(p.passos.map((nome, ordem) => ({ coluna_id: c.id, nome, ordem })));
+        if (e2) throw e2;
+      }
+    }
+  }
+  async function ofpPrimeiraColuna() {
+    await ofpGarantirPadrao();
+    const { data, error } = await sb.from('oferta_colunas').select('*').order('ordem').order('created_at');
+    if (error) throw error;
+    const c = (data || []).find(x => !x.resultado) || (data || [])[0];
+    if (!c) throw new Error('Nenhuma coluna no pipeline.');
+    return c;
+  }
+  async function spyStatusTestando() {
+    let s = spyStatus.find(x => /^testando$/i.test(x.nome));
+    if (s) return s;
+    const { data, error } = await sb.from('spy_status').insert({ nome: 'Testando', cor: '#818cf8', ordem: spyStatus.length }).select().single();
+    if (error) throw error;
+    spyStatus.push(data);
+    return data;
+  }
+  function spyTesteBtn(o) {
+    return o.teste_coluna_id
+      ? `<button type="button" class="spy-ic" style="display:inline-block;color:#818cf8" title="Parar teste" onclick="spyPararTeste('${o.id}')"><i class="ti ti-player-stop"></i></button>`
+      : `<button type="button" class="spy-ic" style="display:inline-block" title="Testar esta oferta" onclick="spyTestar('${o.id}')"><i class="ti ti-flask"></i></button>`;
+  }
+  function spyTesteBoxHtml(o) {
+    if (o.teste_coluna_id) {
+      return `<span><i class="ti ti-flask" style="color:#818cf8"></i> <b>Em teste</b> no pipeline do X1 Wpp (Kanban → aba Ofertas).</span><button type="button" class="secondary" onclick="spyPararTeste('${o.id}')"><i class="ti ti-player-stop"></i> Parar teste</button>`;
+    }
+    return `<span><i class="ti ti-flask"></i> Quer testar esta oferta? Ela entra no pipeline do X1 Wpp e as pastas são criadas no Drive.</span><button type="button" onclick="spyTestar('${o.id}')"><i class="ti ti-flask"></i> Testar</button>`;
+  }
+  function spyAtualizarTesteUi(id) {
+    spyRender();
+    const box = document.getElementById('spy-teste-box');
+    const o = spyOfertas.find(x => x.id === id);
+    if (box && o && spyModalId === id) {
+      box.innerHTML = spyTesteBoxHtml(o);
+      document.querySelectorAll(`#spy-modal-corpo [data-spy-pill="${id}"]`).forEach(b => { b.outerHTML = spyPillHtml(o); });
+    }
+  }
+  async function spyTestar(id) {
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o || o.teste_coluna_id) return;
+    if (!String(o.nome || '').trim()) { alert('Dê um nome à oferta antes de testar.'); return; }
+    const agora = new Date().toISOString();
+    let col;
+    try {
+      const st = await spyStatusTestando();
+      col = await ofpPrimeiraColuna();
+      const patch = { teste_coluna_id: col.id, teste_inicio: agora, status_antes_id: o.status_id === st.id ? o.status_antes_id : o.status_id, status_id: st.id, updated_at: agora };
+      const { error } = await sb.from('spy_ofertas').update(patch).eq('id', id);
+      if (error) throw error;
+      Object.assign(o, patch);
+    } catch (e) { spyAlert('Erro ao colocar em teste: ' + (e.message || e)); return; }
+    spyAtualizarTesteUi(id);
+    ofpToast(`"${o.nome}" em teste. Criando as pastas no Drive...`);
+    try {
+      const r = await driveX1Chamar({ acao: 'criar_pastas', oferta_id: id });
+      ofpToast(`"${o.nome}" em teste. Pastas criadas: ${r.caminho}`, 8000);
+    } catch (e) {
+      ofpToast(`"${o.nome}" em teste, mas as pastas do Drive não foram criadas (${driveMsgErro(e)}). Dá para criar depois no cartão da oferta (Kanban → Ofertas).`, 12000);
+    }
+  }
+  async function spyPararTeste(id) {
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o || !o.teste_coluna_id) return;
+    if (!confirm(`Parar o teste de "${o.nome || 'Sem nome'}"?\n\nEla sai do pipeline e volta ao status anterior. As pastas e arquivos no Drive continuam como estão.`)) return;
+    const volta = o.status_antes_id && spyStatus.some(s => s.id === o.status_antes_id) ? o.status_antes_id : null;
+    const patch = { teste_coluna_id: null, teste_inicio: null, status_antes_id: null, status_id: volta, updated_at: new Date().toISOString() };
+    const { error } = await sb.from('spy_ofertas').update(patch).eq('id', id);
+    if (error) { spyAlert('Erro ao parar o teste: ' + error.message); return; }
+    Object.assign(o, patch);
+    spyAtualizarTesteUi(id);
+    ofpToast(`Teste de "${o.nome || 'Sem nome'}" parado.`);
+  }
+
+  // ================= Pipeline de ofertas (Kanban → aba Ofertas) =================
+  const ofpBRL = v => (v === null || v === undefined || v === '' || isNaN(Number(v))) ? '–' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const ofpPct = v => (v === null || !isFinite(v)) ? '–' : v.toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + '%';
+  function ofpPassosOrd() {
+    const idx = new Map(ofpColunas.map((c, i) => [c.id, i]));
+    return ofpPassos.slice().sort((a, b) => ((idx.get(a.coluna_id) ?? 99) - (idx.get(b.coluna_id) ?? 99)) || (a.ordem - b.ordem));
+  }
+  function ofpMetricas(id) {
+    const l = ofpCri[id] || [];
+    let inv = 0, fat = 0, ven = 0;
+    l.forEach(c => { inv += Number(c.investimento) || 0; fat += Number(c.faturamento) || 0; ven += Number(c.vendas) || 0; });
+    const lucro = fat - inv;
+    return { tem: l.length > 0 && (inv > 0 || fat > 0 || ven > 0), inv, fat, ven, lucro, roi: inv > 0 ? lucro / inv * 100 : null, cpa: ven > 0 ? inv / ven : null };
+  }
+  function ofpProgresso(id) {
+    const feitos = ofpProg[id] || new Set(), ord = ofpPassosOrd();
+    return { n: ord.filter(p => feitos.has(p.id)).length, total: ord.length, falta: ord.filter(p => !feitos.has(p.id)) };
+  }
+  function ofpFaltaTxt(f) {
+    if (!f.length) return '';
+    return 'Falta: ' + f.slice(0, 2).map(p => p.nome).join(', ') + (f.length > 2 ? ` (+${f.length - 2})` : '');
+  }
+  function ofpColDe(o) { return ofpColunas.find(c => c.id === o.teste_coluna_id) || null; }
+  function ofpRoiChip(m) {
+    if (!m.tem) return '';
+    const cls = m.roi === null ? '' : (m.roi >= 0 ? 'pos' : 'neg');
+    return `<span class="ofp-chip ${cls}">ROI ${ofpPct(m.roi)}</span><span class="ofp-chip ${m.lucro >= 0 ? 'pos' : 'neg'}">Lucro ${ofpBRL(m.lucro)}</span>`;
+  }
+
+  function ofpTrocarVisao(v) {
+    ofpVisao = v;
+    try { localStorage.setItem('ofpVisao', v); } catch (e) { /* ignora */ }
+    ofpRender();
+  }
+  async function ofpCarregar() {
+    const el = document.getElementById('ofp-conteudo');
+    if (!el || ofpCarregando) return;
+    ofpCarregando = true;
+    try {
+      await ofpGarantirPadrao();
+      const [c, p, o, st] = await Promise.all([
+        sb.from('oferta_colunas').select('*').order('ordem').order('created_at'),
+        sb.from('oferta_passos').select('*').order('ordem').order('created_at'),
+        sb.from('spy_ofertas').select('id,nome,nicho,ads_ativos,link_oferta,link_ads,status_id,status_antes_id,teste_coluna_id,teste_inicio').not('teste_coluna_id', 'is', null).order('teste_inicio', { ascending: false }),
+        sb.from('spy_status').select('*').order('ordem')
+      ]);
+      const err = c.error || p.error || o.error || st.error;
+      if (err) { el.innerHTML = `<p class="empty-note">Erro ao carregar: ${escapeHtml(err.message)}</p>`; return; }
+      ofpColunas = c.data || []; ofpPassos = p.data || []; ofpOfertas = o.data || []; ofpStatus = st.data || [];
+      ofpProg = {}; ofpCri = {}; ofpPastas = {};
+      const ids = ofpOfertas.map(x => x.id);
+      if (ids.length) {
+        const [pg, cr, pa] = await Promise.all([
+          sb.from('oferta_progresso').select('oferta_id,passo_id').in('oferta_id', ids),
+          sb.from('oferta_criativos').select('*').in('oferta_id', ids).order('created_at'),
+          sb.from('drive_pastas_oferta').select('oferta_id,drive_folder_id,criativos_folder_id').in('oferta_id', ids)
+        ]);
+        (pg.data || []).forEach(r => { (ofpProg[r.oferta_id] ||= new Set()).add(r.passo_id); });
+        (cr.data || []).forEach(r => { (ofpCri[r.oferta_id] ||= []).push(r); });
+        (pa.data || []).forEach(r => { ofpPastas[r.oferta_id] = r; });
+      }
+      ofpRender();
+    } catch (e) {
+      el.innerHTML = `<p class="empty-note">Erro ao carregar: ${escapeHtml(e.message || String(e))}</p>`;
+    } finally { ofpCarregando = false; }
+  }
+  function ofpRender() {
+    const el = document.getElementById('ofp-conteudo');
+    if (!el) return;
+    document.getElementById('ofp-v-quadro').classList.toggle('on', ofpVisao === 'quadro');
+    document.getElementById('ofp-v-tabela').classList.toggle('on', ofpVisao === 'tabela');
+    if (!ofpOfertas.length) {
+      el.innerHTML = '<div class="spy-vazio"><i class="ti ti-flask"></i>Nenhuma oferta em teste ainda.<br>Vá no <b>Spy</b> e clique no ícone do frasco (<b>Testar</b>) em uma oferta.</div>';
+      return;
+    }
+    el.innerHTML = ofpVisao === 'tabela' ? ofpHtmlTabela() : ofpHtmlQuadro();
+  }
+  function ofpCardHtml(o) {
+    const pr = ofpProgresso(o.id), m = ofpMetricas(o.id), col = ofpColDe(o);
+    const pct = pr.total ? Math.round(pr.n / pr.total * 100) : 0;
+    return `<div class="ofp-card" draggable="true" style="--c:${spyCor(col && col.cor)}" ondragstart="event.dataTransfer.setData('text/plain','${o.id}'); event.dataTransfer.effectAllowed='move'" onclick="ofpAbrirModal('${o.id}')">
+      <div class="ofp-card-nome">${escapeHtml(o.nome || 'Sem nome')}</div>${o.nicho ? `<div class="ofp-card-nicho">${escapeHtml(o.nicho)}</div>` : ''}
+      <div class="ofp-bar"><i style="width:${pct}%"></i></div>
+      <div class="ofp-prog"><span>${pr.n} de ${pr.total}</span><span>${pct}%</span></div>
+      ${pr.falta.length ? `<div class="ofp-falta">${escapeHtml(ofpFaltaTxt(pr.falta))}</div>` : ''}
+      ${m.tem ? `<div class="ofp-chips">${ofpRoiChip(m)}</div>` : ''}
+    </div>`;
+  }
+  function ofpHtmlQuadro() {
+    return '<div class="ofp-board">' + ofpColunas.map(c => {
+      const lista = ofpOfertas.filter(o => o.teste_coluna_id === c.id);
+      return `<div class="ofp-col"><div class="ofp-col-h" style="background:${spyCor(c.cor)}"><span>${escapeHtml(c.nome)}</span><span class="n">${lista.length}</span></div>
+        <div class="ofp-col-body" ondragover="event.preventDefault(); this.classList.add('sobre')" ondragleave="this.classList.remove('sobre')" ondrop="event.preventDefault(); this.classList.remove('sobre'); ofpMover(event.dataTransfer.getData('text/plain'),'${c.id}')">${lista.map(ofpCardHtml).join('')}</div></div>`;
+    }).join('') + '</div>';
+  }
+  function ofpHtmlTabela() {
+    const linhas = ofpOfertas.map(o => {
+      const pr = ofpProgresso(o.id), m = ofpMetricas(o.id), col = ofpColDe(o), cor = spyCor(col && col.cor);
+      const cl = v => v === null ? '' : (v >= 0 ? 'color:var(--pos)' : 'color:var(--neg)');
+      return `<tr class="lin" onclick="ofpAbrirModal('${o.id}')">
+        <td><b>${escapeHtml(o.nome || 'Sem nome')}</b>${o.nicho ? `<div style="font-size:11.5px;color:var(--muted)">${escapeHtml(o.nicho)}</div>` : ''}</td>
+        <td><span class="spy-pill" style="background:${cor}22;color:${cor};border-color:${cor}66"><span class="spy-dot" style="background:${cor}"></span>${escapeHtml(col ? col.nome : '–')}</span></td>
+        <td style="white-space:nowrap">${pr.n} de ${pr.total}</td>
+        <td style="color:var(--warn,#fbbf24);font-size:12px">${escapeHtml(ofpFaltaTxt(pr.falta).replace(/^Falta: /, ''))}</td>
+        <td class="num">${m.tem ? ofpBRL(m.inv) : '–'}</td><td class="num">${m.tem ? ofpBRL(m.fat) : '–'}</td><td class="num">${m.tem ? m.ven : '–'}</td>
+        <td class="num">${m.cpa === null ? '–' : ofpBRL(m.cpa)}</td><td class="num" style="${cl(m.roi)}">${ofpPct(m.roi)}</td><td class="num" style="${m.tem ? cl(m.lucro) : ''}">${m.tem ? ofpBRL(m.lucro) : '–'}</td></tr>`;
+    }).join('');
+    return `<div class="ofp-tabela-wrap"><table class="ofp-tabela"><thead><tr><th>Oferta</th><th>Etapa</th><th>Progresso</th><th>Falta</th><th style="text-align:right">Investimento</th><th style="text-align:right">Faturamento</th><th style="text-align:right">Vendas</th><th style="text-align:right">CPA</th><th style="text-align:right">ROI</th><th style="text-align:right">Lucro</th></tr></thead><tbody>${linhas}</tbody></table></div>`;
+  }
+
+  function ofpStatusPara(col) {
+    const re = col.resultado === 'validada' ? /validad/i : col.resultado === 'descartada' ? /descartad/i : /^testando$/i;
+    return ofpStatus.find(s => re.test(s.nome)) || null;
+  }
+  async function ofpMover(id, colId) {
+    const o = ofpOfertas.find(x => x.id === id), col = ofpColunas.find(c => c.id === colId);
+    if (!o || !col || o.teste_coluna_id === colId) return;
+    const patch = { teste_coluna_id: colId, updated_at: new Date().toISOString() };
+    const st = ofpStatusPara(col);
+    if (st) patch.status_id = st.id;
+    const { error } = await sb.from('spy_ofertas').update(patch).eq('id', id);
+    if (error) { spyAlert('Erro ao mover: ' + error.message); return; }
+    Object.assign(o, patch);
+    const so = spyOfertas.find(x => x.id === id);
+    if (so) Object.assign(so, patch);
+    ofpRender();
+    if (ofpModalId === id) ofpRenderModal();
+  }
+
+  // ---- Detalhe da oferta ----
+  function ofpAbrirModal(id) {
+    if (!ofpOfertas.some(o => o.id === id)) return;
+    ofpModalId = id;
+    ofpRenderModal();
+    document.getElementById('ofp-modal-overlay').classList.add('aberto');
+  }
+  function ofpFecharModal() {
+    ofpModalId = null;
+    document.getElementById('ofp-modal-overlay').classList.remove('aberto');
+    ofpRender();
+  }
+  function ofpRenderModal() {
+    const o = ofpOfertas.find(x => x.id === ofpModalId);
+    if (!o) return;
+    const pr = ofpProgresso(o.id), feitos = ofpProg[o.id] || new Set(), pasta = ofpPastas[o.id];
+    document.getElementById('ofp-modal-titulo').innerHTML = `<i class="ti ti-flask"></i> ${escapeHtml(o.nome || 'Sem nome')}`;
+    const passosHtml = ofpColunas.map(c => {
+      const ps = ofpPassos.filter(p => p.coluna_id === c.id);
+      if (!ps.length) return '';
+      return `<div class="ofp-grupo">${escapeHtml(c.nome)}</div>` + ps.map(p => `<label class="ofp-passo ${feitos.has(p.id) ? 'feito' : ''}"><input type="checkbox" ${feitos.has(p.id) ? 'checked' : ''} onchange="ofpTogglePasso('${o.id}','${p.id}',this.checked)"><span>${escapeHtml(p.nome)}</span></label>`).join('');
+    }).join('');
+    const lk = (u, ic, t) => u ? `<a class="secondary" style="display:inline-flex;align-items:center;gap:5px;padding:7px 11px;border:1px solid var(--card-border);border-radius:8px;font-size:12.5px;text-decoration:none;color:var(--text)" href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer"><i class="ti ${ic}"></i> ${t}</a>` : '';
+    document.getElementById('ofp-modal-corpo').innerHTML = `
+      <div class="spy-grid">
+        <div><label class="spy-lb">Etapa</label><select class="spy-in box" onchange="ofpMover('${o.id}', this.value)">${ofpColunas.map(c => `<option value="${c.id}" ${o.teste_coluna_id === c.id ? 'selected' : ''}>${escapeHtml(c.nome)}</option>`).join('')}</select></div>
+        <div><label class="spy-lb">Progresso</label><div style="padding-top:9px;font-weight:700">${pr.n} de ${pr.total}${pr.falta.length ? `<span style="font-weight:400;color:var(--warn,#fbbf24);font-size:12px"> · ${escapeHtml(ofpFaltaTxt(pr.falta))}</span>` : ''}</div></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+        ${pasta ? lk('https://drive.google.com/drive/folders/' + pasta.criativos_folder_id, 'ti-brand-google-drive', 'Pasta Criativos (Drive)') + lk('https://drive.google.com/drive/folders/' + pasta.drive_folder_id, 'ti-folder', 'Pasta da oferta') : `<button type="button" class="secondary" onclick="ofpCriarPastas('${o.id}')"><i class="ti ti-brand-google-drive"></i> Criar pastas no Drive</button>`}
+        ${lk(o.link_oferta, 'ti-link', 'Oferta')}${lk(o.link_ads, 'ti-external-link', 'Ads')}
+      </div>
+      <div class="ofp-sec"><i class="ti ti-list-check"></i> Etapas</div>
+      ${passosHtml || '<p class="placeholder">Nenhuma etapa cadastrada. Use "Editar etapas".</p>'}
+      <div class="ofp-sec"><i class="ti ti-chart-bar"></i> Indicadores por criativo <span class="placeholder" style="margin:0;font-weight:400">(digite à mão por enquanto)</span></div>
+      <div id="ofp-ind">${ofpIndHtml(o.id)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:18px;">
+        <button type="button" class="secondary" onclick="ofpPararTeste('${o.id}')"><i class="ti ti-player-stop"></i> Parar teste</button>
+        <button type="button" onclick="ofpFecharModal()">Concluir</button>
+      </div>`;
+  }
+  async function ofpCriarPastas(id) {
+    ofpToast('Criando as pastas no Drive...');
+    try {
+      await driveX1Chamar({ acao: 'criar_pastas', oferta_id: id });
+      const { data } = await sb.from('drive_pastas_oferta').select('oferta_id,drive_folder_id,criativos_folder_id').eq('oferta_id', id).maybeSingle();
+      if (data) ofpPastas[id] = data;
+      ofpToast('Pastas criadas no Drive.');
+      if (ofpModalId === id) ofpRenderModal();
+    } catch (e) { ofpToast('Não deu certo: ' + driveMsgErro(e), 9000); }
+  }
+  async function ofpPararTeste(id) {
+    const o = ofpOfertas.find(x => x.id === id);
+    if (!o) return;
+    if (!confirm(`Parar o teste de "${o.nome || 'Sem nome'}"?\n\nEla sai do pipeline e volta ao status anterior. As pastas e arquivos no Drive continuam como estão.`)) return;
+    const volta = o.status_antes_id && ofpStatus.some(s => s.id === o.status_antes_id) ? o.status_antes_id : null;
+    const patch = { teste_coluna_id: null, teste_inicio: null, status_antes_id: null, status_id: volta, updated_at: new Date().toISOString() };
+    const { error } = await sb.from('spy_ofertas').update(patch).eq('id', id);
+    if (error) { spyAlert('Erro ao parar o teste: ' + error.message); return; }
+    const so = spyOfertas.find(x => x.id === id);
+    if (so) Object.assign(so, patch);
+    ofpOfertas = ofpOfertas.filter(x => x.id !== id);
+    ofpModalId = null;
+    document.getElementById('ofp-modal-overlay').classList.remove('aberto');
+    ofpRender();
+    ofpToast('Teste parado.');
+  }
+  async function ofpTogglePasso(ofertaId, passoId, marcado) {
+    const set = (ofpProg[ofertaId] ||= new Set());
+    const { error } = marcado
+      ? await sb.from('oferta_progresso').upsert({ oferta_id: ofertaId, passo_id: passoId })
+      : await sb.from('oferta_progresso').delete().eq('oferta_id', ofertaId).eq('passo_id', passoId);
+    if (error) { spyAlert('Erro ao salvar: ' + error.message); ofpRenderModal(); return; }
+    if (marcado) set.add(passoId); else set.delete(passoId);
+    ofpRenderModal();
+  }
+
+  // ---- Indicadores por criativo ----
+  function ofpIndHtml(ofertaId) {
+    const l = ofpCri[ofertaId] || [], m = ofpMetricas(ofertaId);
+    const num = v => (v === null || v === undefined) ? '' : String(v).replace('.', ',');
+    const linhas = l.map(c => {
+      const inv = Number(c.investimento) || 0, fat = Number(c.faturamento) || 0, ven = Number(c.vendas) || 0;
+      const roi = inv > 0 ? (fat - inv) / inv * 100 : null;
+      return `<tr><td style="width:62px"><input type="text" class="spy-in box" value="${escapeHtml(c.nome)}" onchange="ofpSalvarCri('${c.id}','nome',this.value)"></td>
+        <td style="width:92px"><input type="text" class="spy-in box" value="${escapeHtml(c.lote || '')}" placeholder="aaaa-mm-dd" onchange="ofpSalvarCri('${c.id}','lote',this.value)"></td>
+        <td><input type="text" class="spy-in box" inputmode="decimal" value="${num(c.investimento)}" placeholder="R$" onchange="ofpSalvarCri('${c.id}','investimento',this.value)"></td>
+        <td><input type="text" class="spy-in box" inputmode="decimal" value="${num(c.faturamento)}" placeholder="R$" onchange="ofpSalvarCri('${c.id}','faturamento',this.value)"></td>
+        <td style="width:62px"><input type="text" class="spy-in box" inputmode="numeric" value="${num(c.vendas)}" onchange="ofpSalvarCri('${c.id}','vendas',this.value)"></td>
+        <td style="white-space:nowrap;text-align:right;color:${roi === null ? 'var(--muted)' : roi >= 0 ? 'var(--pos)' : 'var(--neg)'}">${ofpPct(roi)}</td>
+        <td><button type="button" class="spy-ic danger" title="Remover" onclick="ofpRemoverCri('${c.id}')"><i class="ti ti-trash"></i></button></td></tr>`;
+    }).join('');
+    return `<table class="ofp-ind"><thead><tr><th>Criativo</th><th>Lote</th><th>Investimento</th><th>Faturamento</th><th>Vendas</th><th style="text-align:right">ROI</th><th></th></tr></thead><tbody>${linhas}</tbody>
+      ${l.length ? `<tfoot><tr><td colspan="2">Total</td><td>${ofpBRL(m.inv)}</td><td>${ofpBRL(m.fat)}</td><td>${m.ven}</td><td style="text-align:right">${ofpPct(m.roi)}</td><td></td></tr><tr><td colspan="2" style="font-weight:400;color:var(--muted)">CPA · Lucro</td><td colspan="4" style="font-weight:400;color:var(--muted)">${m.cpa === null ? '–' : ofpBRL(m.cpa)} · ${ofpBRL(m.lucro)}</td><td></td></tr></tfoot>` : ''}</table>
+      <button type="button" class="secondary" style="margin-top:8px;font-size:12.5px" onclick="ofpAddCri('${ofertaId}')"><i class="ti ti-plus"></i> Adicionar criativo</button>`;
+  }
+  function ofpRefInd(ofertaId) {
+    const el = document.getElementById('ofp-ind');
+    if (el && ofpModalId === ofertaId) el.innerHTML = ofpIndHtml(ofertaId);
+  }
+  async function ofpAddCri(ofertaId) {
+    const l = ofpCri[ofertaId] || [];
+    let max = 0; l.forEach(c => { const m = /(\d+)$/.exec(c.nome || ''); if (m) max = Math.max(max, Number(m[1])); });
+    const { data, error } = await sb.from('oferta_criativos').insert({ oferta_id: ofertaId, nome: 'cv' + (max + 1) }).select().single();
+    if (error) { spyAlert('Erro ao adicionar: ' + error.message); return; }
+    (ofpCri[ofertaId] ||= []).push(data);
+    ofpRefInd(ofertaId);
+  }
+  async function ofpSalvarCri(id, campo, bruto) {
+    let valor;
+    if (campo === 'nome') valor = String(bruto || '').trim();
+    else if (campo === 'lote') valor = String(bruto || '').trim() || null;
+    else { valor = spyNum(bruto); if (campo === 'vendas' && valor !== null) valor = Math.max(0, Math.round(valor)); if (valor !== null && valor < 0) valor = 0; }
+    const { error } = await sb.from('oferta_criativos').update({ [campo]: valor, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { spyAlert('Erro ao salvar: ' + error.message); return; }
+    for (const oid in ofpCri) { const c = ofpCri[oid].find(x => x.id === id); if (c) { c[campo] = valor; ofpRefInd(oid); } }
+  }
+  async function ofpRemoverCri(id) {
+    if (!confirm('Remover este criativo da tabela de indicadores?')) return;
+    const { error } = await sb.from('oferta_criativos').delete().eq('id', id);
+    if (error) { spyAlert('Erro ao remover: ' + error.message); return; }
+    for (const oid in ofpCri) { ofpCri[oid] = ofpCri[oid].filter(x => x.id !== id); ofpRefInd(oid); }
+  }
+
+  // ---- Editor de colunas e passos ----
+  function ofpAbrirEditor() { ofpRenderEditor(); document.getElementById('ofp-editar-overlay').classList.add('aberto'); }
+  function ofpFecharEditor() { document.getElementById('ofp-editar-overlay').classList.remove('aberto'); ofpRender(); if (ofpModalId) ofpRenderModal(); }
+  function ofpRenderEditor() {
+    const el = document.getElementById('ofp-editar-corpo');
+    const btn = (fn, ic, t, dis) => `<button type="button" class="spy-ic" title="${t}" ${dis ? 'disabled style="opacity:.3"' : ''} onclick="${fn}"><i class="ti ${ic}"></i></button>`;
+    el.innerHTML = ofpColunas.map((c, i) => {
+      const ps = ofpPassos.filter(p => p.coluna_id === c.id);
+      return `<div class="ofp-ed-col" style="--c:${spyCor(c.cor)}">
+        <div class="ofp-ed-linha">
+          <input type="color" value="${spyCor(c.cor)}" onchange="ofpColCampo('${c.id}','cor',this.value)">
+          <input type="text" value="${escapeHtml(c.nome)}" onchange="ofpColCampo('${c.id}','nome',this.value)">
+          <select onchange="ofpColCampo('${c.id}','resultado',this.value||null)" title="Quando uma oferta entra aqui, o status dela no Spy muda junto">
+            <option value="" ${!c.resultado ? 'selected' : ''}>Em andamento</option>
+            <option value="validada" ${c.resultado === 'validada' ? 'selected' : ''}>Resultado: Validada</option>
+            <option value="descartada" ${c.resultado === 'descartada' ? 'selected' : ''}>Resultado: Descartada</option>
+          </select>
+          ${btn(`ofpMoverItem('col','${c.id}',-1)`, 'ti-arrow-up', 'Subir', i === 0)}${btn(`ofpMoverItem('col','${c.id}',1)`, 'ti-arrow-down', 'Descer', i === ofpColunas.length - 1)}${btn(`ofpExcluirCol('${c.id}')`, 'ti-trash', 'Excluir coluna')}
+        </div>
+        <div class="ofp-ed-passos">
+          ${ps.map((p, j) => `<div class="ofp-ed-linha"><input type="text" value="${escapeHtml(p.nome)}" onchange="ofpPassoNome('${p.id}',this.value)">${btn(`ofpMoverItem('passo','${p.id}',-1)`, 'ti-arrow-up', 'Subir', j === 0)}${btn(`ofpMoverItem('passo','${p.id}',1)`, 'ti-arrow-down', 'Descer', j === ps.length - 1)}${btn(`ofpExcluirPasso('${p.id}')`, 'ti-trash', 'Excluir passo')}</div>`).join('')}
+          <div class="ofp-ed-linha"><input type="text" id="ofp-novo-passo-${c.id}" placeholder="Novo passo..." onkeydown="if(event.key==='Enter') ofpAddPasso('${c.id}')"><button type="button" class="secondary" onclick="ofpAddPasso('${c.id}')"><i class="ti ti-plus"></i> Passo</button></div>
+        </div>
+      </div>`;
+    }).join('') + `<div class="ofp-ed-linha"><input type="text" id="ofp-nova-col" placeholder="Nova coluna (ex: Escalando)" onkeydown="if(event.key==='Enter') ofpAddCol()"><button type="button" onclick="ofpAddCol()"><i class="ti ti-plus"></i> Coluna</button></div>`;
+  }
+  async function ofpColCampo(id, campo, valor) {
+    if (campo === 'nome') { valor = String(valor || '').trim(); if (!valor) { ofpRenderEditor(); return; } }
+    const { error } = await sb.from('oferta_colunas').update({ [campo]: valor }).eq('id', id);
+    if (error) { spyAlert('Erro ao salvar: ' + error.message); return; }
+    const c = ofpColunas.find(x => x.id === id); if (c) c[campo] = valor;
+    ofpRenderEditor();
+  }
+  async function ofpPassoNome(id, valor) {
+    valor = String(valor || '').trim();
+    if (!valor) { ofpRenderEditor(); return; }
+    const { error } = await sb.from('oferta_passos').update({ nome: valor }).eq('id', id);
+    if (error) { spyAlert('Erro ao salvar: ' + error.message); return; }
+    const p = ofpPassos.find(x => x.id === id); if (p) p.nome = valor;
+  }
+  async function ofpAddCol() {
+    const inp = document.getElementById('ofp-nova-col'), nome = inp.value.trim();
+    if (!nome) return;
+    const ordem = ofpColunas.reduce((m, c) => Math.max(m, c.ordem), -1) + 1;
+    const { data, error } = await sb.from('oferta_colunas').insert({ nome, ordem, cor: SPY_PALETA[ofpColunas.length % SPY_PALETA.length] }).select().single();
+    if (error) { spyAlert('Erro ao criar: ' + error.message); return; }
+    ofpColunas.push(data); ofpRenderEditor();
+  }
+  async function ofpAddPasso(colId) {
+    const inp = document.getElementById('ofp-novo-passo-' + colId), nome = inp.value.trim();
+    if (!nome) return;
+    const ordem = ofpPassos.filter(p => p.coluna_id === colId).reduce((m, p) => Math.max(m, p.ordem), -1) + 1;
+    const { data, error } = await sb.from('oferta_passos').insert({ coluna_id: colId, nome, ordem }).select().single();
+    if (error) { spyAlert('Erro ao criar: ' + error.message); return; }
+    ofpPassos.push(data); ofpRenderEditor();
+  }
+  async function ofpExcluirCol(id) {
+    const c = ofpColunas.find(x => x.id === id);
+    if (!c) return;
+    if (ofpOfertas.some(o => o.teste_coluna_id === id)) { alert('Há ofertas nesta coluna. Mova-as para outra coluna antes de excluir.'); return; }
+    if (ofpColunas.length <= 1) { alert('O pipeline precisa ter pelo menos uma coluna.'); return; }
+    const n = ofpPassos.filter(p => p.coluna_id === id).length;
+    if (!confirm(`Excluir a coluna "${c.nome}"${n ? ` e os ${n} passos dela` : ''}?`)) return;
+    const { error } = await sb.from('oferta_colunas').delete().eq('id', id);
+    if (error) { spyAlert('Erro ao excluir: ' + error.message); return; }
+    ofpColunas = ofpColunas.filter(x => x.id !== id);
+    const apagados = new Set(ofpPassos.filter(p => p.coluna_id === id).map(p => p.id));
+    ofpPassos = ofpPassos.filter(p => p.coluna_id !== id);
+    for (const oid in ofpProg) apagados.forEach(pid => ofpProg[oid].delete(pid));
+    ofpRenderEditor();
+  }
+  async function ofpExcluirPasso(id) {
+    const p = ofpPassos.find(x => x.id === id);
+    if (!p || !confirm(`Excluir o passo "${p.nome}"? Ele some de todas as ofertas.`)) return;
+    const { error } = await sb.from('oferta_passos').delete().eq('id', id);
+    if (error) { spyAlert('Erro ao excluir: ' + error.message); return; }
+    ofpPassos = ofpPassos.filter(x => x.id !== id);
+    for (const oid in ofpProg) ofpProg[oid].delete(id);
+    ofpRenderEditor();
+  }
+  async function ofpMoverItem(tipo, id, delta) {
+    const tabela = tipo === 'col' ? 'oferta_colunas' : 'oferta_passos';
+    const todos = tipo === 'col' ? ofpColunas : ofpPassos;
+    const item = todos.find(x => x.id === id);
+    if (!item) return;
+    const irmaos = (tipo === 'col' ? todos : todos.filter(p => p.coluna_id === item.coluna_id)).slice().sort((a, b) => a.ordem - b.ordem);
+    const i = irmaos.findIndex(x => x.id === id), j = i + delta;
+    if (j < 0 || j >= irmaos.length) return;
+    [irmaos[i], irmaos[j]] = [irmaos[j], irmaos[i]];
+    const mudou = [];
+    irmaos.forEach((x, k) => { if (x.ordem !== k) { x.ordem = k; mudou.push(x); } });
+    const rs = await Promise.all(mudou.map(x => sb.from(tabela).update({ ordem: x.ordem }).eq('id', x.id)));
+    const e = rs.find(r => r.error);
+    if (e) { spyAlert('Erro ao reordenar: ' + e.error.message); return; }
+    todos.sort((a, b) => a.ordem - b.ordem);
+    ofpRenderEditor();
+  }
+
   document.addEventListener('click', e => { if (!e.target.closest('#spy-pop')) spyFecharPop(); });
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape' || document.getElementById('drv-viewer').classList.contains('aberto')) return;
+    if (document.getElementById('ofp-editar-overlay').classList.contains('aberto')) { ofpFecharEditor(); return; }
+    if (ofpModalId) { ofpFecharModal(); return; }
     if (document.getElementById('spy-pop').classList.contains('aberto')) { spyFecharPop(); return; }
     if (document.getElementById('spy-add-overlay').classList.contains('aberto')) spyFecharAdd();
     else if (document.getElementById('spy-pasta-overlay').classList.contains('aberto')) spyFecharPastaModal();
