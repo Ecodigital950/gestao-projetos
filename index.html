@@ -8484,6 +8484,11 @@
     const cols = spyColunasDef().filter(c => c.key !== 'capa');
     const selPasta = `<div><label class="spy-lb">Pasta</label><select class="spy-in box" onchange="spyMoverOferta('${o.id}', this.value || null)"><option value="">Sem pasta</option>${spyPastas.map(p => `<option value="${p.id}" ${o.pasta_id === p.id ? 'selected' : ''}>${escapeHtml(p.nome)}</option>`).join('')}</select></div>`;
     return `<div class="spy-grid">${cols.map(c => `<div class="${c.key === 'nome' ? 'full' : ''}"><label class="spy-lb">${escapeHtml(c.label)}</label>${c.key === 'status' ? spyPillHtml(o) : spyCampo(o, c, 'box')}</div>`).join('')}${selPasta}</div>
+      <div style="margin-bottom:14px;">
+        <label class="spy-lb">Informações <span style="opacity:.7">(textos e links; salva sozinho)</span></label>
+        <textarea id="spy-info" class="spy-in box" rows="8" placeholder="Cole aqui anotações, textos e links sobre a oferta..." style="width:100%; min-height:150px; resize:vertical; line-height:1.5; white-space:pre-wrap;" onblur="spySalvarInfo('${o.id}', this.value)">${escapeHtml(o.informacoes || '')}</textarea>
+        <div style="display:flex; justify-content:flex-end; margin-top:6px;"><button type="button" class="secondary" style="font-size:12.5px;" onclick="spyGerarWord('${o.id}')" title="Cria um arquivo Word com essas informações na pasta desta oferta no Drive"><i class="ti ti-file-word"></i> Gerar Word no Drive</button></div>
+      </div>
       <div class="spy-teste-box" id="spy-teste-box">${spyTesteBoxHtml(o)}</div>
       <div class="drv-box"><div class="drv-topo"><strong style="font-size:13px;"><i class="ti ti-photo"></i> Imagens e arquivos</strong><span class="placeholder" style="margin:0;font-size:11.5px;">Guardados no seu Drive</span></div><div id="spy-anexos-area"></div></div>
       <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
@@ -8499,6 +8504,7 @@
     c.spyId = id; c.projectId = null; c.taskId = null; c.lista = []; c.envios = [];
     document.getElementById('spy-modal-corpo').innerHTML = spyModalHtml(o);
     document.getElementById('spy-modal-overlay').classList.add('aberto');
+    lkAtivar(document.getElementById('spy-info')); // links clicáveis fora da edição
     driveRenderArea('s');
     driveCarregarLista('s');
   }
@@ -8725,6 +8731,90 @@
     spyAddSel = new Set();
     document.getElementById('spy-add-overlay').classList.remove('aberto');
     spyRender();
+  }
+
+  // ================= Spy: informações da oferta + Word no Drive =================
+  async function spySalvarInfo(id, valor) {
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o || (o.informacoes || '') === valor) return;
+    const { error } = await sb.from('spy_ofertas').update({ informacoes: valor, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) { spyAlert('Erro ao salvar as informações: ' + error.message); return; }
+    o.informacoes = valor;
+  }
+  // .docx feito à mão (zip sem compressão), sem biblioteca externa.
+  function crc32(buf) {
+    let t = crc32.t;
+    if (!t) { t = crc32.t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } }
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < buf.length; i++) c = t[(c ^ buf[i]) & 255] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+  function zipSemCompressao(arquivos, tipo) {
+    const enc = new TextEncoder(), partes = [], central = [];
+    const u16 = n => [n & 255, (n >> 8) & 255], u32 = n => [n & 255, (n >> 8) & 255, (n >> 16) & 255, (n >>> 24) & 255];
+    let off = 0;
+    for (const f of arquivos) {
+      const nome = enc.encode(f.nome), dados = enc.encode(f.texto), crc = crc32(dados), tam = dados.length;
+      const loc = new Uint8Array([0x50, 0x4b, 3, 4, ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(tam), ...u32(tam), ...u16(nome.length), ...u16(0)]);
+      partes.push(loc, nome, dados);
+      central.push(new Uint8Array([0x50, 0x4b, 1, 2, ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(tam), ...u32(tam), ...u16(nome.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), nome);
+      off += loc.length + nome.length + tam;
+    }
+    const tamCentral = central.reduce((s, a) => s + a.length, 0);
+    const fim = new Uint8Array([0x50, 0x4b, 5, 6, 0, 0, 0, 0, ...u16(arquivos.length), ...u16(arquivos.length), ...u32(tamCentral), ...u32(off), 0, 0]);
+    return new Blob([...partes, ...central, fim], { type: tipo });
+  }
+  function docxInformacoes(titulo, subtitulo, texto) {
+    const esc = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
+    const rels = [];
+    const run = (t, rpr) => `<w:r>${rpr ? `<w:rPr>${rpr}</w:rPr>` : ''}<w:t xml:space="preserve">${esc(t)}</w:t></w:r>`;
+    const par = (conteudo, ppr) => `<w:p>${ppr ? `<w:pPr>${ppr}</w:pPr>` : ''}${conteudo}</w:p>`;
+    const linhaComLinks = linha => {
+      let out = '', ult = 0, m;
+      LK_URL.lastIndex = 0;
+      while ((m = LK_URL.exec(linha))) {
+        let url = m[0], resto = '';
+        const fim = url.match(/[.,;:!?)\]]+$/);
+        if (fim) { resto = fim[0]; url = url.slice(0, -resto.length); }
+        if (m.index > ult) out += run(linha.slice(ult, m.index));
+        rels.push(url);
+        out += `<w:hyperlink r:id="rId${rels.length + 10}">${run(url, '<w:color w:val="1155CC"/><w:u w:val="single"/>')}</w:hyperlink>`;
+        if (resto) out += run(resto);
+        ult = m.index + m[0].length;
+      }
+      if (ult < linha.length) out += run(linha.slice(ult));
+      return out;
+    };
+    const corpo = [
+      par(run(titulo, '<w:b/><w:sz w:val="36"/>'), '<w:spacing w:after="60"/>'),
+      par(run(subtitulo, '<w:color w:val="7F7F7F"/><w:sz w:val="20"/>'), '<w:spacing w:after="240"/>'),
+      ...String(texto).split(/\r?\n/).map(l => par(linhaComLinks(l), '<w:spacing w:after="80"/>'))
+    ].join('');
+    const ns = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+    const cab = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+    return zipSemCompressao([
+      { nome: '[Content_Types].xml', texto: `${cab}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>` },
+      { nome: '_rels/.rels', texto: `${cab}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>` },
+      { nome: 'word/_rels/document.xml.rels', texto: `${cab}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${rels.map((u, i) => `<Relationship Id="rId${i + 11}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${esc(u)}" TargetMode="External"/>`).join('')}</Relationships>` },
+      { nome: 'word/document.xml', texto: `${cab}<w:document ${ns}><w:body>${corpo}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>` }
+    ], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  }
+  async function spyGerarWord(id) {
+    const o = spyOfertas.find(x => x.id === id);
+    if (!o) return;
+    const ta = document.getElementById('spy-info');
+    const texto = ((ta && spyModalId === id ? ta.value : o.informacoes) || '').trim();
+    if (!texto) { alert('Escreva alguma informação antes de gerar o Word.'); return; }
+    if (ta && spyModalId === id) await spySalvarInfo(id, ta.value);
+    if (spyModalId !== id) { alert('Abra a oferta para gerar o Word.'); return; }
+    const d = new Date(), p2 = n => String(n).padStart(2, '0');
+    const nome = `Informações - ${(o.nome || 'Oferta').replace(/[\\/:*?"<>|]/g, '-').trim()} - ${formatDateLocal(d)} ${p2(d.getHours())}-${p2(d.getMinutes())}.docx`;
+    const blob = docxInformacoes(o.nome || 'Oferta', 'Informações da oferta · gerado pelo Gestor em ' + d.toLocaleString('pt-BR'), texto);
+    ofpToast('Gerando o Word e enviando para o Drive...');
+    await driveEnviar('s', [new File([blob], nome, { type: blob.type })]);
+    const falhou = DRV.s.envios.find(e => e.nome === nome && e.erro);
+    if (falhou) { DRV.s.envios = DRV.s.envios.filter(e => e !== falhou); driveRenderEnvios('s'); ofpToast('Não consegui enviar: ' + falhou.erro, 9000); return; }
+    ofpToast(`Word criado na pasta da oferta (Drive): ${nome}. Ele aparece em "Imagens e arquivos".`, 9000);
   }
 
   // ================= Testar oferta (Spy → pipeline X1 Wpp) =================
