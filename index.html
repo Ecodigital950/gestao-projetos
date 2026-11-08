@@ -1342,10 +1342,6 @@
             <p class="placeholder" style="margin:0 0 12px;">No máximo 3 cartões por vez. Para trazer um cartão para cá, aperte <b>Agendar</b> nele, dentro do projeto.</p>
             <div id="hoje-foco"><p class="empty-note">Carregando...</p></div>
           </div>
-          <div class="card">
-            <p class="placeholder" style="margin-bottom:12px;">Tarefas com vencimento de todos os projetos, num só lugar — igual o "Follow-up" do Pipedrive.</p>
-            <div id="atividades-hoje-lista"></div>
-          </div>
         </div>
 
         <div id="tarefa-modal-overlay" onclick="if(event.target===this) fecharTarefaModal()">
@@ -1953,7 +1949,7 @@
     'checklist-modo': 'Escolha "Checklist simples" pra uma lista única de tarefas, ou "Atividades" quando o cartão tem várias entregas parecidas (ex: 15 vídeos, 4 tarefas cada). No modo Atividades você cria um grupo por entrega, cada um com seu próprio checklist e responsável por tarefa.',
     repeticao: 'Quando essa tarefa chega na última coluna do quadro, uma cópia nova é criada sozinha na primeira coluna, com a data de vencimento avançada (diária, semanal ou mensal). Serve pra tarefas que se repetem, tipo reunião semanal ou cobrança mensal.',
     soneca: 'Esconde o cartão do quadro até a data escolhida, sem apagar ele. Reaparece sozinho quando a data chega, e enquanto isso fica listado em "em soneca" no rodapé da coluna.',
-    hoje: 'Junta as tarefas com data de vencimento de todos os seus projetos numa lista só, ordenada por data — pra ver o que precisa fazer sem entrar projeto por projeto.',
+    hoje: 'Foco do dia: só entram aqui os cartões que você agendou com o botão Agendar (máximo 3 por vez). Mostra há quantos dias cada um está em produção e permite definir um prazo opcional. Data de vencimento não envia cartão para cá.',
     fundoquadro: 'Escolha uma cor ou uma imagem (cole uma URL) de fundo por projeto. Ela aparece atrás do quadro quando você filtra as Tarefas por esse projeto.',
     responsaveis: 'Uma tarefa pode ter mais de uma pessoa atribuída. Todas aparecem como avatares empilhados no cartão do Kanban.',
     notasfinanceiro: 'Anotações livres sobre o financeiro desse projeto — contexto de negociação, combinados com o cliente, lembretes etc. Salva sozinho quando você clica fora do campo.',
@@ -3890,24 +3886,11 @@
     if (meuToken !== cargaTarefasToken) return;
     let query = sb.from('tasks').select('*').order('ordem', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true });
     if (tarefaFiltroAtivo === 'hoje') {
+      // "Hoje" mostra só os cartões que o Bruno agendou (botão Agendar):
+      // os em produção e os concluídos hoje. Data de vencimento não leva
+      // mais cartão pra cá.
       const hoje = formatDateLocal(new Date());
-      // "Hoje" precisa pegar tanto o cartão com vencimento pra hoje quanto
-      // o cartão que não tem vencimento próprio mas tem um ITEM de
-      // checklist vencendo hoje (ex: cartão de projeto longo, com uma
-      // etapa específica com prazo hoje) — sem isso, esse cartão nunca
-      // aparecia em "Hoje". Isso vale tanto pro checklist simples quanto
-      // pros itens dentro de uma Atividade (grupo).
-      const [{ data: itensComPrazo }, { data: itensAtividadeComPrazo }] = await Promise.all([
-        sb.from('task_checklist_items').select('task_id').lte('data_vencimento', hoje),
-        sb.from('task_atividade_itens').select('data_vencimento, task_atividades!inner(task_id)').lte('data_vencimento', hoje)
-      ]);
-      const idsComItemHoje = [...new Set([
-        ...(itensComPrazo || []).map(i => i.task_id),
-        ...(itensAtividadeComPrazo || []).map(i => i.task_atividades.task_id)
-      ])];
-      query = idsComItemHoje.length
-        ? query.or(`data_vencimento.lte.${hoje},id.in.(${idsComItemHoje.join(',')})`)
-        : query.lte('data_vencimento', hoje);
+      query = query.not('agendado_em', 'is', null).or(`concluido_em.is.null,concluido_em.eq.${hoje}`);
     } else if (tarefaFiltroAtivo && tarefaFiltroAtivo !== 'todos') {
       query = query.eq('project_id', tarefaFiltroAtivo);
     }
