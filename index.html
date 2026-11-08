@@ -297,6 +297,25 @@
   .badge-alerta { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 700; letter-spacing: 0.03em; background: var(--neg); color: #fff; display: inline-flex; align-items: center; gap: 4px; animation: piscar-alerta 1s infinite; }
   .task-card .actions { display: flex; gap: 6px; align-items: center; }
   .task-card .actions .move { display: flex; gap: 2px; margin-left: auto; }
+  /* Agendar / Hoje (foco de 3 cartões por vez) */
+  .hj-ag-btn { color: var(--info); font-size: 11.5px; display: inline-flex; align-items: center; gap: 4px; }
+  .hj-dias { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(56,189,248,.15); color: var(--info); display: inline-flex; gap: 4px; align-items: center; }
+  .hj-dias.last { background: rgba(251,191,36,.18); color: #fbbf24; }
+  .hj-dias.late { background: rgba(248,113,113,.18); color: var(--neg); }
+  .hj-stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
+  .hj-stat { flex: 1; min-width: 140px; background: var(--bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; }
+  .hj-stat b { display: block; font-size: 22px; font-weight: 600; }
+  .hj-stat span { font-size: 12px; color: var(--muted); }
+  .hj-msg { border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; font-weight: 600; font-size: 13.5px; background: rgba(56,189,248,.12); color: var(--info); }
+  .hj-msg.bad { background: rgba(248,113,113,.14); color: var(--neg); }
+  .hj-msg.good { background: rgba(52,211,153,.14); color: var(--pos); }
+  .hj-card { background: var(--bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 12px 14px; margin: 0 0 10px; }
+  .hj-card.last { border: 2px solid #fbbf24; }
+  .hj-card.late { border: 2px solid var(--neg); }
+  .hj-card .hj-linha { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .hj-card .hj-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .hj-vaga { border: 1px dashed var(--card-border); border-radius: 12px; padding: 14px; text-align: center; color: var(--muted); margin: 0 0 10px; font-size: 13px; }
+  .hj-prazo-in { width: 64px; padding: 4px 6px; font-size: 12px; }
   .empty-col { color: var(--muted); font-size: 12px; padding: 8px 0; }
   .ajuda-icone { cursor: pointer; color: var(--muted); font-size: 13px; margin-left: 4px; vertical-align: -1px; }
   .ajuda-icone:hover { color: var(--info); }
@@ -1318,6 +1337,11 @@
           <div id="ofp-conteudo"><p class="empty-note">Carregando...</p></div>
         </div>
         <div id="tarefas-atividades" style="display:none;">
+          <div class="card" style="margin-bottom:14px;">
+            <h3 style="margin:0 0 2px;"><i class="ti ti-target-arrow"></i> Foco de hoje</h3>
+            <p class="placeholder" style="margin:0 0 12px;">No máximo 3 cartões por vez. Para trazer um cartão para cá, aperte <b>Agendar</b> nele, dentro do projeto.</p>
+            <div id="hoje-foco"><p class="empty-note">Carregando...</p></div>
+          </div>
           <div class="card">
             <p class="placeholder" style="margin-bottom:12px;">Tarefas com vencimento de todos os projetos, num só lugar — igual o "Follow-up" do Pipedrive.</p>
             <div id="atividades-hoje-lista"></div>
@@ -4037,6 +4061,7 @@
         const atrasado = proximaTarefaData && proximaTarefaData < hoje;
         const naoConcluida = idx !== kanbanColumnsCache.length - 1;
         const emAlerta = atrasado && naoConcluida;
+        const hjAg = (t.agendado_em && naoConcluida) ? hjSituacao(t) : null;
         const labelsDaTarefa = (taskLabelLinksCache[t.id] || []).map(lid => taskLabelsCache.find(l => l.id === lid)).filter(Boolean);
         return `
           <div class="task-card prio-${t.prioridade}" data-task-id="${t.id}" onclick="abrirTarefaModalSeNaoArrastou('${t.id}')">
@@ -4066,6 +4091,9 @@
               <div class="task-checklist-bar-track"><div class="task-checklist-bar-fill" style="width:${pctChecklist}%;"></div></div>
             </div>` : ''}
             <div class="actions">
+              ${naoConcluida ? (hjAg
+                ? `<span class="hj-dias ${hjAg.estado === 'atrasada' ? 'late' : hjAg.estado === 'ultimo' ? 'last' : ''}" title="Este cartão está no Hoje"><i class="ti ti-calendar-event" style="font-size:12px;"></i> No Hoje · ${hjAg.dias === 0 ? 'começou hoje' : 'há ' + hjAg.dias + (hjAg.dias === 1 ? ' dia' : ' dias')}</span>`
+                : `<button class="row-action hj-ag-btn" onclick="event.stopPropagation(); agendarTarefa('${t.id}')" title="Enviar para o Hoje (máximo 3)"><i class="ti ti-calendar-event" style="font-size:13px;"></i> Agendar</button>`) : ''}
               <span class="move">
                 <button class="row-action" ${idx === 0 ? 'disabled' : ''} onclick="event.stopPropagation(); moverTarefa('${t.id}', ${idx - 1})">◀</button>
                 <button class="row-action" ${idx === kanbanColumnsCache.length - 1 ? 'disabled' : ''} onclick="event.stopPropagation(); moverTarefa('${t.id}', ${idx + 1})">▶</button>
@@ -4166,7 +4194,149 @@
   // ---- Aba "Hoje": tarefas com data de vencimento (tasks.data_vencimento)
   // de todos os projetos, numa lista só. Tarefa já na última coluna
   // (concluída) ou em soneca não entra.
+  // ---- Foco de hoje: botão "Agendar" nos cartões leva o cartão pra cá.
+  // Regras: no máximo 3 cartões por vez; contagem de dias em produção a
+  // partir do dia em que foi agendado; prazo é opcional (definido aqui);
+  // com cartão atrasado no Hoje, não dá pra agendar outro ("trava").
+  // O histórico de média de dias por nome de cartão já grava os dados
+  // (agendado_em → concluido_em), mas fica desligado até validar o formato.
+  const HJ_MAX = 3;
+  const HJ_HISTORICO_ATIVO = false;
+
+  function hjDiasEntreDatas(inicioIso, fimIso) {
+    const [y1, m1, d1] = inicioIso.split('-').map(Number);
+    const [y2, m2, d2] = fimIso.split('-').map(Number);
+    return Math.round((new Date(y2, m2 - 1, d2) - new Date(y1, m1 - 1, d1)) / 86400000);
+  }
+  function hjSituacao(t) {
+    const dias = Math.max(0, hjDiasEntreDatas(t.agendado_em, formatDateLocal(new Date())));
+    if (!t.prazo_dias) return { dias, resta: null, estado: 'normal' };
+    const resta = t.prazo_dias - dias;
+    return { dias, resta, estado: resta < 0 ? 'atrasada' : (resta === 0 ? 'ultimo' : 'normal') };
+  }
+  async function hjBuscarAgendados() {
+    const ultima = ultimaColunaId();
+    const { data, error } = await sb.from('tasks')
+      .select('id, titulo, project_id, coluna_id, agendado_em, prazo_dias, prioridade')
+      .not('agendado_em', 'is', null);
+    if (error) return { erro: error, lista: [] };
+    return { lista: (data || []).filter(t => t.coluna_id !== ultima) };
+  }
+
+  async function agendarTarefa(id) {
+    const { lista, erro } = await hjBuscarAgendados();
+    if (erro) { ofpToast('Não consegui verificar o Hoje: ' + erro.message, 6000); return; }
+    if (lista.some(t => t.id === id)) { ofpToast('Esse cartão já está no Hoje.'); return; }
+    const atrasadas = lista.filter(t => hjSituacao(t).estado === 'atrasada');
+    if (atrasadas.length) {
+      ofpToast('Tem cartão atrasado no Hoje: "' + atrasadas[0].titulo + '". Conclua ou ajuste o prazo dele antes de agendar outro.', 8000);
+      return;
+    }
+    if (lista.length >= HJ_MAX) {
+      ofpToast('O Hoje já tem ' + HJ_MAX + ' cartões. Conclua um para agendar outro.', 6000);
+      return;
+    }
+    const { error } = await sb.from('tasks').update({ agendado_em: formatDateLocal(new Date()), prazo_dias: null, concluido_em: null }).eq('id', id);
+    if (error) { ofpToast('Erro ao agendar: ' + error.message, 6000); return; }
+    ofpToast('Agendado para o Hoje (' + (lista.length + 1) + ' de ' + HJ_MAX + ').');
+    carregarTarefas();
+  }
+
+  async function hjTirar(id) {
+    const { error } = await sb.from('tasks').update({ agendado_em: null, prazo_dias: null }).eq('id', id);
+    if (error) { ofpToast('Erro: ' + error.message, 6000); return; }
+    carregarFocoHoje();
+    carregarTarefas();
+  }
+  async function hjDefinirPrazo(id, valor) {
+    const n = parseInt(valor, 10);
+    const prazo = Number.isFinite(n) && n >= 1 && n <= 365 ? n : null;
+    const { error } = await sb.from('tasks').update({ prazo_dias: prazo }).eq('id', id);
+    if (error) { ofpToast('Erro: ' + error.message, 6000); return; }
+    carregarFocoHoje();
+    carregarTarefas();
+  }
+  async function hjConcluir(id) {
+    const idx = kanbanColumnsCache.length - 1;
+    if (idx < 0) { ofpToast('Crie uma coluna de concluídos no Kanban primeiro.'); return; }
+    await moverTarefa(id, idx);
+    ofpToast('Cartão concluído. Vaga liberada no Hoje.');
+    carregarFocoHoje();
+  }
+
+  async function carregarFocoHoje() {
+    const cont = document.getElementById('hoje-foco');
+    if (!cont) return;
+    const { lista, erro } = await hjBuscarAgendados();
+    if (erro) { cont.innerHTML = `<p class="empty-note">Erro ao carregar: ${escapeHtml(erro.message)}</p>`; return; }
+    const hojeStr = formatDateLocal(new Date());
+    const { data: feitas } = await sb.from('tasks').select('id').eq('concluido_em', hojeStr).not('agendado_em', 'is', null);
+    const nFeitas = (feitas || []).length;
+    lista.sort((a, b) => a.agendado_em.localeCompare(b.agendado_em));
+
+    const hist = {};
+    if (HJ_HISTORICO_ATIVO) {
+      const { data } = await sb.from('tasks').select('titulo, agendado_em, concluido_em').not('agendado_em', 'is', null).not('concluido_em', 'is', null);
+      (data || []).forEach(t => {
+        const k = t.titulo.trim().toLowerCase();
+        (hist[k] = hist[k] || []).push(Math.max(1, hjDiasEntreDatas(t.agendado_em, t.concluido_em)));
+      });
+    }
+
+    const atrasadas = lista.filter(t => hjSituacao(t).estado === 'atrasada');
+    let msgCls = '', msg;
+    if (atrasadas.length) {
+      msgCls = 'bad';
+      msg = `Você tem ${atrasadas.length} cartão${atrasadas.length > 1 ? 's' : ''} atrasado${atrasadas.length > 1 ? 's' : ''}. Feche antes de agendar outro.`;
+    } else if (!lista.length && nFeitas) {
+      msgCls = 'good';
+      msg = `Boa. ${nFeitas} cartão${nFeitas > 1 ? 's' : ''} concluído${nFeitas > 1 ? 's' : ''} hoje e o Hoje está livre.`;
+    } else if (!lista.length) {
+      msg = 'O Hoje está vazio. Escolha até 3 cartões em um projeto e aperte Agendar.';
+    } else {
+      msg = `Falta fechar ${lista.length}. Comece pelo mais antigo: "${lista[0].titulo}".`;
+    }
+
+    const cartoes = lista.map(t => {
+      const s = hjSituacao(t);
+      const projeto = projectsCache.find(p => p.id === t.project_id);
+      const cls = s.estado === 'atrasada' ? 'late' : s.estado === 'ultimo' ? 'last' : '';
+      const chipPrazo = t.prazo_dias
+        ? `<span class="hj-dias ${cls}">${s.estado === 'atrasada' ? 'Atrasado há ' + (-s.resta) + (s.resta === -1 ? ' dia' : ' dias') : s.estado === 'ultimo' ? 'Último dia do prazo' : s.resta + (s.resta === 1 ? ' dia' : ' dias') + ' para o prazo'}</span>`
+        : '';
+      const h = hist[t.titulo.trim().toLowerCase()];
+      const dicaHist = h && h.length ? ` · você costuma levar ${(Math.round(h.reduce((a, b) => a + b, 0) / h.length * 10) / 10).toString().replace('.', ',')} dias nisso (${h.length}x)` : '';
+      return `
+        <div class="hj-card ${cls}">
+          <div class="hj-linha">
+            <b style="cursor:pointer;" onclick="abrirTarefaDeAtividade('${t.id}')">${escapeHtml(t.titulo)}</b>
+            ${chipPrazo}
+          </div>
+          <div class="hj-sub"><i class="ti ti-clock" style="font-size:13px; vertical-align:-2px;"></i> ${s.dias === 0 ? 'Começou hoje' : 'Em produção há ' + s.dias + (s.dias === 1 ? ' dia' : ' dias')}${projeto ? ' · ' + escapeHtml(projeto.nome) : ''}${dicaHist}</div>
+          <div class="hj-linha" style="margin-top:10px;">
+            <label style="font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px; margin:0;">Prazo (dias, opcional)
+              <input class="hj-prazo-in" type="number" min="1" max="365" value="${t.prazo_dias || ''}" placeholder="sem" onchange="hjDefinirPrazo('${t.id}', this.value)">
+            </label>
+            <span style="display:flex; gap:6px;">
+              <button type="button" class="row-action" onclick="hjTirar('${t.id}')" title="Devolve o cartão ao projeto e libera a vaga">Tirar do Hoje</button>
+              <button type="button" onclick="hjConcluir('${t.id}')"><i class="ti ti-check"></i> Concluir</button>
+            </span>
+          </div>
+        </div>`;
+    }).join('');
+    const vagas = Array.from({ length: Math.max(0, HJ_MAX - lista.length) }, () => '<div class="hj-vaga">Vaga livre. Agende um cartão em um projeto.</div>').join('');
+
+    cont.innerHTML = `
+      <div class="hj-stats">
+        <div class="hj-stat"><b>${lista.length} de ${HJ_MAX}</b><span>vagas usadas</span></div>
+        <div class="hj-stat"><b>${nFeitas}</b><span>concluídos hoje</span></div>
+      </div>
+      <div class="hj-msg ${msgCls}">${escapeHtml(msg)}</div>
+      ${cartoes}${vagas}`;
+  }
+
   async function carregarAtividadesHoje() {
+    carregarFocoHoje();
     const cont = document.getElementById('atividades-hoje-lista');
     if (!cont) return;
     cont.innerHTML = '<p class="empty-note">Carregando...</p>';
@@ -4308,7 +4478,14 @@
   }
 
   async function tratarMovimentoParaColuna(taskId, novaColunaId) {
-    if (novaColunaId && novaColunaId === ultimaColunaId()) {
+    const concluindo = !!novaColunaId && novaColunaId === ultimaColunaId();
+    // Registra o dia da conclusão (e limpa se o cartão voltar). Junto com
+    // agendado_em, é isso que alimenta o histórico de dias por atividade.
+    const dataConclusao = concluindo ? formatDateLocal(new Date()) : null;
+    await sb.from('tasks').update({ concluido_em: dataConclusao }).eq('id', taskId);
+    const tCache = tasksCache.find(x => x.id === taskId);
+    if (tCache) tCache.concluido_em = dataConclusao;
+    if (concluindo) {
       return await tratarRecorrenciaTarefa(taskId);
     }
     return false;
