@@ -302,6 +302,8 @@
   .hj-dias { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(56,189,248,.15); color: var(--info); display: inline-flex; gap: 4px; align-items: center; }
   .hj-dias.last { background: rgba(251,191,36,.18); color: #fbbf24; }
   .hj-dias.late { background: rgba(248,113,113,.18); color: var(--neg); }
+  .hj-dias-tirar { cursor: pointer; }
+  .hj-dias-tirar:hover { filter: brightness(1.25); }
   .hj-stats { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; }
   .hj-stat { flex: 1; min-width: 140px; background: var(--bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; }
   .hj-stat b { display: block; font-size: 22px; font-weight: 600; }
@@ -1387,6 +1389,10 @@
                   <option value="mensal">Mensal</option>
                 </select>
               </div>
+            </div>
+            <div class="form-row" id="tm-hoje-row" style="align-items:center; justify-content:space-between; gap:12px;">
+              <div id="tm-hoje-info" style="font-size:13px; color:var(--info); font-weight:600;"></div>
+              <div style="flex:0; white-space:nowrap;"><button type="button" class="secondary" id="tm-hoje-btn"></button></div>
             </div>
             <div class="form-row" style="align-items:flex-end;">
               <div><label>Projeto</label><select id="tm-projeto" onchange="salvarCampoTarefaModal('project_id', this.value || null)"><option value="">Sem projeto</option></select></div>
@@ -4096,7 +4102,7 @@
             </div>
             <div class="actions">
               ${naoConcluida ? (hjAg
-                ? `<span class="hj-dias ${hjAg.estado === 'atrasada' ? 'late' : hjAg.estado === 'ultimo' ? 'last' : ''}" title="Este cartão está no Hoje"><i class="ti ti-calendar-event" style="font-size:12px;"></i> No Hoje · ${hjAg.dias === 0 ? 'começou hoje' : 'há ' + hjAg.dias + (hjAg.dias === 1 ? ' dia' : ' dias')}</span>`
+                ? `<span class="hj-dias hj-dias-tirar ${hjAg.estado === 'atrasada' ? 'late' : hjAg.estado === 'ultimo' ? 'last' : ''}" role="button" tabindex="0" onclick="event.stopPropagation(); hjTirar('${t.id}')" title="Este cartão está no Hoje. Clique para tirar."><i class="ti ti-calendar-event" style="font-size:12px;"></i> No Hoje · ${hjAg.dias === 0 ? 'começou hoje' : 'há ' + hjAg.dias + (hjAg.dias === 1 ? ' dia' : ' dias')} <i class="ti ti-x" style="font-size:12px;"></i></span>`
                 : `<button class="row-action hj-ag-btn" onclick="event.stopPropagation(); agendarTarefa('${t.id}')" title="Enviar para o Hoje (máximo 3)"><i class="ti ti-calendar-event" style="font-size:13px;"></i> Agendar</button>`) : ''}
               <span class="move">
                 <button class="row-action" ${idx === 0 ? 'disabled' : ''} onclick="event.stopPropagation(); moverTarefa('${t.id}', ${idx - 1})">◀</button>
@@ -4243,14 +4249,47 @@
     const { error } = await sb.from('tasks').update({ agendado_em: formatDateLocal(new Date()), prazo_dias: null, concluido_em: null }).eq('id', id);
     if (error) { ofpToast('Erro ao agendar: ' + error.message, 6000); return; }
     ofpToast('Agendado para o Hoje (' + (lista.length + 1) + ' de ' + HJ_MAX + ').');
-    carregarTarefas();
+    await carregarTarefas();
+    carregarFocoHoje();
+    if (tarefaModalId === id) renderHojeModal();
   }
 
+  // Tira o cartão do Hoje (devolve ao projeto e libera a vaga). Funciona do
+  // cartão no Kanban, do modal do cartão e da aba Hoje. Pede confirmação só
+  // quando já há dias contados, porque o contador zera se agendar de novo.
   async function hjTirar(id) {
+    const { data: t, error: e0 } = await sb.from('tasks').select('titulo, agendado_em').eq('id', id).maybeSingle();
+    if (e0 || !t) { ofpToast('Não consegui achar o cartão: ' + (e0 ? e0.message : 'sumiu'), 6000); return; }
+    if (!t.agendado_em) { ofpToast('Esse cartão já está fora do Hoje.'); carregarFocoHoje(); return; }
+    if (hjSituacao(t).dias >= 1 && !confirm('Tirar "' + t.titulo + '" do Hoje? O contador de dias zera se você agendar de novo.')) return;
     const { error } = await sb.from('tasks').update({ agendado_em: null, prazo_dias: null }).eq('id', id);
     if (error) { ofpToast('Erro: ' + error.message, 6000); return; }
+    ofpToast('Cartão devolvido ao projeto. Vaga liberada no Hoje.');
+    await carregarTarefas();
     carregarFocoHoje();
-    carregarTarefas();
+    if (tarefaModalId === id) renderHojeModal();
+  }
+
+  // Linha "Hoje" dentro do cartão aberto: agendar ou tirar, com os dias.
+  function renderHojeModal() {
+    const row = document.getElementById('tm-hoje-row');
+    if (!row || !tarefaModalId) return;
+    const t = tasksCache.find(x => x.id === tarefaModalId);
+    if (!t) return;
+    if (t.coluna_id && t.coluna_id === ultimaColunaId()) { row.style.display = 'none'; return; }
+    row.style.display = 'flex';
+    const info = document.getElementById('tm-hoje-info');
+    const btn = document.getElementById('tm-hoje-btn');
+    if (t.agendado_em) {
+      const s = hjSituacao(t);
+      info.textContent = 'No Hoje · ' + (s.dias === 0 ? 'começou hoje' : 'há ' + s.dias + (s.dias === 1 ? ' dia' : ' dias'));
+      btn.innerHTML = '<i class="ti ti-x"></i> Tirar do Hoje';
+      btn.onclick = () => hjTirar(t.id);
+    } else {
+      info.textContent = 'Fora do Hoje';
+      btn.innerHTML = '<i class="ti ti-calendar-event"></i> Agendar para o Hoje';
+      btn.onclick = () => agendarTarefa(t.id);
+    }
   }
   async function hjDefinirPrazo(id, valor) {
     const n = parseInt(valor, 10);
@@ -4487,13 +4526,21 @@
     // Registra o dia da conclusão (e limpa se o cartão voltar). Junto com
     // agendado_em, é isso que alimenta o histórico de dias por atividade.
     const dataConclusao = concluindo ? formatDateLocal(new Date()) : null;
-    await sb.from('tasks').update({ concluido_em: dataConclusao }).eq('id', taskId);
     const tCache = tasksCache.find(x => x.id === taskId);
-    if (tCache) tCache.concluido_em = dataConclusao;
+    // Cartão que estava concluído e foi reaberto sai do Hoje: senão ele
+    // voltaria sozinho e poderia passar do limite de 3. Precisa ser
+    // agendado de novo.
+    const reabrindo = !concluindo && !!(tCache && tCache.concluido_em);
+    const payload = { concluido_em: dataConclusao };
+    if (reabrindo) { payload.agendado_em = null; payload.prazo_dias = null; }
+    await sb.from('tasks').update(payload).eq('id', taskId);
+    const estavaAgendado = !!(tCache && tCache.agendado_em);
+    if (tCache) Object.assign(tCache, payload);
+    let precisaRecarregar = reabrindo || (concluindo && estavaAgendado);
     if (concluindo) {
-      return await tratarRecorrenciaTarefa(taskId);
+      if (await tratarRecorrenciaTarefa(taskId)) precisaRecarregar = true;
     }
-    return false;
+    return precisaRecarregar;
   }
 
   async function verificarAutoConclusaoChecklist(taskId) {
@@ -4763,6 +4810,7 @@
     document.getElementById('tm-coluna').value = t.coluna_id || '';
     document.getElementById('tm-repeticao').value = t.repeticao || '';
     document.getElementById('tm-soneca').value = t.soneca_ate || '';
+    renderHojeModal();
     renderChecklistModal();
     renderChecklistModoModal();
     renderEtiquetasModal();
@@ -5223,7 +5271,7 @@
     if (error) { alert('Erro ao salvar: ' + error.message); return; }
     if (campo === 'coluna_id') await tratarMovimentoParaColuna(idAlvo, valor);
     await carregarTarefas();
-    if (tarefaModalId === idAlvo) { renderChecklistModal(); renderEtiquetasModal(); }
+    if (tarefaModalId === idAlvo) { renderChecklistModal(); renderEtiquetasModal(); renderHojeModal(); }
     if (campo === 'project_id' && tarefaModalId === idAlvo) driveMontarAnexosTarefa(idAlvo);
   }
 
