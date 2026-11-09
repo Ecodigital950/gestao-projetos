@@ -681,6 +681,14 @@
   .ofp-ed-passos { margin-left: 14px; }
   .ofp-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: #1b2440; color: var(--text); border: 1px solid var(--info); border-radius: 10px; padding: 11px 16px; font-size: 13.5px; z-index: 3000; box-shadow: 0 8px 28px rgba(0,0,0,.5); max-width: min(560px, 92vw); display: none; }
   .ofp-toast.on { display: block; }
+  .spy-grupo-box { border: 1px solid var(--card-border); background: rgba(167,139,250,0.07); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px; }
+  .spy-grupo-topo { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .spy-grupo-topo .ti-stack-2 { color: #a78bfa; }
+  .spy-var { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--card-border); }
+  .spy-var small { color: var(--muted); margin-left: 6px; }
+  .ofp-var { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border: 1px solid var(--card-border); border-radius: 10px; margin-bottom: 6px; font-size: 13px; }
+  .ofp-var .lk { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; }
+  .ofp-var .lk a { color: var(--info); text-decoration: none; }
   .spy-teste-box { border: 1px dashed rgba(129,140,248,0.5); background: rgba(129,140,248,0.07); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
   .spy-lista-edit { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
   .spy-lista-edit .linha { display: flex; align-items: center; gap: 8px; }
@@ -8599,7 +8607,7 @@
     });
     lista.forEach(o => {
       const s = spyStatusDe(o);
-      h += `<tr data-spy-row="${o.id}" style="--c:${s ? spyCor(s.cor) : '#475069'}">${cols.map(c => `<td>${spyCelula(o, c)}</td>`).join('')}<td style="white-space:nowrap">${spyTesteBtn(o)}<button type="button" class="spy-ic" style="display:inline-block" title="Abrir detalhes e imagens" onclick="spyAbrirModal('${o.id}')"><i class="ti ti-eye"></i></button><button type="button" class="spy-ic" style="display:inline-block" title="${o.pasta_id ? 'Mudar de pasta ou tirar da pasta' : 'Colocar em uma pasta'}" onclick="spyAbrirPastaPop(event,'${o.id}')"><i class="ti ti-folder${o.pasta_id ? '' : '-plus'}"></i></button></td></tr>`;
+      h += `<tr data-spy-row="${o.id}" style="--c:${s ? spyCor(s.cor) : '#475069'}">${cols.map(c => `<td>${spyCelula(o, c)}</td>`).join('')}<td style="white-space:nowrap">${spyGrupoChip(o) ? `<span class="spy-ic" style="display:inline-block;color:#a78bfa;cursor:default" title="${escapeHtml(spyPrincipalDe(o) ? 'Variação de ' + (spyPrincipalDe(o).nome || 'Sem nome') : spyVariacoes(o.id).length + ' variações neste grupo')}"><i class="ti ti-stack-2"></i></span>` : ''}${spyTesteBtn(o)}<button type="button" class="spy-ic" style="display:inline-block" title="Abrir detalhes e imagens" onclick="spyAbrirModal('${o.id}')"><i class="ti ti-eye"></i></button><button type="button" class="spy-ic" style="display:inline-block" title="${o.pasta_id ? 'Mudar de pasta ou tirar da pasta' : 'Colocar em uma pasta'}" onclick="spyAbrirPastaPop(event,'${o.id}')"><i class="ti ti-folder${o.pasta_id ? '' : '-plus'}"></i></button></td></tr>`;
     });
     return h + '</tbody></table></div>';
   }
@@ -8613,7 +8621,7 @@
       const lk = (u, ic, t) => u ? `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()"><i class="ti ${ic}"></i> ${t}</a>` : '';
       return `<div class="spy-card" data-spy-card="${o.id}" style="--c:${s ? spyCor(s.cor) : '#475069'}" onclick="spyAbrirModal('${o.id}')">
         <div class="spy-card-img">${url ? `<img loading="lazy" src="${url}" alt="">` : `<span class="ini">${escapeHtml((o.nome || '?').trim().charAt(0).toUpperCase() || '?')}</span>`}<span class="st">${spyPillHtml(o)}</span>${n ? `<span class="n"><i class="ti ti-photo"></i> ${n}</span>` : ''}</div>
-        <div class="spy-card-body"><div class="spy-card-nome">${escapeHtml(o.nome || 'Sem nome')}</div><div class="spy-card-nicho">${escapeHtml(o.nicho || '')}</div>
+        <div class="spy-card-body"><div class="spy-card-nome">${escapeHtml(o.nome || 'Sem nome')}</div><div class="spy-card-nicho">${escapeHtml(o.nicho || '')}</div>${spyGrupoChip(o) ? `<div style="margin:2px 0 4px;">${spyGrupoChip(o)}</div>` : ''}
         <div class="spy-card-meta"><span class="spy-ads"><i class="ti ti-ad-2"></i> ${(Number(o.ads_ativos) || 0).toLocaleString('pt-BR')} ads</span>${lk(o.link_oferta, 'ti-link', 'Oferta')}${lk(o.link_ads, 'ti-external-link', 'Ads')}<span style="margin-left:auto" onclick="event.stopPropagation()">${spyTesteBtn(o)}</span></div></div></div>`;
     }).join('') + '</div>';
   }
@@ -8719,6 +8727,7 @@
         <textarea id="spy-info" class="spy-in box" rows="8" placeholder="Cole aqui anotações, textos e links sobre a oferta..." style="width:100%; min-height:150px; resize:vertical; line-height:1.5; white-space:pre-wrap;" onblur="spySalvarInfo('${o.id}', this.value)">${escapeHtml(o.informacoes || '')}</textarea>
         <div style="display:flex; justify-content:flex-end; margin-top:6px;"><button type="button" class="secondary" style="font-size:12.5px;" onclick="spyGerarWord('${o.id}')" title="Cria um arquivo Word com essas informações na pasta desta oferta no Drive"><i class="ti ti-file-word"></i> Gerar Word no Drive</button></div>
       </div>
+      <div class="spy-grupo-box" id="spy-grupo-box">${spyGrupoHtml(o)}</div>
       <div class="spy-teste-box" id="spy-teste-box">${spyTesteBoxHtml(o)}</div>
       <div class="drv-box"><div class="drv-topo"><strong style="font-size:13px;"><i class="ti ti-photo"></i> Imagens e arquivos</strong><span class="placeholder" style="margin:0;font-size:11.5px;">Guardados no seu Drive</span></div><div id="spy-anexos-area"></div></div>
       <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
@@ -8749,8 +8758,11 @@
   async function spyExcluirOferta(id) {
     const o = spyOfertas.find(x => x.id === id);
     if (!o || !confirm(`Excluir a oferta "${o.nome || 'Sem nome'}"? As imagens continuam guardadas no seu Drive, só deixam de aparecer aqui.`)) return;
+    // Principal em teste: as variações voltam ao status de antes, senão ficariam presas em "Testando".
+    if (o.teste_coluna_id) await spyRestaurarVariacoes(id, spyStatus);
     const { error } = await sb.from('spy_ofertas').delete().eq('id', id);
     if (error) { spyAlert('Erro ao excluir: ' + error.message); return; }
+    spyOfertas.forEach(x => { if (x.grupo_id === id) x.grupo_id = null; });
     spyOfertas = spyOfertas.filter(x => x.id !== id);
     delete spyAnexos[id];
     spyModalId = null; DRV.s.spyId = null;
@@ -9055,6 +9067,7 @@
     { nome: 'Descartada', cor: '#f87171', resultado: 'descartada', passos: [] }
   ];
   let ofpColunas = [], ofpPassos = [], ofpOfertas = [], ofpProg = {}, ofpCri = {}, ofpPastas = {}, ofpStatus = [], ofpModalId = null, ofpCarregando = false;
+  let ofpVar = {}, ofpVarArq = {}; // variações por oferta principal e nº de arquivos de cada variação
   let ofpVisao = (() => { try { return localStorage.getItem('ofpVisao') === 'tabela' ? 'tabela' : 'quadro'; } catch (e) { return 'quadro'; } })();
 
   function ofpToast(msg, ms) {
@@ -9107,28 +9120,110 @@
     spyStatus.push(data);
     return data;
   }
+  // ---- Grupo de ofertas: ofertas parecidas ficam juntas. A "principal" leva o
+  // teste (cartão único no pipeline, pastas, indicadores); as "variações"
+  // ficam ligadas a ela (spy_ofertas.grupo_id) e seguem o status do teste. ----
+  function spyVariacoes(id) { return spyOfertas.filter(x => x.grupo_id === id); }
+  function spyPrincipalDe(o) { return o && o.grupo_id ? (spyOfertas.find(x => x.id === o.grupo_id) || null) : null; }
+  function spyAlvoTeste(o) { return spyPrincipalDe(o) || o; }
+  function spyGrupoChip(o) {
+    const p = spyPrincipalDe(o), n = spyVariacoes(o.id).length;
+    if (p) return `<span class="ofp-chip" title="Variação de ${escapeHtml(p.nome || 'Sem nome')}"><i class="ti ti-stack-2"></i> Variação de ${escapeHtml(p.nome || 'Sem nome')}</span>`;
+    if (n) return `<span class="ofp-chip"><i class="ti ti-stack-2"></i> +${n} ${n === 1 ? 'variação' : 'variações'}</span>`;
+    return '';
+  }
+  async function spyRestaurarVariacoes(principalId, statusLista) {
+    const { data: vs } = await sb.from('spy_ofertas').select('id,status_antes_id').eq('grupo_id', principalId);
+    for (const v of vs || []) {
+      const volta = v.status_antes_id && (statusLista || []).some(s => s.id === v.status_antes_id) ? v.status_antes_id : null;
+      const patch = { status_antes_id: null, status_id: volta, updated_at: new Date().toISOString() };
+      const { error } = await sb.from('spy_ofertas').update(patch).eq('id', v.id);
+      const so = spyOfertas.find(x => x.id === v.id);
+      if (!error && so) Object.assign(so, patch);
+    }
+  }
+  function spyGrupoHtml(o) {
+    const nome = x => escapeHtml(x.nome || 'Sem nome');
+    const p = spyPrincipalDe(o);
+    if (p) {
+      return `<div class="spy-grupo-topo"><span><i class="ti ti-stack-2"></i> Variação de <b>${nome(p)}</b>. O teste e o cartão do pipeline são do grupo.</span><span style="display:flex;gap:6px;"><button type="button" class="secondary" onclick="spyAbrirModal('${p.id}')">Abrir principal</button><button type="button" class="secondary" onclick="spyGrupoTirar('${o.id}')">Tirar do grupo</button></span></div>`;
+    }
+    const vars = spyVariacoes(o.id);
+    const cands = spyOfertas.filter(x => x.id !== o.id && !x.grupo_id && !x.teste_coluna_id && !spyVariacoes(x.id).length);
+    return `<div class="spy-grupo-topo"><span><i class="ti ti-stack-2"></i> <b>Variações desta oferta${vars.length ? ' (' + vars.length + ')' : ''}</b> <span class="placeholder" style="margin:0;">Ofertas parecidas ficam juntas: o teste é um só e você acessa os criativos de cada uma.</span></span></div>`
+      + vars.map(v => `<div class="spy-var"><span>${nome(v)}${v.nicho ? ` <small>${escapeHtml(v.nicho)}</small>` : ''}</span><span style="display:flex;gap:6px;"><button type="button" class="secondary" onclick="spyAbrirModal('${v.id}')">Abrir</button><button type="button" class="spy-ic danger" style="display:inline-block" title="Tirar do grupo" onclick="spyGrupoTirar('${v.id}')"><i class="ti ti-x"></i></button></span></div>`).join('')
+      + `<select class="spy-in box" style="margin-top:8px;" onchange="spyGrupoAdicionar('${o.id}', this.value)"><option value="">+ Adicionar variação…</option>${cands.map(x => `<option value="${x.id}">${nome(x)}${x.nicho ? ' · ' + escapeHtml(x.nicho) : ''}</option>`).join('')}</select>`;
+  }
+  function spyGrupoRefresh() {
+    spyRender();
+    const o = spyOfertas.find(x => x.id === spyModalId);
+    if (!o) return;
+    const g = document.getElementById('spy-grupo-box'); if (g) g.innerHTML = spyGrupoHtml(o);
+    const box = document.getElementById('spy-teste-box'); if (box) box.innerHTML = spyTesteBoxHtml(o);
+    document.querySelectorAll(`#spy-modal-corpo [data-spy-pill="${o.id}"]`).forEach(b => { b.outerHTML = spyPillHtml(o); });
+  }
+  async function spyGrupoAdicionar(principalId, varId) {
+    if (!varId) return;
+    const p = spyOfertas.find(x => x.id === principalId), v = spyOfertas.find(x => x.id === varId);
+    if (!p || !v) return;
+    const patch = { grupo_id: principalId, updated_at: new Date().toISOString() };
+    try {
+      if (p.teste_coluna_id) { // principal já está em teste: a variação entra no teste junto
+        const st = await spyStatusTestando();
+        patch.status_antes_id = v.status_id === st.id ? v.status_antes_id : v.status_id;
+        patch.status_id = st.id;
+      }
+      const { error } = await sb.from('spy_ofertas').update(patch).eq('id', varId);
+      if (error) throw error;
+    } catch (e) { spyAlert('Erro ao juntar as ofertas: ' + (e.message || e)); return; }
+    Object.assign(v, patch);
+    spyGrupoRefresh();
+    ofpToast(`"${v.nome || 'Sem nome'}" agora é variação de "${p.nome || 'Sem nome'}".`);
+  }
+  async function spyGrupoTirar(varId) {
+    const v = spyOfertas.find(x => x.id === varId);
+    if (!v) return;
+    const p = spyPrincipalDe(v);
+    const patch = { grupo_id: null, updated_at: new Date().toISOString() };
+    if (p && p.teste_coluna_id) { // estava em teste junto: volta ao status de antes
+      patch.status_id = v.status_antes_id && spyStatus.some(s => s.id === v.status_antes_id) ? v.status_antes_id : null;
+      patch.status_antes_id = null;
+    }
+    const { error } = await sb.from('spy_ofertas').update(patch).eq('id', varId);
+    if (error) { spyAlert('Erro ao tirar do grupo: ' + error.message); return; }
+    Object.assign(v, patch);
+    spyGrupoRefresh();
+  }
+
   function spyTesteBtn(o) {
-    return o.teste_coluna_id
-      ? `<button type="button" class="spy-ic" style="display:inline-block;color:#818cf8" title="Parar teste" onclick="spyPararTeste('${o.id}')"><i class="ti ti-player-stop"></i></button>`
-      : `<button type="button" class="spy-ic" style="display:inline-block" title="Testar esta oferta" onclick="spyTestar('${o.id}')"><i class="ti ti-flask"></i></button>`;
+    const alvo = spyAlvoTeste(o), n = spyVariacoes(alvo.id).length;
+    const sufixo = alvo.id !== o.id ? ` (grupo de ${alvo.nome || 'Sem nome'})` : (n ? ` (com ${n} ${n === 1 ? 'variação' : 'variações'})` : '');
+    return alvo.teste_coluna_id
+      ? `<button type="button" class="spy-ic" style="display:inline-block;color:#818cf8" title="Parar teste${escapeHtml(sufixo)}" onclick="spyPararTeste('${alvo.id}')"><i class="ti ti-player-stop"></i></button>`
+      : `<button type="button" class="spy-ic" style="display:inline-block" title="Testar esta oferta${escapeHtml(sufixo)}" onclick="spyTestar('${alvo.id}')"><i class="ti ti-flask"></i></button>`;
   }
   function spyTesteBoxHtml(o) {
-    if (o.teste_coluna_id) {
-      return `<span><i class="ti ti-flask" style="color:#818cf8"></i> <b>Em teste</b> no pipeline do X1 Wpp (Kanban → aba Ofertas).</span><button type="button" class="secondary" onclick="spyPararTeste('${o.id}')"><i class="ti ti-player-stop"></i> Parar teste</button>`;
+    const alvo = spyAlvoTeste(o), emGrupo = alvo.id !== o.id, n = spyVariacoes(alvo.id).length;
+    const nomeAlvo = escapeHtml(alvo.nome || 'Sem nome');
+    if (alvo.teste_coluna_id) {
+      const txt = emGrupo ? `Esta oferta é variação de <b>${nomeAlvo}</b>, que está <b>em teste</b>. O teste é do grupo todo.` : `<b>Em teste</b> no pipeline do X1 Wpp${n ? ` junto com ${n} ${n === 1 ? 'variação' : 'variações'}` : ''} (Kanban → aba Ofertas).`;
+      return `<span><i class="ti ti-flask" style="color:#818cf8"></i> ${txt}</span><button type="button" class="secondary" onclick="spyPararTeste('${alvo.id}')"><i class="ti ti-player-stop"></i> Parar teste</button>`;
     }
-    return `<span><i class="ti ti-flask"></i> Quer testar esta oferta? Ela entra no pipeline do X1 Wpp e as pastas são criadas no Drive.</span><button type="button" onclick="spyTestar('${o.id}')"><i class="ti ti-flask"></i> Testar</button>`;
+    const txt = emGrupo ? `Esta oferta é variação de <b>${nomeAlvo}</b>. Testar leva o grupo todo ao pipeline.` : `Quer testar esta oferta?${n ? ` As ${n} ${n === 1 ? 'variação entra' : 'variações entram'} junto.` : ''} Ela entra no pipeline do X1 Wpp e as pastas são criadas no Drive.`;
+    return `<span><i class="ti ti-flask"></i> ${txt}</span><button type="button" onclick="spyTestar('${alvo.id}')"><i class="ti ti-flask"></i> Testar</button>`;
   }
-  function spyAtualizarTesteUi(id) {
+  function spyAtualizarTesteUi() {
     spyRender();
     const box = document.getElementById('spy-teste-box');
-    const o = spyOfertas.find(x => x.id === id);
-    if (box && o && spyModalId === id) {
+    const o = spyOfertas.find(x => x.id === spyModalId);
+    if (box && o) {
       box.innerHTML = spyTesteBoxHtml(o);
-      document.querySelectorAll(`#spy-modal-corpo [data-spy-pill="${id}"]`).forEach(b => { b.outerHTML = spyPillHtml(o); });
+      document.querySelectorAll(`#spy-modal-corpo [data-spy-pill="${o.id}"]`).forEach(b => { b.outerHTML = spyPillHtml(o); });
     }
   }
   async function spyTestar(id) {
-    const o = spyOfertas.find(x => x.id === id);
+    let o = spyOfertas.find(x => x.id === id);
+    if (o && spyPrincipalDe(o)) { o = spyPrincipalDe(o); id = o.id; } // variação: testa o grupo pela principal
     if (!o || o.teste_coluna_id) return;
     if (!String(o.nome || '').trim()) { alert('Dê um nome à oferta antes de testar.'); return; }
     const agora = new Date().toISOString();
@@ -9140,9 +9235,14 @@
       const { error } = await sb.from('spy_ofertas').update(patch).eq('id', id);
       if (error) throw error;
       Object.assign(o, patch);
+      for (const v of spyVariacoes(id)) { // as variações entram juntas, só mudam de status
+        const pv = { status_antes_id: v.status_id === st.id ? v.status_antes_id : v.status_id, status_id: st.id, updated_at: agora };
+        const { error: ev } = await sb.from('spy_ofertas').update(pv).eq('id', v.id);
+        if (!ev) Object.assign(v, pv);
+      }
     } catch (e) { spyAlert('Erro ao colocar em teste: ' + (e.message || e)); return; }
     spyAtualizarTesteUi(id);
-    ofpToast(`"${o.nome}" em teste. Criando as pastas no Drive...`);
+    ofpToast(`"${o.nome}"${spyVariacoes(id).length ? ' e variações' : ''} em teste. Criando as pastas no Drive...`);
     try {
       const r = await driveX1Chamar({ acao: 'criar_pastas', oferta_id: id });
       ofpToast(`"${o.nome}" em teste. Pastas criadas: ${r.caminho}`, 8000);
@@ -9151,14 +9251,17 @@
     }
   }
   async function spyPararTeste(id) {
-    const o = spyOfertas.find(x => x.id === id);
+    let o = spyOfertas.find(x => x.id === id);
+    if (o && spyPrincipalDe(o)) { o = spyPrincipalDe(o); id = o.id; }
     if (!o || !o.teste_coluna_id) return;
-    if (!confirm(`Parar o teste de "${o.nome || 'Sem nome'}"?\n\nEla sai do pipeline e volta ao status anterior. As pastas e arquivos no Drive continuam como estão.`)) return;
+    const nv = spyVariacoes(id).length;
+    if (!confirm(`Parar o teste de "${o.nome || 'Sem nome'}"${nv ? ` e das ${nv} ${nv === 1 ? 'variação' : 'variações'}` : ''}?\n\nEla sai do pipeline e volta ao status anterior. As pastas e arquivos no Drive continuam como estão.`)) return;
     const volta = o.status_antes_id && spyStatus.some(s => s.id === o.status_antes_id) ? o.status_antes_id : null;
     const patch = { teste_coluna_id: null, teste_inicio: null, status_antes_id: null, status_id: volta, updated_at: new Date().toISOString() };
     const { error } = await sb.from('spy_ofertas').update(patch).eq('id', id);
     if (error) { spyAlert('Erro ao parar o teste: ' + error.message); return; }
     Object.assign(o, patch);
+    await spyRestaurarVariacoes(id, spyStatus);
     spyAtualizarTesteUi(id);
     ofpToast(`Teste de "${o.nome || 'Sem nome'}" parado.`);
   }
@@ -9212,17 +9315,24 @@
       const err = c.error || p.error || o.error || st.error;
       if (err) { el.innerHTML = `<p class="empty-note">Erro ao carregar: ${escapeHtml(err.message)}</p>`; return; }
       ofpColunas = c.data || []; ofpPassos = p.data || []; ofpOfertas = o.data || []; ofpStatus = st.data || [];
-      ofpProg = {}; ofpCri = {}; ofpPastas = {};
+      ofpProg = {}; ofpCri = {}; ofpPastas = {}; ofpVar = {}; ofpVarArq = {};
       const ids = ofpOfertas.map(x => x.id);
       if (ids.length) {
-        const [pg, cr, pa] = await Promise.all([
+        const [pg, cr, pa, vr] = await Promise.all([
           sb.from('oferta_progresso').select('oferta_id,passo_id').in('oferta_id', ids),
           sb.from('oferta_criativos').select('*').in('oferta_id', ids).order('created_at'),
-          sb.from('drive_pastas_oferta').select('oferta_id,drive_folder_id,criativos_folder_id').in('oferta_id', ids)
+          sb.from('drive_pastas_oferta').select('oferta_id,drive_folder_id,criativos_folder_id').in('oferta_id', ids),
+          sb.from('spy_ofertas').select('id,nome,nicho,ads_ativos,link_oferta,link_ads,grupo_id').in('grupo_id', ids).order('created_at')
         ]);
         (pg.data || []).forEach(r => { (ofpProg[r.oferta_id] ||= new Set()).add(r.passo_id); });
         (cr.data || []).forEach(r => { (ofpCri[r.oferta_id] ||= []).push(r); });
         (pa.data || []).forEach(r => { ofpPastas[r.oferta_id] = r; });
+        (vr.data || []).forEach(r => { (ofpVar[r.grupo_id] ||= []).push(r); });
+        const vids = (vr.data || []).map(r => r.id);
+        if (vids.length) {
+          const ax = await sb.from('anexos').select('spy_id').in('spy_id', vids);
+          (ax.data || []).forEach(r => { ofpVarArq[r.spy_id] = (ofpVarArq[r.spy_id] || 0) + 1; });
+        }
       }
       ofpRender();
     } catch (e) {
@@ -9245,6 +9355,7 @@
     const pct = pr.total ? Math.round(pr.n / pr.total * 100) : 0;
     return `<div class="ofp-card" draggable="true" style="--c:${spyCor(col && col.cor)}" ondragstart="event.dataTransfer.setData('text/plain','${o.id}'); event.dataTransfer.effectAllowed='move'" onclick="ofpAbrirModal('${o.id}')">
       <div class="ofp-card-nome">${escapeHtml(o.nome || 'Sem nome')}</div>${o.nicho ? `<div class="ofp-card-nicho">${escapeHtml(o.nicho)}</div>` : ''}
+      ${(ofpVar[o.id] || []).length ? `<div class="ofp-chips" style="margin:4px 0;"><span class="ofp-chip" style="color:#a78bfa;"><i class="ti ti-stack-2"></i> +${ofpVar[o.id].length} ${ofpVar[o.id].length === 1 ? 'variação' : 'variações'}</span></div>` : ''}
       <div class="ofp-bar"><i style="width:${pct}%"></i></div>
       <div class="ofp-prog"><span>${pr.n} de ${pr.total}</span><span>${pct}%</span></div>
       ${pr.falta.length ? `<div class="ofp-falta">${escapeHtml(ofpFaltaTxt(pr.falta))}</div>` : ''}
@@ -9263,7 +9374,7 @@
       const pr = ofpProgresso(o.id), m = ofpMetricas(o.id), col = ofpColDe(o), cor = spyCor(col && col.cor);
       const cl = v => v === null ? '' : (v >= 0 ? 'color:var(--pos)' : 'color:var(--neg)');
       return `<tr class="lin" onclick="ofpAbrirModal('${o.id}')">
-        <td><b>${escapeHtml(o.nome || 'Sem nome')}</b>${o.nicho ? `<div style="font-size:11.5px;color:var(--muted)">${escapeHtml(o.nicho)}</div>` : ''}</td>
+        <td><b>${escapeHtml(o.nome || 'Sem nome')}</b>${(ofpVar[o.id] || []).length ? ` <span class="ofp-chip" style="color:#a78bfa;"><i class="ti ti-stack-2"></i> +${ofpVar[o.id].length}</span>` : ''}${o.nicho ? `<div style="font-size:11.5px;color:var(--muted)">${escapeHtml(o.nicho)}</div>` : ''}</td>
         <td><span class="spy-pill" style="background:${cor}22;color:${cor};border-color:${cor}66"><span class="spy-dot" style="background:${cor}"></span>${escapeHtml(col ? col.nome : '–')}</span></td>
         <td style="white-space:nowrap">${pr.n} de ${pr.total}</td>
         <td style="color:var(--warn,#fbbf24);font-size:12px">${escapeHtml(ofpFaltaTxt(pr.falta).replace(/^Falta: /, ''))}</td>
@@ -9288,8 +9399,25 @@
     Object.assign(o, patch);
     const so = spyOfertas.find(x => x.id === id);
     if (so) Object.assign(so, patch);
+    // As variações do grupo acompanham o status do teste (Testando, Validado, Descartado).
+    if (st && (ofpVar[id] || []).length) {
+      const pv = { status_id: st.id, updated_at: patch.updated_at };
+      const { error: ev } = await sb.from('spy_ofertas').update(pv).eq('grupo_id', id);
+      if (ev) spyAlert('A etapa mudou, mas não consegui atualizar o status das variações: ' + ev.message);
+      else spyOfertas.forEach(x => { if (x.grupo_id === id) Object.assign(x, pv); });
+    }
     ofpRender();
     if (ofpModalId === id) ofpRenderModal();
+  }
+  // Do cartão do pipeline para o Spy: abre a variação com os criativos e links dela.
+  function ofpAbrirNoSpy(id) {
+    ofpFecharModal();
+    showView('spy');
+    const tentar = n => {
+      if (spyOfertas.some(x => x.id === id)) spyAbrirModal(id);
+      else if (n > 0) setTimeout(() => tentar(n - 1), 400);
+    };
+    setTimeout(() => tentar(15), 300);
   }
 
   // ---- Detalhe da oferta ----
@@ -9324,6 +9452,8 @@
         ${pasta ? lk('https://drive.google.com/drive/folders/' + pasta.criativos_folder_id, 'ti-brand-google-drive', 'Pasta Criativos (Drive)') + lk('https://drive.google.com/drive/folders/' + pasta.drive_folder_id, 'ti-folder', 'Pasta da oferta') : `<button type="button" class="secondary" onclick="ofpCriarPastas('${o.id}')"><i class="ti ti-brand-google-drive"></i> Criar pastas no Drive</button>`}
         ${lk(o.link_oferta, 'ti-link', 'Oferta')}${lk(o.link_ads, 'ti-external-link', 'Ads')}
       </div>
+      ${(ofpVar[o.id] || []).length ? `<div class="ofp-sec"><i class="ti ti-stack-2"></i> Variações (${ofpVar[o.id].length}) <span class="placeholder" style="margin:0;font-weight:400">mesmo teste; aqui ficam os links e os criativos de cada uma</span></div>`
+        + ofpVar[o.id].map(v => `<div class="ofp-var"><span><b>${escapeHtml(v.nome || 'Sem nome')}</b>${v.nicho ? ` <span style="color:var(--muted);font-size:12px">${escapeHtml(v.nicho)}</span>` : ''}<div class="lk">${(Number(v.ads_ativos) || 0).toLocaleString('pt-BR')} ads${v.link_oferta ? ` · <a href="${escapeHtml(v.link_oferta)}" target="_blank" rel="noopener noreferrer"><i class="ti ti-link"></i> Oferta</a>` : ''}${v.link_ads ? ` · <a href="${escapeHtml(v.link_ads)}" target="_blank" rel="noopener noreferrer"><i class="ti ti-external-link"></i> Ads</a>` : ''} · ${ofpVarArq[v.id] || 0} ${(ofpVarArq[v.id] || 0) === 1 ? 'arquivo' : 'arquivos'}</div></span><button type="button" class="secondary" onclick="ofpAbrirNoSpy('${v.id}')"><i class="ti ti-photo"></i> Ver criativos no Spy</button></div>`).join('') : ''}
       <div class="ofp-sec"><i class="ti ti-list-check"></i> Etapas</div>
       ${passosHtml || '<p class="placeholder">Nenhuma etapa cadastrada. Use "Editar etapas".</p>'}
       <div class="ofp-sec"><i class="ti ti-chart-bar"></i> Indicadores por criativo <span class="placeholder" style="margin:0;font-weight:400">(digite à mão por enquanto)</span></div>
@@ -9346,11 +9476,13 @@
   async function ofpPararTeste(id) {
     const o = ofpOfertas.find(x => x.id === id);
     if (!o) return;
-    if (!confirm(`Parar o teste de "${o.nome || 'Sem nome'}"?\n\nEla sai do pipeline e volta ao status anterior. As pastas e arquivos no Drive continuam como estão.`)) return;
+    const nv = (ofpVar[id] || []).length;
+    if (!confirm(`Parar o teste de "${o.nome || 'Sem nome'}"${nv ? ` e das ${nv} ${nv === 1 ? 'variação' : 'variações'}` : ''}?\n\nEla sai do pipeline e volta ao status anterior. As pastas e arquivos no Drive continuam como estão.`)) return;
     const volta = o.status_antes_id && ofpStatus.some(s => s.id === o.status_antes_id) ? o.status_antes_id : null;
     const patch = { teste_coluna_id: null, teste_inicio: null, status_antes_id: null, status_id: volta, updated_at: new Date().toISOString() };
     const { error } = await sb.from('spy_ofertas').update(patch).eq('id', id);
     if (error) { spyAlert('Erro ao parar o teste: ' + error.message); return; }
+    await spyRestaurarVariacoes(id, ofpStatus);
     const so = spyOfertas.find(x => x.id === id);
     if (so) Object.assign(so, patch);
     ofpOfertas = ofpOfertas.filter(x => x.id !== id);
