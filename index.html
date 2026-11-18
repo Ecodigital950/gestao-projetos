@@ -5142,20 +5142,49 @@
       throw new Error('Envio incompleto');
     })();
   }
+  // Vídeos enviados em uma oferta do Spy (criativos) são numerados na ordem:
+  // 1, 2, 3... O próximo número continua do maior já numerado na oferta
+  // (com 5 numerados, o novo é o 6). O nome novo vale no Drive e no gestor;
+  // o nome de origem fica guardado em anexos.nome_original.
+  const DRIVE_EXT_VIDEO = ['mp4', 'mov', 'm4v', 'webm', 'avi', 'mkv', 'mpeg', 'mpg', '3gp'];
+  function driveEhVideo(nome, mime) {
+    const ext = ((String(nome || '').split('.').pop()) || '').toLowerCase();
+    return /^video\//i.test(mime || '') || DRIVE_EXT_VIDEO.includes(ext);
+  }
+  async function driveProximoNumeroVideo(spyId) {
+    const { data, error } = await sb.from('anexos').select('nome,mime').eq('spy_id', spyId);
+    if (error) throw error;
+    let max = 0;
+    (data || []).forEach(a => {
+      if (!driveEhVideo(a.nome, a.mime)) return;
+      const base = String(a.nome || '').replace(/\.[^.]+$/, '').trim();
+      if (/^\d+$/.test(base)) max = Math.max(max, parseInt(base, 10));
+    });
+    return max + 1;
+  }
   async function driveEnviar(k, files) {
     const c = DRV[k];
     if (!files.length || !(c.projectId || c.spyId)) return;
     const pid = c.projectId, tid = c.taskId, sid = c.spyId;
     for (const f of files) {
-      const env = { id: 'e' + Math.random().toString(36).slice(2), nome: f.name, pct: 0, erro: null };
+      let nomeFinal = f.name, nomeOriginal = null;
+      if (sid && driveEhVideo(f.name, f.type)) {
+        try {
+          const n = await driveProximoNumeroVideo(sid);
+          const m = f.name.match(/\.([^.\\/]+)$/);
+          nomeFinal = n + (m ? '.' + m[1].toLowerCase() : '');
+          nomeOriginal = f.name;
+        } catch (e) { /* não conseguiu consultar: mantém o nome original em vez de travar o envio */ }
+      }
+      const env = { id: 'e' + Math.random().toString(36).slice(2), nome: nomeFinal, pct: 0, erro: null };
       c.envios.push(env);
       driveRenderEnvios(k);
       try {
-        const ini = await driveChamar({ acao: 'iniciar_upload', project_id: pid, task_id: tid, spy_id: sid, nome: f.name, mime: f.type || 'application/octet-stream', tamanho: f.size });
+        const ini = await driveChamar({ acao: 'iniciar_upload', project_id: pid, task_id: tid, spy_id: sid, nome: nomeFinal, mime: f.type || 'application/octet-stream', tamanho: f.size });
         const resp = await drivePutChunks(ini.url, f, p => { env.pct = p; driveRenderEnvios(k); });
         const { error } = await sb.from('anexos').insert({
           workspace_id: currentWorkspaceId, project_id: pid || null, task_id: tid || null, spy_id: sid || null,
-          drive_file_id: resp.id, nome: f.name, mime: resp.mimeType || f.type || null, tamanho: f.size
+          drive_file_id: resp.id, nome: nomeFinal, nome_original: nomeOriginal, mime: resp.mimeType || f.type || null, tamanho: f.size
         });
         if (error) throw error;
         c.envios = c.envios.filter(x => x !== env);
