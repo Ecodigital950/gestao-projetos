@@ -5073,6 +5073,21 @@
       await driveGarantirLinks(c.lista.filter(a => driveTipo(a) === 'img'));
       if ((c.spyId || c.taskId || c.projectId) === chave) driveRenderLista(k);
     } catch (e) { console.warn('links do Drive', e); }
+    driveSincronizarExclusoes(k, chave);
+  }
+  // Se um arquivo foi apagado (ou foi pra lixeira) direto no Google Drive, confere
+  // e remove o anexo correspondente do gestor também. Roda em segundo plano, sem
+  // travar a tela; silencioso se o Drive estiver indisponível.
+  async function driveSincronizarExclusoes(k, chave) {
+    const c = DRV[k];
+    if (!c.lista.length) return;
+    try {
+      const r = await driveChamar({ acao: 'verificar', anexo_ids: c.lista.map(a => a.id) });
+      const removidos = new Set(r.removidos || []);
+      if (!removidos.size || (c.spyId || c.taskId || c.projectId) !== chave) return;
+      c.lista = c.lista.filter(a => !removidos.has(a.id));
+      driveRenderLista(k);
+    } catch (e) { console.warn('sincronizar com o Drive', e); }
   }
   function driveMontarAnexosTarefa(taskId) {
     const t = tasksCache.find(x => x.id === taskId), c = DRV.t;
